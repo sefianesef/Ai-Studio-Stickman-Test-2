@@ -1,0 +1,189 @@
+package com.example.game.physics
+
+import androidx.compose.ui.graphics.Color
+import com.example.model.GemData
+import com.example.model.Particle
+import com.example.model.ParticleShape
+import com.example.model.PlatformData
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.sin
+import kotlin.random.Random
+
+/**
+ * High-performance 2D physics and collision engine for Stickman Hero.
+ * Handles rigid body kinematics, gravitational torque, bridge elasticity & spring oscillation,
+ * walking sag deflection, dynamic collision detection, and particle aerodynamics.
+ */
+class PhysicsEngine {
+
+    companion object {
+        const val GRAVITY = 1800f // px / s^2 for falling stickman
+        const val BRIDGE_BASE_TORQUE = 360f // initial rotation torque
+        const val BRIDGE_GRAVITY_TORQUE = 1450f // gravitational rotational acceleration factor
+        const val MAX_BRIDGE_ANGLE = 90f // horizontal landing angle
+        const val FAIL_DROP_ANGLE = 180f // vertical plunge angle
+        const val WALK_SPEED = 240f // px / s horizontal walk speed
+        const val SCROLL_SPEED = 580f // px / s camera pan speed
+        const val BULLSEYE_TOLERANCE = 12f // px radius for center red-dot perfect hit
+        const val GEM_COLLECT_RADIUS = 28f // px proximity for gem pickup
+        
+        // Elasticity & Spring Harmonic constants
+        const val ELASTICITY_DAMPING = 8.5f // zeta * omega
+        const val ELASTICITY_FREQUENCY = 24f // omega in rad/s
+    }
+
+    /**
+     * Calculates angular acceleration for a falling bridge based on rotational torque.
+     * Torque increases with sin(angle) as the center of mass moves away from the pivot:
+     * tau = m * g * (L / 2) * sin(theta)
+     */
+    fun computeBridgeAngularAcceleration(currentAngleDegrees: Float): Float {
+        val angleRad = (currentAngleDegrees * PI / 180.0).toFloat()
+        val sineFactor = sin(angleRad.toDouble()).toFloat().coerceAtLeast(0.1f)
+        return BRIDGE_BASE_TORQUE + BRIDGE_GRAVITY_TORQUE * sineFactor
+    }
+
+    /**
+     * Computes spring harmonic oscillation (wobble) upon bridge impact.
+     * Produces a physical damped bounce when the bridge strikes the platform surface.
+     * angleOffset = Amplitude * e^(-damping * t) * cos(omega * t)
+     */
+    fun computeLandingBounceAngle(elapsedTimeSinceImpact: Float, bridgeLength: Float): Float {
+        if (elapsedTimeSinceImpact < 0f || elapsedTimeSinceImpact > 0.6f) return 0f
+        // Longer bridges have greater inertia and slightly higher initial amplitude
+        val initialAmplitude = (bridgeLength * 0.035f).coerceIn(3.5f, 9.0f)
+        val decay = exp(-ELASTICITY_DAMPING * elapsedTimeSinceImpact)
+        val oscillation = cos(ELASTICITY_FREQUENCY * elapsedTimeSinceImpact)
+        return initialAmplitude * decay * oscillation
+    }
+
+    /**
+     * Computes vertical deflection (sag) as the stickman's weight walks along the bridge span.
+     * Parabolic deflection: sag(x) = 4 * maxSag * (x / L) * (1 - x / L)
+     */
+    fun computeBridgeSag(stickmanProgress: Float, bridgeLength: Float): Float {
+        val normalizedX = stickmanProgress.coerceIn(0f, 1f)
+        val maxSag = (bridgeLength * 0.03f).coerceIn(2f, 8f)
+        return 4f * maxSag * normalizedX * (1f - normalizedX)
+    }
+
+    /**
+     * Evaluates collision and landing results for the dropped bridge.
+     */
+    fun evaluateBridgeLanding(
+        bridgeStartX: Float,
+        stickLength: Float,
+        targetPlatform: PlatformData,
+        bullseyeTolerance: Float = BULLSEYE_TOLERANCE
+    ): LandingResult {
+        val bridgeTipX = bridgeStartX + stickLength
+        val platformStart = targetPlatform.leftX
+        val platformEnd = targetPlatform.leftX + targetPlatform.width
+        val platformCenter = targetPlatform.leftX + (targetPlatform.width / 2f)
+
+        val isBullseye = abs(bridgeTipX - platformCenter) <= bullseyeTolerance
+        val isSuccessful = bridgeTipX in platformStart..platformEnd
+
+        return LandingResult(
+            isSuccessful = isSuccessful,
+            isBullseye = isBullseye,
+            bridgeTipX = bridgeTipX,
+            targetWalkX = if (isSuccessful) platformEnd - 35f else bridgeTipX,
+            platformCenter = platformCenter
+        )
+    }
+
+    /**
+     * Checks if the stickman is within pickup range of a gem on the platform.
+     */
+    fun checkGemPickup(
+        stickmanX: Float,
+        isUpsideDown: Boolean,
+        gem: GemData?
+    ): Boolean {
+        if (gem == null || gem.collected) return false
+        val inRange = abs(stickmanX - gem.x) <= GEM_COLLECT_RADIUS
+        val correctSide = (gem.isUnderBridge && isUpsideDown) || (!gem.isUnderBridge && !isUpsideDown)
+        return inRange && correctSide
+    }
+
+    /**
+     * Checks if the inverted stickman crashes into the side cliff wall of the destination platform.
+     */
+    fun checkPlatformWallCollision(
+        stickmanX: Float,
+        isUpsideDown: Boolean,
+        platformLeftX: Float
+    ): Boolean {
+        return isUpsideDown && stickmanX >= (platformLeftX - 12f)
+    }
+
+    /**
+     * Simulates free-fall gravity and rotational tumbling for the stickman.
+     */
+    fun updateStickmanFall(
+        currentY: Float,
+        currentVelY: Float,
+        currentRot: Float,
+        dt: Float
+    ): StickmanFallState {
+        val newVelY = currentVelY + GRAVITY * dt
+        val newY = currentY + newVelY * dt
+        val newRot = currentRot + 420f * dt
+        return StickmanFallState(y = newY, velocityY = newVelY, rotation = newRot)
+    }
+
+    /**
+     * Updates 2D particle dynamics: velocity integration, air friction, flutter harmonics, and alpha decay.
+     */
+    fun updateParticles(particles: MutableList<Particle>, dt: Float) {
+        val iterator = particles.iterator()
+        while (iterator.hasNext()) {
+            val p = iterator.next()
+            p.x += p.vx * dt
+            p.y += p.vy * dt
+
+            when (p.shape) {
+                ParticleShape.RING_WAVE -> {
+                    // Expanding shockwave ring
+                    p.vx *= (1f - 2.2f * dt).coerceAtLeast(0f)
+                    p.vy *= (1f - 2.2f * dt).coerceAtLeast(0f)
+                }
+                ParticleShape.GEM_BURST, ParticleShape.STAR -> {
+                    p.vx *= (1f - 1.5f * dt).coerceAtLeast(0f)
+                    p.vy += 140f * dt // gentle floating gravity
+                }
+                ParticleShape.CONFETTI -> {
+                    p.vx *= (1f - 0.8f * dt).coerceAtLeast(0f)
+                    p.vy += 220f * dt // fluttering gravity
+                }
+                else -> {
+                    p.vy += 340f * dt // standard gravity
+                }
+            }
+
+            p.life -= dt
+            p.alpha = (p.life / p.maxLife).coerceIn(0f, 1f)
+            if (p.life <= 0f) {
+                iterator.remove()
+            }
+        }
+    }
+}
+
+data class LandingResult(
+    val isSuccessful: Boolean,
+    val isBullseye: Boolean,
+    val bridgeTipX: Float,
+    val targetWalkX: Float,
+    val platformCenter: Float
+)
+
+data class StickmanFallState(
+    val y: Float,
+    val velocityY: Float,
+    val rotation: Float
+)

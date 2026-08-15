@@ -1,0 +1,2181 @@
+package com.example.ui
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.example.model.AccessoryItem
+import com.example.model.AccessoryType
+import com.example.model.GameState
+import com.example.model.ItemRarity
+import kotlin.math.sin
+
+@Composable
+fun GameHud(
+    viewModel: GameViewModel,
+    modifier: Modifier = Modifier
+) {
+    val score by viewModel.engine.score.collectAsState()
+    val gems by viewModel.gems.collectAsState()
+    val currentStage by viewModel.engine.currentStage.collectAsState()
+    val tier by viewModel.engine.difficultyTier.collectAsState()
+    val gemCombo by viewModel.engine.gemCombo.collectAsState()
+    val soundEnabled by viewModel.soundEnabled.collectAsState()
+    val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
+    val gameState by viewModel.engine.gameState.collectAsState()
+    val dailyMissions by viewModel.dailyMissions.collectAsState()
+    val uncompletedClaimableCount = dailyMissions.count { it.currentProgress >= it.targetCount && !it.isClaimed }
+
+    if (gameState == GameState.START) return
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Gem Counter & Shop Button
+            Surface(
+                onClick = { viewModel.openShop(true) },
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0x990F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x4438BDF8)),
+                modifier = Modifier
+                    .shadow(4.dp, RoundedCornerShape(20.dp))
+                    .testTag("hud_gem_button")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(text = "💎", fontSize = 16.sp)
+                    Text(
+                        text = "$gems",
+                        color = Color(0xFF38BDF8),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ShoppingBag,
+                        contentDescription = "Shop",
+                        tint = Color(0xFFFBBF24),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            // Stage & Difficulty Tier Pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0x66000000),
+                    modifier = Modifier.testTag("stage_indicator")
+                ) {
+                    Text(
+                        text = "Stage ${currentStage.stageNumber}: ${currentStage.name}",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                // Difficulty Rank Badge
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(tier.badgeColorHex).copy(alpha = 0.25f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(tier.badgeColorHex)),
+                    modifier = Modifier.testTag("hud_difficulty_tier")
+                ) {
+                    Text(
+                        text = tier.title.uppercase(),
+                        color = Color(tier.badgeColorHex),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            // Action Buttons (Quests, Sound & Pause)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Daily Missions Button
+                Box {
+                    IconButton(
+                        onClick = { viewModel.openDailyMissions(true) },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0x770F172A), CircleShape)
+                            .testTag("hud_missions_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Assignment,
+                            contentDescription = "Daily Quests",
+                            tint = if (uncompletedClaimableCount > 0) Color(0xFFFBBF24) else Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    if (uncompletedClaimableCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .align(Alignment.TopEnd)
+                                .background(Color(0xFFEF4444), CircleShape)
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = { viewModel.toggleSound() },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0x770F172A), CircleShape)
+                        .testTag("hud_sound_toggle")
+                ) {
+                    Icon(
+                        imageVector = if (soundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                        contentDescription = "Toggle Sound",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { viewModel.openPauseMenu(true) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0x770F172A), CircleShape)
+                        .testTag("hud_pause_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Pause,
+                        contentDescription = "Pause",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Large Score Display + Active Gem Combo Pill
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0x33000000),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                Text(
+                    text = "$score",
+                    color = Color.White,
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 4.dp)
+                        .testTag("current_score_display")
+                )
+            }
+
+            if (gemCombo > 1) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xDD065F46),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399)),
+                    modifier = Modifier.testTag("hud_gem_combo_pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "⚡", fontSize = 12.sp)
+                        Text(
+                            text = "${gemCombo}x GEM MULTIPLIER",
+                            color = Color(0xFF6EE7B7),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StartScreenOverlay(
+    viewModel: GameViewModel,
+    modifier: Modifier = Modifier
+) {
+    val highScore by viewModel.highScore.collectAsState()
+    val gems by viewModel.gems.collectAsState()
+    val currentStreak by viewModel.currentStreak.collectAsState()
+    val isDailyRewardAvailable by viewModel.isDailyRewardAvailable.collectAsState()
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    val streakGlowScale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "streakGlow"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0x9906140E))
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxHeight()
+        ) {
+            // Top Bar: Gems, Daily Streak Tracker, & High Score
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Gems
+                Surface(
+                    onClick = { viewModel.openShop(true) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xDD0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x6638BDF8)),
+                    modifier = Modifier.testTag("start_gems_pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = "💎", fontSize = 18.sp)
+                        Text(
+                            text = "$gems",
+                            color = Color(0xFF38BDF8),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "+ Shop",
+                            color = Color(0xFFFBBF24),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Daily Streak Tracker Pill
+                Surface(
+                    onClick = { viewModel.openDailyReward(true) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isDailyRewardAvailable) Color(0xFF831843) else Color(0xDD0F172A),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.2.dp,
+                        if (isDailyRewardAvailable) Color(0xFFF43F5E) else Color(0x66F97316)
+                    ),
+                    modifier = Modifier
+                        .scale(if (isDailyRewardAvailable) streakGlowScale else 1f)
+                        .testTag("start_daily_streak_pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "🔥", fontSize = 16.sp)
+                        Text(
+                            text = "Day $currentStreak",
+                            color = if (isDailyRewardAvailable) Color(0xFFFDE047) else Color(0xFFFB923C),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        if (isDailyRewardAvailable) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFF22C55E), CircleShape)
+                            )
+                        }
+                    }
+                }
+
+                // High score badge
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xDD0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x66FBBF24)),
+                    modifier = Modifier.testTag("start_high_score_pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = "🏆", fontSize = 16.sp)
+                        Text(
+                            text = "Best: $highScore",
+                            color = Color(0xFFFBBF24),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+            }
+
+            // Center: Title, Daily Gift Card & Tap Prompt
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Title
+                Text(
+                    text = "STICKMAN\nHERO",
+                    color = Color.White,
+                    fontSize = 42.sp,
+                    lineHeight = 46.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    letterSpacing = 2.sp,
+                    modifier = Modifier
+                        .shadow(12.dp, RoundedCornerShape(8.dp))
+                        .testTag("app_title_text")
+                )
+
+                Text(
+                    text = "Bridge Master & Gem Rush",
+                    color = Color(0xFF38BDF8),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.sp
+                )
+
+                // Daily Reward Banner (if reward is ready)
+                if (isDailyRewardAvailable) {
+                    Surface(
+                        onClick = { viewModel.openDailyReward(true) },
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xEE1E1B4B),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFEC4899)),
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .shadow(8.dp, RoundedCornerShape(16.dp))
+                            .testTag("start_daily_reward_ready_banner")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(text = "🎁", fontSize = 24.sp)
+                                Column {
+                                    Text(
+                                        text = "Daily Login Reward Ready!",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        text = "Day $currentStreak Reward • Tap to claim",
+                                        color = Color(0xFFF472B6),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "CLAIM",
+                                color = Color(0xFFFDE047),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Play Button Card
+                Surface(
+                    onClick = { viewModel.engine.startGame() },
+                    shape = RoundedCornerShape(28.dp),
+                    color = Color(0xFF10B981),
+                    modifier = Modifier
+                        .scale(pulseScale)
+                        .shadow(16.dp, RoundedCornerShape(28.dp), ambientColor = Color(0xFF10B981))
+                        .testTag("start_play_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 36.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = "TAP TO PLAY",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+
+                // Instruction Hint
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0x66000000),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Text(
+                        text = "Hold screen to grow bridge • Release to drop\nTap while walking to flip for gems",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            // Bottom Bar: Shop, Daily Rewards, Quests & How to play
+            val dailyMissions by viewModel.dailyMissions.collectAsState()
+            val uncompletedQuestsCount = dailyMissions.count { it.currentProgress >= it.targetCount && !it.isClaimed }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = { viewModel.openShop(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.testTag("start_open_shop_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Checkroom,
+                        contentDescription = "Costumes",
+                        tint = Color(0xFFFBBF24),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Wardrobe",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Button(
+                    onClick = { viewModel.openDailyReward(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.testTag("start_open_daily_button")
+                ) {
+                    Text(text = "🎁", fontSize = 15.sp)
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Gifts",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                Box {
+                    Button(
+                        onClick = { viewModel.openDailyMissions(true) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                        shape = RoundedCornerShape(18.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                        modifier = Modifier.testTag("start_open_quests_button")
+                    ) {
+                        Text(text = "🎯", fontSize = 15.sp)
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = "Quests",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                    if (uncompletedQuestsCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .align(Alignment.TopEnd)
+                                .background(Color(0xFFEF4444), CircleShape)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                IconButton(
+                    onClick = { viewModel.openHowToPlay(true) },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color(0xFF1E293B), CircleShape)
+                        .testTag("start_how_to_play_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.HelpOutline,
+                        contentDescription = "How to play",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GameOverDialog(
+    viewModel: GameViewModel,
+    modifier: Modifier = Modifier
+) {
+    val score by viewModel.engine.score.collectAsState()
+    val highScore by viewModel.highScore.collectAsState()
+    val gemsRun by viewModel.engine.gemsCollectedRun.collectAsState()
+    val totalGems by viewModel.gems.collectAsState()
+    val isNewHigh by viewModel.engine.isNewHighScore.collectAsState()
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xBB000000))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {}
+            )
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF334155)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .shadow(24.dp, RoundedCornerShape(28.dp))
+                .testTag("game_over_dialog")
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header
+                Text(
+                    text = "GAME OVER",
+                    color = Color(0xFFEF4444),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 2.sp
+                )
+
+                if (isNewHigh) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF59E0B)
+                    ) {
+                        Text(
+                            text = "🎉 NEW HIGH SCORE! 🎉",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                // Stats Card
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xFF1E293B),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Score", color = Color(0xFF94A3B8), fontSize = 16.sp)
+                            Text(
+                                "$score",
+                                color = Color.White,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+
+                        Divider(color = Color(0xFF334155))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Best High Score", color = Color(0xFF94A3B8), fontSize = 15.sp)
+                            Text(
+                                "$highScore",
+                                color = Color(0xFFFBBF24),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Divider(color = Color(0xFF334155))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Gems Collected", color = Color(0xFF94A3B8), fontSize = 15.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "+$gemsRun 💎",
+                                    color = Color(0xFF38BDF8),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Buttons
+                Button(
+                    onClick = { viewModel.engine.resetGame() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("game_over_retry_button")
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Retry", tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "PLAY AGAIN",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 16.sp
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.openShop(true) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFBBF24)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFBBF24)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("game_over_shop_button")
+                    ) {
+                        Icon(Icons.Default.Checkroom, contentDescription = "Shop", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Wardrobe", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = { viewModel.engine.resetGame(initial = true) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("game_over_home_button")
+                    ) {
+                        Icon(Icons.Default.Home, contentDescription = "Home", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Menu", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShopDialog(
+    viewModel: GameViewModel,
+    modifier: Modifier = Modifier
+) {
+    val selectedTab by viewModel.selectedShopTab.collectAsState()
+    val gems by viewModel.gems.collectAsState()
+    val selectedHatId by viewModel.selectedHatId.collectAsState()
+    val selectedScarfId by viewModel.selectedScarfId.collectAsState()
+    val selectedStickId by viewModel.selectedStickId.collectAsState()
+    val selectedSkinId by viewModel.selectedSkinId.collectAsState()
+    val isDailyAvailable by viewModel.isDailyRewardAvailable.collectAsState()
+
+    // Temporary previewed item for interactive top showcase
+    var previewedItem by remember(selectedTab) {
+        val initialPreview = when (selectedTab) {
+            AccessoryType.HAT -> viewModel.getEquippedHat()
+            AccessoryType.SCARF -> viewModel.getEquippedScarf()
+            AccessoryType.STICK -> viewModel.getEquippedStick()
+            AccessoryType.BODY_SKIN -> viewModel.getEquippedSkin()
+        }
+        mutableStateOf<AccessoryItem?>(initialPreview)
+    }
+
+    val filteredItems = remember(selectedTab, viewModel.availableAccessories) {
+        viewModel.availableAccessories.filter { it.type == selectedTab }
+    }
+
+    // Dynamic animation time for preview showcase
+    val infiniteTransition = rememberInfiniteTransition(label = "shop_preview_trans")
+    val previewTime by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shop_preview_time"
+    )
+
+    Dialog(
+        onDismissRequest = { viewModel.openShop(false) },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF070D1E),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF1E293B)),
+            modifier = modifier
+                .fillMaxSize()
+                .padding(12.dp)
+                .testTag("shop_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // 1. Top Header Bar: Title, Gem Wallet, Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF1E293B),
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(text = "👑", fontSize = 20.sp)
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "HERO WARDROBE",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "Customize Outfits & Bridges",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Gem Balance Badge
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF0F172A),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
+                            modifier = Modifier.testTag("shop_gem_balance")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(text = "💎", fontSize = 14.sp)
+                                Text(
+                                    text = "$gems",
+                                    color = Color(0xFF38BDF8),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
+
+                        // Close Dialog Button
+                        IconButton(
+                            onClick = { viewModel.openShop(false) },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF1E293B), CircleShape)
+                                .testTag("shop_close_button")
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 2. Interactive Live Hero Showcase Stage
+                val currentPreview = previewedItem ?: filteredItems.firstOrNull()
+                if (currentPreview != null) {
+                    val activeHat = if (selectedTab == AccessoryType.HAT) currentPreview else viewModel.getEquippedHat()
+                    val activeScarf = if (selectedTab == AccessoryType.SCARF) currentPreview else viewModel.getEquippedScarf()
+                    val activeStick = if (selectedTab == AccessoryType.STICK) currentPreview else viewModel.getEquippedStick()
+                    val activeSkin = if (selectedTab == AccessoryType.BODY_SKIN) currentPreview else viewModel.getEquippedSkin()
+
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFF0B132B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(currentPreview.rarity.badgeBgHex)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(115.dp)
+                            .testTag("shop_hero_showcase")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Live Preview Canvas with Stickman & Bridge
+                            Box(
+                                modifier = Modifier
+                                    .size(90.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(
+                                                Color(currentPreview.primaryColor).copy(alpha = 0.35f),
+                                                Color(0xFF0F172A)
+                                            )
+                                        )
+                                    )
+                                    .border(1.dp, Color(currentPreview.primaryColor).copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                                    val centerX = size.width * 0.45f
+                                    val groundY = size.height * 0.78f
+                                    val headRadius = 6.dp.toPx()
+                                    val headY = groundY - 24.dp.toPx()
+                                    val neckY = groundY - 18.dp.toPx()
+                                    val hipY = groundY - 9.dp.toPx()
+                                    val bodyCol = Color(activeSkin.primaryColor)
+
+                                    // Bridge visual preview next to stickman
+                                    val bridgeCol = Color(activeStick.primaryColor)
+                                    drawLine(
+                                        color = bridgeCol,
+                                        start = Offset(centerX + 16.dp.toPx(), groundY),
+                                        end = Offset(centerX + 16.dp.toPx(), groundY - 30.dp.toPx()),
+                                        strokeWidth = 3.5.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+                                    drawCircle(
+                                        color = Color.White,
+                                        radius = 2.dp.toPx(),
+                                        center = Offset(centerX + 16.dp.toPx(), groundY - 30.dp.toPx())
+                                    )
+
+                                    // Cape
+                                    val flutter = (sin((previewTime * 4f).toDouble()).toFloat()) * 2.5.dp.toPx()
+                                    drawLine(
+                                        color = Color(activeScarf.primaryColor),
+                                        start = Offset(centerX - 1.dp.toPx(), neckY),
+                                        end = Offset(centerX - 9.dp.toPx(), neckY + 12.dp.toPx() + flutter),
+                                        strokeWidth = 3.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+
+                                    // Torso
+                                    drawLine(
+                                        color = bodyCol,
+                                        start = Offset(centerX, neckY),
+                                        end = Offset(centerX, hipY),
+                                        strokeWidth = 2.8.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+
+                                    // Legs
+                                    drawLine(
+                                        color = bodyCol,
+                                        start = Offset(centerX, hipY),
+                                        end = Offset(centerX - 3.5.dp.toPx(), groundY),
+                                        strokeWidth = 2.5.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+                                    drawLine(
+                                        color = bodyCol,
+                                        start = Offset(centerX, hipY),
+                                        end = Offset(centerX + 3.5.dp.toPx(), groundY),
+                                        strokeWidth = 2.5.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+
+                                    // Arms
+                                    drawLine(
+                                        color = bodyCol,
+                                        start = Offset(centerX, neckY + 2.dp.toPx()),
+                                        end = Offset(centerX + 7.dp.toPx(), neckY + 8.dp.toPx()),
+                                        strokeWidth = 2.2.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+                                    drawLine(
+                                        color = bodyCol,
+                                        start = Offset(centerX, neckY + 2.dp.toPx()),
+                                        end = Offset(centerX - 5.dp.toPx(), neckY + 7.dp.toPx()),
+                                        strokeWidth = 2.2.dp.toPx(),
+                                        cap = StrokeCap.Round
+                                    )
+
+                                    // Head
+                                    drawCircle(
+                                        color = bodyCol,
+                                        radius = headRadius,
+                                        center = Offset(centerX, headY)
+                                    )
+                                    // Eye
+                                    drawCircle(
+                                        color = Color.Black,
+                                        radius = 1.dp.toPx(),
+                                        center = Offset(centerX + 2.5.dp.toPx(), headY - 1.dp.toPx())
+                                    )
+
+                                    // Hat
+                                    val hatCol = Color(activeHat.primaryColor)
+                                    drawRoundRect(
+                                        color = hatCol,
+                                        topLeft = Offset(centerX - headRadius - 1.dp.toPx(), headY - headRadius * 0.5f),
+                                        size = Size((headRadius * 2f) + 2.dp.toPx(), 3.dp.toPx()),
+                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx(), 1.dp.toPx())
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            // Item Lore & Rarity Specs
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    // Rarity Badge
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(currentPreview.rarity.badgeBgHex)
+                                    ) {
+                                        Text(
+                                            text = currentPreview.rarity.label,
+                                            color = Color(currentPreview.rarity.colorHex),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "${currentPreview.iconSymbol} PREVIEWING",
+                                        color = Color(0xFF64748B),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Text(
+                                    text = currentPreview.name,
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black,
+                                    maxLines = 1
+                                )
+
+                                Text(
+                                    text = currentPreview.description,
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 11.sp,
+                                    lineHeight = 14.sp,
+                                    maxLines = 2
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3. Category Selector Pills
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val tabs = listOf(
+                        AccessoryType.BODY_SKIN to ("🦸 Outfits" to viewModel.availableAccessories.count { it.type == AccessoryType.BODY_SKIN }),
+                        AccessoryType.STICK to ("🥢 Bridges" to viewModel.availableAccessories.count { it.type == AccessoryType.STICK }),
+                        AccessoryType.HAT to ("👑 Hats" to viewModel.availableAccessories.count { it.type == AccessoryType.HAT }),
+                        AccessoryType.SCARF to ("🧣 Capes" to viewModel.availableAccessories.count { it.type == AccessoryType.SCARF })
+                    )
+
+                    tabs.forEach { (type, info) ->
+                        val (label, count) = info
+                        val isSelected = selectedTab == type
+                        Surface(
+                            onClick = {
+                                viewModel.setShopTab(type)
+                                previewedItem = when (type) {
+                                    AccessoryType.HAT -> viewModel.getEquippedHat()
+                                    AccessoryType.SCARF -> viewModel.getEquippedScarf()
+                                    AccessoryType.STICK -> viewModel.getEquippedStick()
+                                    AccessoryType.BODY_SKIN -> viewModel.getEquippedSkin()
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) Color(0xFF10B981) else Color(0xFF1E293B),
+                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399)) else null,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .testTag("shop_tab_${type.name.lowercase()}")
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "$label ($count)",
+                                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 4. Items Grid using LazyVerticalGrid
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 142.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("shop_items_grid")
+                ) {
+                    items(filteredItems) { item ->
+                        val isUnlocked = viewModel.isItemUnlocked(item.id)
+                        val isEquipped = when (item.type) {
+                            AccessoryType.HAT -> selectedHatId == item.id
+                            AccessoryType.SCARF -> selectedScarfId == item.id
+                            AccessoryType.STICK -> selectedStickId == item.id
+                            AccessoryType.BODY_SKIN -> selectedSkinId == item.id
+                        }
+                        val isPreviewSelected = previewedItem?.id == item.id
+                        val canAfford = gems >= item.cost
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = when {
+                                isEquipped -> Color(0xFF1E3A8A).copy(alpha = 0.85f)
+                                isPreviewSelected -> Color(0xFF1E293B)
+                                else -> Color(0xFF0F172A)
+                            },
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (isEquipped || isPreviewSelected) 1.5.dp else 1.dp,
+                                color = when {
+                                    isEquipped -> Color(0xFF38BDF8)
+                                    isPreviewSelected -> Color(item.rarity.colorHex)
+                                    else -> Color(0xFF1E293B)
+                                }
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    previewedItem = item
+                                    viewModel.soundManager.playButton()
+                                }
+                                .testTag("shop_item_card_${item.id}")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                // Top Row: Rarity Tag & Status Dot
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(item.rarity.badgeBgHex)
+                                    ) {
+                                        Text(
+                                            text = item.rarity.label,
+                                            color = Color(item.rarity.colorHex),
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+
+                                    if (isEquipped) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFF38BDF8)
+                                        ) {
+                                            Text(
+                                                text = "ACTIVE",
+                                                color = Color.Black,
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Glowing Accessory Icon Orb
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            Brush.radialGradient(
+                                                colors = listOf(
+                                                    Color(item.primaryColor).copy(alpha = 0.5f),
+                                                    Color(0xFF0F172A)
+                                                )
+                                            )
+                                        )
+                                        .border(1.5.dp, Color(item.primaryColor), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = item.iconSymbol, fontSize = 22.sp)
+                                }
+
+                                // Item Name
+                                Text(
+                                    text = item.name,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1
+                                )
+
+                                // Lore Description
+                                Text(
+                                    text = item.description,
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 10.sp,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 13.sp,
+                                    maxLines = 2,
+                                    modifier = Modifier.height(26.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                // Buy / Equip Action Button
+                                Button(
+                                    onClick = {
+                                        previewedItem = item
+                                        viewModel.buyOrEquip(item)
+                                    },
+                                    enabled = isUnlocked || canAfford,
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = when {
+                                            isEquipped -> Color(0xFF38BDF8)
+                                            isUnlocked -> Color(0xFF10B981)
+                                            canAfford -> Color(0xFFF59E0B)
+                                            else -> Color(0xFF334155)
+                                        },
+                                        disabledContainerColor = Color(0xFF1E293B)
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(34.dp)
+                                        .testTag("shop_item_btn_${item.id}")
+                                ) {
+                                    Text(
+                                        text = when {
+                                            isEquipped -> "✓ EQUIPPED"
+                                            isUnlocked -> "EQUIP"
+                                            canAfford -> "💎 ${item.cost}"
+                                            else -> "NEED ${item.cost} 💎"
+                                        },
+                                        color = when {
+                                            isEquipped -> Color.Black
+                                            isUnlocked -> Color.White
+                                            canAfford -> Color.Black
+                                            else -> Color(0xFF64748B)
+                                        },
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 5. Quick Gem Rewards & Free Starter Boosters
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Daily Reward shortcut
+                    if (isDailyAvailable) {
+                        Surface(
+                            onClick = {
+                                viewModel.openShop(false)
+                                viewModel.openDailyReward(true)
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF065F46),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .testTag("shop_claim_daily_btn")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "🎁", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Claim Daily Gems",
+                                    color = Color(0xFF34D399),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Free starter gem booster if player is running low
+                    if (gems < 25) {
+                        Surface(
+                            onClick = {
+                                viewModel.repository.addGems(25)
+                                viewModel.soundManager.playGemCollect()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0x33FBBF24),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFBBF24)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .testTag("claim_free_gems_button")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "✨", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "+25 Free Gems Bonus",
+                                    color = Color(0xFFFBBF24),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PauseMenuDialog(
+    viewModel: GameViewModel,
+    modifier: Modifier = Modifier
+) {
+    val soundEnabled by viewModel.soundEnabled.collectAsState()
+    val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
+
+    Dialog(onDismissRequest = { viewModel.openPauseMenu(false) }) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .testTag("pause_menu_dialog")
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "GAME PAUSED",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black
+                )
+
+                // Sound toggle row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFF1E293B))
+                        .clickable { viewModel.toggleSound() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(if (soundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff, contentDescription = null, tint = Color.White)
+                        Text("Sound Effects", color = Color.White, fontWeight = FontWeight.Medium)
+                    }
+                    Switch(checked = soundEnabled, onCheckedChange = { viewModel.toggleSound() })
+                }
+
+                // Haptics toggle row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFF1E293B))
+                        .clickable { viewModel.toggleHaptics() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Vibration, contentDescription = null, tint = Color.White)
+                        Text("Haptic Feedback", color = Color.White, fontWeight = FontWeight.Medium)
+                    }
+                    Switch(checked = hapticsEnabled, onCheckedChange = { viewModel.toggleHaptics() })
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Resume button
+                Button(
+                    onClick = { viewModel.openPauseMenu(false) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("pause_resume_button")
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Resume", tint = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("RESUME", fontWeight = FontWeight.Black, fontSize = 15.sp)
+                }
+
+                // Restart button
+                OutlinedButton(
+                    onClick = {
+                        viewModel.openPauseMenu(false)
+                        viewModel.engine.resetGame()
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("pause_restart_button")
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Restart", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("RESTART RUN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+
+                // Main Menu button
+                OutlinedButton(
+                    onClick = { viewModel.returnToMainMenu() },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("pause_main_menu_button")
+                ) {
+                    Icon(Icons.Default.Home, contentDescription = "Main Menu", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("MAIN MENU", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HowToPlayDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .testTag("how_to_play_dialog")
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "How to Play",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TutorialStep(
+                        number = "1",
+                        title = "Grow the Bridge",
+                        desc = "Touch & hold anywhere on the screen to stretch your bridge stick vertically."
+                    )
+                    TutorialStep(
+                        number = "2",
+                        title = "Release to Drop",
+                        desc = "Release your finger. The bridge falls forward 90 degrees to span the gap."
+                    )
+                    TutorialStep(
+                        number = "3",
+                        title = "Red Dot Bullseye (Bonus)",
+                        desc = "Hit the center red dot on the next platform for PERFECT! (+2 score + bonus gems)."
+                    )
+                    TutorialStep(
+                        number = "4",
+                        title = "Flip for Gems",
+                        desc = "Tap while stickman is walking to flip upside-down and grab gems hanging under the bridge! Tap again before hitting the wall."
+                    )
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("how_to_play_close_button")
+                ) {
+                    Text("GOT IT!", fontWeight = FontWeight.Black, fontSize = 15.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TutorialStep(number: String, title: String, desc: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = Color(0xFF10B981),
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = number,
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text = title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = desc, color = Color(0xFF94A3B8), fontSize = 12.sp, lineHeight = 16.sp)
+        }
+    }
+}
+
+@Composable
+fun DailyRewardDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val currentStreak by viewModel.currentStreak.collectAsState()
+    val isDailyRewardAvailable by viewModel.isDailyRewardAvailable.collectAsState()
+    var claimedNotice by remember { mutableStateOf<String?>(null) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse_reward")
+    val rewardGlow by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(750, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow"
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF334155)),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .shadow(24.dp, RoundedCornerShape(24.dp))
+                .testTag("daily_reward_dialog")
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "🎁 DAILY REWARDS",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF831843).copy(alpha = 0.6f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF43F5E))
+                    ) {
+                        Text(
+                            text = "🔥 Login Streak: $currentStreak Day${if (currentStreak > 1) "s" else ""}",
+                            color = Color(0xFFFDE047),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                // 7-Day Rewards Grid (4 on top row, 3 on bottom row)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Row 1: Days 1 to 4
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        for (day in 1..4) {
+                            val rewardGems = viewModel.getStreakDayReward(day)
+                            val isClaimed = if (isDailyRewardAvailable) day < currentStreak else day <= currentStreak
+                            val isCurrentActive = day == currentStreak && isDailyRewardAvailable
+
+                            DailyDayCard(
+                                day = day,
+                                gems = rewardGems,
+                                isClaimed = isClaimed,
+                                isCurrentActive = isCurrentActive,
+                                glowScale = if (isCurrentActive) rewardGlow else 1f,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    // Row 2: Days 5 to 7
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        for (day in 5..7) {
+                            val rewardGems = viewModel.getStreakDayReward(day)
+                            val isClaimed = if (isDailyRewardAvailable) day < currentStreak else day <= currentStreak
+                            val isCurrentActive = day == currentStreak && isDailyRewardAvailable
+                            val isMegaPrize = day == 7
+
+                            DailyDayCard(
+                                day = day,
+                                gems = rewardGems,
+                                isClaimed = isClaimed,
+                                isCurrentActive = isCurrentActive,
+                                isMegaPrize = isMegaPrize,
+                                glowScale = if (isCurrentActive) rewardGlow else 1f,
+                                modifier = Modifier.weight(if (isMegaPrize) 1.2f else 1f)
+                            )
+                        }
+                    }
+                }
+
+                // Claim Notice / Streak Description
+                if (claimedNotice != null) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF064E3B),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = claimedNotice!!,
+                            color = Color(0xFF6EE7B7),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                } else {
+                    Text(
+                        text = if (isDailyRewardAvailable) {
+                            "Claim your Day $currentStreak gift now! Streak resets if you miss a day."
+                        } else {
+                            "Great job! Come back tomorrow to continue your streak and claim Day ${if (currentStreak >= 7) 1 else currentStreak + 1}!"
+                        },
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+
+                // Action Buttons
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isDailyRewardAvailable) {
+                        val rewardGems = viewModel.getStreakDayReward(currentStreak)
+                        Button(
+                            onClick = {
+                                val awarded = viewModel.claimDailyReward()
+                                claimedNotice = "🎉 Claimed +$awarded Gems! Streak is now $currentStreak days!"
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .scale(rewardGlow)
+                                .shadow(8.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFF10B981))
+                                .testTag("claim_daily_reward_button")
+                        ) {
+                            Text(text = "🎁", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "CLAIM +$rewardGems GEMS",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("daily_reward_collected_dismiss_button")
+                        ) {
+                            Text(
+                                text = "CLAIMED FOR TODAY ✓",
+                                color = Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                    ) {
+                        Text(
+                            text = "CLOSE",
+                            color = Color(0xFF64748B),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyDayCard(
+    day: Int,
+    gems: Int,
+    isClaimed: Boolean,
+    isCurrentActive: Boolean,
+    isMegaPrize: Boolean = false,
+    glowScale: Float = 1f,
+    modifier: Modifier = Modifier
+) {
+    val borderColor = when {
+        isCurrentActive -> Color(0xFFFBBF24)
+        isClaimed -> Color(0xFF10B981)
+        isMegaPrize -> Color(0xFFEC4899)
+        else -> Color(0xFF334155)
+    }
+
+    val bgColor = when {
+        isCurrentActive -> Color(0xFF1E1B4B)
+        isClaimed -> Color(0xFF064E3B).copy(alpha = 0.4f)
+        isMegaPrize -> Color(0xFF3B0764)
+        else -> Color(0xFF1E293B)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = bgColor,
+        border = androidx.compose.foundation.BorderStroke(if (isCurrentActive) 1.8.dp else 1.dp, borderColor),
+        modifier = modifier
+            .scale(glowScale)
+            .shadow(if (isCurrentActive) 6.dp else 0.dp, RoundedCornerShape(12.dp))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = if (isMegaPrize) "👑 DAY 7" else "Day $day",
+                color = if (isCurrentActive) Color(0xFFFDE047) else Color(0xFF94A3B8),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = if (isMegaPrize) "💎+$gems" else "+$gems",
+                color = if (isClaimed) Color(0xFF34D399) else if (isCurrentActive) Color(0xFF38BDF8) else Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Black
+            )
+
+            Text(
+                text = when {
+                    isClaimed -> "✓ Claimed"
+                    isCurrentActive -> "READY!"
+                    else -> "🔒"
+                },
+                color = when {
+                    isClaimed -> Color(0xFF34D399)
+                    isCurrentActive -> Color(0xFFFBBF24)
+                    else -> Color(0xFF64748B)
+                },
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun DailyMissionsDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val dailyMissions by viewModel.dailyMissions.collectAsState()
+    val totalMissions = dailyMissions.size
+    val completedCount = dailyMissions.count { it.isClaimed }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xCC000000))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF334155)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .shadow(24.dp, RoundedCornerShape(24.dp))
+                    .testTag("daily_missions_dialog")
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "🎯", fontSize = 22.sp)
+                            Column {
+                                Text(
+                                    text = "DAILY QUESTS",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                )
+                                Text(
+                                    text = "Complete challenges for bonus gems",
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF1E293B), CircleShape)
+                                .testTag("daily_missions_close_button")
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Progress Overview
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF1E293B),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Today's Progress",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "$completedCount / $totalMissions Claimed",
+                                color = if (completedCount == totalMissions && totalMissions > 0) Color(0xFF34D399) else Color(0xFF38BDF8),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Mission Items List
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        dailyMissions.forEach { mission ->
+                            val isGoalMet = mission.currentProgress >= mission.targetCount
+                            val progressFrac = (mission.currentProgress.toFloat() / mission.targetCount.toFloat()).coerceIn(0f, 1f)
+                            val iconSymbol = when (mission.missionType) {
+                                "BUILD_BRIDGES" -> "🥢"
+                                "PERFECT_HITS" -> "🎯"
+                                "COLLECT_GEMS" -> "💎"
+                                "FLIP_WALK" -> "🤸"
+                                "REACH_SCORE" -> "🏆"
+                                else -> "⭐"
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (mission.isClaimed) Color(0xFF0F231B).copy(alpha = 0.5f) else Color(0xFF1E293B),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = 1.dp,
+                                    color = when {
+                                        mission.isClaimed -> Color(0xFF059669)
+                                        isGoalMet -> Color(0xFFFBBF24)
+                                        else -> Color(0xFF334155)
+                                    }
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("mission_item_${mission.id}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(text = iconSymbol, fontSize = 24.sp)
+
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = mission.title,
+                                            color = if (mission.isClaimed) Color(0xFF64748B) else Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = mission.description,
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 11.sp
+                                        )
+
+                                        // Progress Bar
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        ) {
+                                            LinearProgressIndicator(
+                                                progress = { progressFrac },
+                                                color = if (isGoalMet) Color(0xFF34D399) else Color(0xFF38BDF8),
+                                                trackColor = Color(0xFF334155),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(6.dp)
+                                                    .clip(RoundedCornerShape(3.dp))
+                                            )
+                                            Text(
+                                                text = "${mission.currentProgress}/${mission.targetCount}",
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    // Action / Claim Button
+                                    when {
+                                        mission.isClaimed -> {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = Color(0xFF064E3B)
+                                            ) {
+                                                Text(
+                                                    text = "✓ DONE",
+                                                    color = Color(0xFF34D399),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                                )
+                                            }
+                                        }
+                                        isGoalMet -> {
+                                            Button(
+                                                onClick = { viewModel.claimDailyMission(mission.id, mission.rewardGems) },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                                shape = RoundedCornerShape(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                modifier = Modifier.testTag("claim_mission_${mission.id}")
+                                            ) {
+                                                Text(
+                                                    text = "CLAIM 💎+${mission.rewardGems}",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                        }
+                                        else -> {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = Color(0xFF334155).copy(alpha = 0.5f)
+                                            ) {
+                                                Text(
+                                                    text = "💎+${mission.rewardGems}",
+                                                    color = Color(0xFF94A3B8),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                    ) {
+                        Text(
+                            text = "CLOSE",
+                            color = Color(0xFF64748B),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
