@@ -1,0 +1,7 @@
+{
+  "name": "Stickman Hero",
+  "description": "An arcade stickman bridge-building game with physics, accessories shop, stage themes, and gem collection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
