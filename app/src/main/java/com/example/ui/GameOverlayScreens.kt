@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,8 +40,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
+import com.example.model.GemPack
 import com.example.model.GameState
 import com.example.model.ItemRarity
+import com.example.model.LeaderboardEntry
+import com.example.model.TournamentLeague
+import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
@@ -137,8 +144,30 @@ fun GameHud(
                 }
             }
 
-            // Action Buttons (Quests, Sound & Pause)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Action Buttons (Leaderboard, Spin, Quests, Sound & Pause)
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                // Leaderboard Button
+                IconButton(
+                    onClick = { viewModel.openLeaderboard(true) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0x770F172A), CircleShape)
+                        .testTag("hud_leaderboard_button")
+                ) {
+                    Text(text = "🏆", fontSize = 16.sp)
+                }
+
+                // Lucky Spin Wheel Button
+                IconButton(
+                    onClick = { viewModel.openSpinWheel(true) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0x770F172A), CircleShape)
+                        .testTag("hud_spin_button")
+                ) {
+                    Text(text = "🎰", fontSize = 16.sp)
+                }
+
                 // Daily Missions Button
                 Box {
                     IconButton(
@@ -518,21 +547,59 @@ fun StartScreenOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(
+                    onClick = { viewModel.openLeaderboard(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                    modifier = Modifier.testTag("start_open_leaderboard_button")
+                ) {
+                    Text(text = "🏆", fontSize = 15.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Ranks",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(5.dp))
+
+                Button(
+                    onClick = { viewModel.openSpinWheel(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                    modifier = Modifier.testTag("start_open_spin_button")
+                ) {
+                    Text(text = "🎰", fontSize = 15.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Spin",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(5.dp))
+
+                Button(
                     onClick = { viewModel.openShop(true) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
                     shape = RoundedCornerShape(18.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
                     modifier = Modifier.testTag("start_open_shop_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Checkroom,
                         contentDescription = "Costumes",
                         tint = Color(0xFFFBBF24),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Wardrobe",
+                        text = "Shop",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
@@ -618,6 +685,7 @@ fun GameOverDialog(
     val gemsRun by viewModel.engine.gemsCollectedRun.collectAsState()
     val totalGems by viewModel.gems.collectAsState()
     val isNewHigh by viewModel.engine.isNewHighScore.collectAsState()
+    val lastNearMiss by viewModel.engine.lastNearMiss.collectAsState()
 
     Box(
         modifier = modifier
@@ -646,7 +714,7 @@ fun GameOverDialog(
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Header
                 Text(
@@ -672,6 +740,41 @@ fun GameOverDialog(
                     }
                 }
 
+                // Psychological Near-Miss Dopamine Trigger
+                lastNearMiss?.let { nm ->
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF881337).copy(alpha = 0.7f),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFB7185)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("game_over_near_miss_banner")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(text = "🔥", fontSize = 22.sp)
+                            Column {
+                                Text(
+                                    text = "SO CLOSE! ALMOST MADE IT!",
+                                    color = Color(0xFFFDA4AF),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = nm.message,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Stats Card
                 Surface(
                     shape = RoundedCornerShape(18.dp),
@@ -680,7 +783,7 @@ fun GameOverDialog(
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -732,43 +835,79 @@ fun GameOverDialog(
                     }
                 }
 
-                // Buttons
+                // Second Chance Revive Button (Loss Aversion)
+                if (score >= 2) {
+                    Button(
+                        onClick = { viewModel.revivePlayer() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("game_over_revive_button")
+                    ) {
+                        Text(text = "✨", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "REVIVE & CONTINUE (3 💎)",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+
+                // Play Again Button
                 Button(
                     onClick = { viewModel.engine.resetGame() },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
+                        .height(50.dp)
                         .testTag("game_over_retry_button")
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Retry", tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "PLAY AGAIN",
+                        "TRY AGAIN",
                         color = Color.White,
                         fontWeight = FontWeight.Black,
                         fontSize = 16.sp
                     )
                 }
 
+                // Secondary Action Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { viewModel.openShop(true) },
+                        onClick = { viewModel.openLeaderboard(true) },
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFBBF24)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFBBF24)),
                         modifier = Modifier
                             .weight(1f)
-                            .height(44.dp)
+                            .height(42.dp)
+                            .testTag("game_over_leaderboard_button")
+                    ) {
+                        Text(text = "🏆 Rank", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = { viewModel.openShop(true) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
                             .testTag("game_over_shop_button")
                     ) {
-                        Icon(Icons.Default.Checkroom, contentDescription = "Shop", modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Wardrobe", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Icon(Icons.Default.ShoppingBag, contentDescription = "Shop", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Shop", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
 
                     OutlinedButton(
@@ -778,12 +917,12 @@ fun GameOverDialog(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
                         modifier = Modifier
                             .weight(1f)
-                            .height(44.dp)
+                            .height(42.dp)
                             .testTag("game_over_home_button")
                     ) {
-                        Icon(Icons.Default.Home, contentDescription = "Home", modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Menu", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Icon(Icons.Default.Home, contentDescription = "Home", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Menu", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             }
@@ -802,6 +941,7 @@ fun ShopDialog(
     val selectedScarfId by viewModel.selectedScarfId.collectAsState()
     val selectedStickId by viewModel.selectedStickId.collectAsState()
     val selectedSkinId by viewModel.selectedSkinId.collectAsState()
+    val selectedThemeId by viewModel.selectedThemeId.collectAsState()
     val isDailyAvailable by viewModel.isDailyRewardAvailable.collectAsState()
 
     // Temporary previewed item for interactive top showcase
@@ -811,6 +951,8 @@ fun ShopDialog(
             AccessoryType.SCARF -> viewModel.getEquippedScarf()
             AccessoryType.STICK -> viewModel.getEquippedStick()
             AccessoryType.BODY_SKIN -> viewModel.getEquippedSkin()
+            AccessoryType.THEME -> viewModel.getEquippedTheme()
+            AccessoryType.GEM_VAULT -> null
         }
         mutableStateOf<AccessoryItem?>(initialPreview)
     }
@@ -1127,13 +1269,15 @@ fun ShopDialog(
                 // 3. Category Selector Pills
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     val tabs = listOf(
                         AccessoryType.BODY_SKIN to ("🦸 Outfits" to viewModel.availableAccessories.count { it.type == AccessoryType.BODY_SKIN }),
                         AccessoryType.STICK to ("🥢 Bridges" to viewModel.availableAccessories.count { it.type == AccessoryType.STICK }),
                         AccessoryType.HAT to ("👑 Hats" to viewModel.availableAccessories.count { it.type == AccessoryType.HAT }),
-                        AccessoryType.SCARF to ("🧣 Capes" to viewModel.availableAccessories.count { it.type == AccessoryType.SCARF })
+                        AccessoryType.SCARF to ("🧣 Capes" to viewModel.availableAccessories.count { it.type == AccessoryType.SCARF }),
+                        AccessoryType.THEME to ("🌌 Realms" to viewModel.availableAccessories.count { it.type == AccessoryType.THEME }),
+                        AccessoryType.GEM_VAULT to ("💎 Vault" to viewModel.availableGemPacks.size)
                     )
 
                     tabs.forEach { (type, info) ->
@@ -1142,26 +1286,30 @@ fun ShopDialog(
                         Surface(
                             onClick = {
                                 viewModel.setShopTab(type)
-                                previewedItem = when (type) {
-                                    AccessoryType.HAT -> viewModel.getEquippedHat()
-                                    AccessoryType.SCARF -> viewModel.getEquippedScarf()
-                                    AccessoryType.STICK -> viewModel.getEquippedStick()
-                                    AccessoryType.BODY_SKIN -> viewModel.getEquippedSkin()
+                                if (type != AccessoryType.GEM_VAULT) {
+                                    previewedItem = when (type) {
+                                        AccessoryType.HAT -> viewModel.getEquippedHat()
+                                        AccessoryType.SCARF -> viewModel.getEquippedScarf()
+                                        AccessoryType.STICK -> viewModel.getEquippedStick()
+                                        AccessoryType.BODY_SKIN -> viewModel.getEquippedSkin()
+                                        AccessoryType.THEME -> viewModel.getEquippedTheme()
+                                        else -> null
+                                    }
                                 }
                             },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = if (isSelected) Color(0xFF10B981) else Color(0xFF1E293B),
                             border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399)) else null,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(38.dp)
+                                .height(36.dp)
                                 .testTag("shop_tab_${type.name.lowercase()}")
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = "$label ($count)",
+                                    text = if (type == AccessoryType.GEM_VAULT) "💎 Vault" else label.split(" ")[0],
                                     color = if (isSelected) Color.White else Color(0xFF94A3B8),
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = if (isSelected) FontWeight.Black else FontWeight.SemiBold
                                 )
                             }
@@ -1171,15 +1319,22 @@ fun ShopDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 4. Items Grid using LazyVerticalGrid
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 142.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("shop_items_grid")
-                ) {
+                // 4. Content Area: Gem Vault OR Accessories Grid
+                if (selectedTab == AccessoryType.GEM_VAULT) {
+                    GemVaultContent(
+                        viewModel = viewModel,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    // Items Grid using LazyVerticalGrid
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 142.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("shop_items_grid")
+                    ) {
                     items(filteredItems) { item ->
                         val isUnlocked = viewModel.isItemUnlocked(item.id)
                         val isEquipped = when (item.type) {
@@ -1187,6 +1342,8 @@ fun ShopDialog(
                             AccessoryType.SCARF -> selectedScarfId == item.id
                             AccessoryType.STICK -> selectedStickId == item.id
                             AccessoryType.BODY_SKIN -> selectedSkinId == item.id
+                            AccessoryType.THEME -> selectedThemeId == item.id
+                            AccessoryType.GEM_VAULT -> false
                         }
                         val isPreviewSelected = previewedItem?.id == item.id
                         val canAfford = gems >= item.cost
@@ -1339,6 +1496,7 @@ fun ShopDialog(
                             }
                         }
                     }
+                }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -2173,6 +2331,871 @@ fun DailyMissionsDialog(
                             fontSize = 13.sp
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GemVaultContent(
+    viewModel: GameViewModel,
+    modifier: Modifier = Modifier
+) {
+    val gemPacks = viewModel.availableGemPacks
+    val isDailyFreeAvailable = viewModel.isDailyFreeGemsAvailable()
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // 1. Lucky Gem Spin Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF1E1B4B),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF818CF8)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("vault_spin_wheel_banner")
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(text = "🎰", fontSize = 28.sp)
+                    Column {
+                        Text(
+                            text = "LUCKY GEM WHEEL",
+                            color = Color(0xFFA5B4FC),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = "Spin & Win up to 120 Gems!",
+                            color = Color(0xFFE0E7FF),
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.openShop(false)
+                        viewModel.openSpinWheel(true)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("vault_open_spin_btn")
+                ) {
+                    Text(
+                        text = "SPIN NOW",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+
+        // 2. Gem Packs List
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 140.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .weight(1f)
+                .testTag("vault_gem_packs_grid")
+        ) {
+            items(gemPacks) { pack ->
+                val isFreeCrate = pack.isDailyFree
+                val isClaimable = !isFreeCrate || isDailyFreeAvailable
+                val isPopular = pack.tag.isNotEmpty()
+
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isPopular) Color(0xFF1E293B) else Color(0xFF0F172A),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isPopular) 1.5.dp else 1.dp,
+                        color = if (isPopular) Color(0xFFFBBF24) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("gem_pack_${pack.id}")
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (pack.tag.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isFreeCrate) Color(0xFF059669) else Color(0xFFD97706)
+                            ) {
+                                Text(
+                                    text = pack.tag,
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+
+                        Text(text = pack.iconEmoji, fontSize = 26.sp)
+
+                        Text(
+                            text = pack.name,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Text(
+                            text = "+${pack.gemAmount + pack.bonusGems} Gems",
+                            color = Color(0xFF38BDF8),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black
+                        )
+
+                        Text(
+                            text = if (pack.bonusGems > 0) "+${pack.bonusGems} Bonus Included!" else "Instant Delivery",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 9.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Button(
+                            onClick = { viewModel.buyGemPack(pack) },
+                            enabled = isClaimable,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isFreeCrate) Color(0xFF10B981) else Color(0xFFF59E0B),
+                                disabledContainerColor = Color(0xFF334155)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(32.dp)
+                                .testTag("buy_pack_${pack.id}")
+                        ) {
+                            Text(
+                                text = if (isFreeCrate && !isDailyFreeAvailable) "CLAIMED TODAY" else if (isFreeCrate) "FREE DAILY" else "${pack.scoreCost} PTS",
+                                color = if (isClaimable) Color.Black else Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LeaderboardAndContestDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedTab by remember { mutableStateOf(0) }
+    val leaderboard = remember { viewModel.getLeaderboard() }
+    val userLeague = remember { viewModel.getUserLeague() }
+    val userHighScore by viewModel.highScore.collectAsState()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF334155)),
+            modifier = modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.86f)
+                .shadow(24.dp, RoundedCornerShape(24.dp))
+                .testTag("leaderboard_contest_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "🏆", fontSize = 24.sp)
+                        Column {
+                            Text(
+                                text = "GLOBAL ARENA",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "World Ladder & Weekly Tournaments",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFF1E293B), CircleShape)
+                            .testTag("leaderboard_close_button")
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Tab Switcher
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        onClick = { selectedTab = 0 },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedTab == 0) Color(0xFF10B981) else Color(0xFF1E293B),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .testTag("tab_world_ranks")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "🌍 World Ranks",
+                                color = if (selectedTab == 0) Color.White else Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Surface(
+                        onClick = { selectedTab = 1 },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selectedTab == 1) Color(0xFF10B981) else Color(0xFF1E293B),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .testTag("tab_weekly_contest")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "⚔️ Weekly Contest",
+                                color = if (selectedTab == 1) Color.White else Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (selectedTab == 0) {
+                    // World Leaderboard Tab
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // User summary highlight banner
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFF1E3A8A).copy(alpha = 0.6f),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF38BDF8)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(text = "👑", fontSize = 18.sp)
+                                    Column {
+                                        Text(
+                                            text = "YOU (StickHero)",
+                                            color = Color(0xFF38BDF8),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = "League: ${userLeague.title}",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "$userHighScore PTS",
+                                        color = Color(0xFFFBBF24),
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        text = userLeague.badgeEmoji,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // Global Ranking Table
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("world_leaderboard_list")
+                        ) {
+                            items(leaderboard) { entry ->
+                                val isTop3 = entry.rank <= 3
+                                val rankColor = when (entry.rank) {
+                                    1 -> Color(0xFFFFD700)
+                                    2 -> Color(0xFFC0C0C0)
+                                    3 -> Color(0xFFCD7F32)
+                                    else -> Color(0xFF94A3B8)
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (entry.isCurrentUser) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color(0xFF1E293B),
+                                    border = if (entry.isCurrentUser) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)) else null,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Text(
+                                                text = if (entry.rank == 1) "🥇" else if (entry.rank == 2) "🥈" else if (entry.rank == 3) "🥉" else "#${entry.rank}",
+                                                color = rankColor,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 13.sp,
+                                                modifier = Modifier.width(28.dp)
+                                            )
+                                            Text(text = entry.countryFlag, fontSize = 16.sp)
+                                            Column {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = entry.playerName,
+                                                        color = if (entry.isCurrentUser) Color(0xFF38BDF8) else Color.White,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp
+                                                    )
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = Color(0xFF334155)
+                                                    ) {
+                                                        Text(
+                                                            text = entry.league.title,
+                                                            color = Color(0xFFCBD5E1),
+                                                            fontSize = 8.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "🎯 ${entry.perfectHits} Perfects",
+                                                    color = Color(0xFF64748B),
+                                                    fontSize = 10.sp
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            text = "${entry.score}",
+                                            color = if (isTop3) Color(0xFFFBBF24) else Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 15.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Weekly Contest & Tournament Tab
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Season Timer Card
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF312E81),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF818CF8)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "SEASON 14 TOURNAMENT",
+                                        color = Color(0xFFA5B4FC),
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        text = "⏳ Ends in 2d 18h 44m",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFF59E0B)
+                                ) {
+                                    Text(
+                                        text = "200 💎 POOL",
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Current League Card
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF1E293B),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(text = "🛡️", fontSize = 24.sp)
+                                        Column {
+                                            Text(
+                                                text = "Your Division",
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 11.sp
+                                            )
+                                            Text(
+                                                text = userLeague.title,
+                                                color = Color(0xFF38BDF8),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 15.sp
+                                            )
+                                        }
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFF065F46)
+                                    ) {
+                                        Text(
+                                            text = "PROMOTION ZONE",
+                                            color = Color(0xFF34D399),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 9.sp,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                Divider(color = Color(0xFF334155))
+
+                                Text(
+                                    text = "Rewards for Top Finishers:",
+                                    color = Color(0xFFCBD5E1),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("🥇 1st Place: 200 💎 + Golden Scepter", color = Color(0xFFFBBF24), fontSize = 11.sp)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("🥈 Top 10%: 100 💎 + Emerald Bridge", color = Color(0xFF38BDF8), fontSize = 11.sp)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("🥉 Top 25%: 50 💎 + Promotion", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                ) {
+                    Text(
+                        text = "CLOSE",
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LuckySpinWheelDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isSpinning by remember { mutableStateOf(false) }
+    var wonAmount by remember { mutableStateOf<Int?>(null) }
+    val rotationAngle = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Dialog(
+        onDismissRequest = { if (!isSpinning) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF6366F1)),
+            modifier = modifier
+                .fillMaxWidth(0.92f)
+                .shadow(28.dp, RoundedCornerShape(28.dp))
+                .testTag("lucky_spin_dialog")
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Header
+                Text(
+                    text = "🎰 LUCKY GEM WHEEL 🎰",
+                    color = Color(0xFFFBBF24),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                )
+
+                Text(
+                    text = "Test your fortune! Every spin is guaranteed gems!",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                // Spinning Wheel Canvas
+                Box(
+                    modifier = Modifier
+                        .size(200.dp)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        val radius = size.width / 2f
+                        val sliceCount = 8
+                        val sweepAngle = 360f / sliceCount
+                        val colors = listOf(
+                            Color(0xFF6366F1), Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEC4899),
+                            Color(0xFF3B82F6), Color(0xFF14B8A6), Color(0xFF8B5CF6), Color(0xFFE11D48)
+                        )
+
+                        // Outer gold bezel
+                        drawCircle(
+                            color = Color(0xFFFBBF24),
+                            radius = radius,
+                            center = center
+                        )
+
+                        // Wheel Slices rotated by rotationAngle.value
+                        val currentRotation = rotationAngle.value
+                        for (i in 0 until sliceCount) {
+                            val startAngle = currentRotation + (i * sweepAngle)
+                            drawArc(
+                                color = colors[i % colors.size],
+                                startAngle = startAngle,
+                                sweepAngle = sweepAngle,
+                                useCenter = true,
+                                topLeft = Offset(8.dp.toPx(), 8.dp.toPx()),
+                                size = Size(size.width - 16.dp.toPx(), size.height - 16.dp.toPx())
+                            )
+                        }
+
+                        // Center Hub
+                        drawCircle(
+                            color = Color(0xFF0F172A),
+                            radius = 24.dp.toPx(),
+                            center = center
+                        )
+                        drawCircle(
+                            color = Color(0xFFFBBF24),
+                            radius = 16.dp.toPx(),
+                            center = center
+                        )
+                    }
+
+                    // Indicator Pin
+                    Text(
+                        text = "🔻",
+                        fontSize = 26.sp,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .offset(y = (-14).dp)
+                    )
+                }
+
+                // Win Reveal Banner
+                wonAmount?.let { amount ->
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF065F46),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF34D399)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "🎉 WON +$amount GEMS! 🎉",
+                            color = Color(0xFFFDE047),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+
+                // Spin Action Button
+                Button(
+                    onClick = {
+                        if (!isSpinning) {
+                            isSpinning = true
+                            wonAmount = null
+                            coroutineScope.launch {
+                                val targetAngle = rotationAngle.value + 1440f + (0..360).random()
+                                rotationAngle.animateTo(
+                                    targetValue = targetAngle,
+                                    animationSpec = tween(durationMillis = 2800, easing = FastOutSlowInEasing)
+                                )
+                                val prize = viewModel.spinLuckyWheel()
+                                wonAmount = prize
+                                isSpinning = false
+                            }
+                        }
+                    },
+                    enabled = !isSpinning,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF59E0B),
+                        disabledContainerColor = Color(0xFF475569)
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("spin_wheel_action_btn")
+                ) {
+                    Text(
+                        text = if (isSpinning) "SPINNING..." else "SPIN FOR GEMS! 🎰",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp
+                    )
+                }
+
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !isSpinning,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "CLOSE",
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LevelVictoryCelebrationDialog(
+    celebrationText: String,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "victory_anim")
+    val scaleAnim by infiniteTransition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "victory_scale"
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD700)),
+            modifier = modifier
+                .fillMaxWidth(0.92f)
+                .scale(scaleAnim)
+                .shadow(24.dp, RoundedCornerShape(28.dp), ambientColor = Color(0xFFFFD700), spotColor = Color(0xFFFFD700))
+                .testTag("level_victory_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF1E1B4B),
+                                Color(0xFF0F172A)
+                            )
+                        )
+                    )
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Trophy Crown Icon
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF312E81),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD700)),
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(text = "👑", fontSize = 38.sp)
+                    }
+                }
+
+                Text(
+                    text = "LEVEL COMPLETE!",
+                    color = Color(0xFFFFD700),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.5.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = celebrationText,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF065F46),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "🎁 +3 Bonus Gems Awarded! 💎",
+                            color = Color(0xFF6EE7B7),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981)
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("continue_next_level_button")
+                ) {
+                    Text(
+                        text = "CONTINUE TO NEXT LEVEL 🚀",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }

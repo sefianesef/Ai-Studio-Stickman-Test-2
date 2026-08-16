@@ -22,6 +22,9 @@ fun StickmanGameScreen(
     val isHowToPlayOpen by viewModel.isHowToPlayOpen.collectAsState()
     val isDailyRewardOpen by viewModel.isDailyRewardOpen.collectAsState()
     val isDailyMissionsOpen by viewModel.isDailyMissionsOpen.collectAsState()
+    val isLeaderboardOpen by viewModel.isLeaderboardOpen.collectAsState()
+    val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
+    val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
 
     val isPlaying = gameState != GameState.START && gameState != GameState.GAMEOVER
     val isStart = gameState == GameState.START
@@ -92,6 +95,30 @@ fun StickmanGameScreen(
             DailyMissionsDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.openDailyMissions(false) }
+            )
+        }
+
+        // 10. Global Arena & Weekly Contest Dialog
+        if (isLeaderboardOpen) {
+            LeaderboardAndContestDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openLeaderboard(false) }
+            )
+        }
+
+        // 11. Lucky Spin Wheel Dialog
+        if (isSpinWheelOpen) {
+            LuckySpinWheelDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openSpinWheel(false) }
+            )
+        }
+
+        // 12. Level Victory Milestone Celebration Dialog
+        levelVictoryCelebration?.let { celebrationText ->
+            LevelVictoryCelebrationDialog(
+                celebrationText = celebrationText,
+                onDismiss = { viewModel.engine.dismissVictoryCelebration() }
             )
         }
     }

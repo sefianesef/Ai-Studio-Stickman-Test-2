@@ -46,9 +46,10 @@ class GemStateManager(
 
         if (Random.nextFloat() > difficultyTier.gemSpawnRate) return null
 
-        // Position gem in the middle 60% of the bridge span
-        val margin = spanWidth * 0.20f
-        val gemX = spanStartX + margin + Random.nextFloat() * (spanWidth - margin * 2f)
+        // Position gem in the first 25% - 60% of the bridge span so player always has ample space to flip up safely
+        val minX = spanStartX + (spanWidth * 0.25f)
+        val maxX = (spanStartX + (spanWidth * 0.60f)).coerceAtMost(spanEndX - 55f)
+        val gemX = if (maxX > minX) minX + Random.nextFloat() * (maxX - minX) else (spanStartX + spanEndX) / 2f
 
         // 70% under the bridge (requiring flip), 30% on top of bridge
         val isUnder = Random.nextFloat() < 0.70f

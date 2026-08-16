@@ -48,6 +48,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isDailyMissionsOpen = MutableStateFlow(false)
     val isDailyMissionsOpen: StateFlow<Boolean> = _isDailyMissionsOpen.asStateFlow()
 
+    private val _isLeaderboardOpen = MutableStateFlow(false)
+    val isLeaderboardOpen: StateFlow<Boolean> = _isLeaderboardOpen.asStateFlow()
+
+    private val _isSpinWheelOpen = MutableStateFlow(false)
+    val isSpinWheelOpen: StateFlow<Boolean> = _isSpinWheelOpen.asStateFlow()
+
     // Shop tab
     private val _selectedShopTab = MutableStateFlow(AccessoryType.HAT)
     val selectedShopTab: StateFlow<AccessoryType> = _selectedShopTab.asStateFlow()
@@ -57,6 +63,57 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val highScore: StateFlow<Int> = repository.highScore
     val soundEnabled: StateFlow<Boolean> = repository.soundEnabled
     val hapticsEnabled: StateFlow<Boolean> = repository.hapticsEnabled
+
+    // Gem Vault & Leaderboard catalogs
+    val availableGemPacks = repository.availableGemPacks
+    fun getLeaderboard() = repository.getGlobalLeaderboard()
+    fun getUserLeague() = repository.getUserTournamentLeague()
+    fun getUpcomingRivals() = repository.getUpcomingRivals()
+    fun isDailyFreeGemsAvailable() = repository.isDailyFreeGemsAvailable()
+
+    fun openLeaderboard(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isLeaderboardOpen.value = open
+    }
+
+    fun openSpinWheel(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isSpinWheelOpen.value = open
+    }
+
+    fun spinLuckyWheel(): Int {
+        val reward = repository.spinLuckyWheel()
+        soundManager.playGemCollect()
+        soundManager.playPerfectHit()
+        hapticManager.missionClaim()
+        return reward
+    }
+
+    fun buyGemPack(pack: com.example.model.GemPack): Boolean {
+        val success = repository.buyGemPackWithTokens(pack)
+        if (success) {
+            soundManager.playGemCollect()
+            soundManager.playPerfectHit()
+            hapticManager.missionClaim()
+        }
+        return success
+    }
+
+    fun revivePlayer(): Boolean {
+        // Costs 3 gems, or free if player has at least 3 gems or for second chance
+        val cost = 3
+        if (repository.spendGems(cost)) {
+            engine.reviveRun()
+            return true
+        } else if (repository.gems.value == 0) {
+            // Free emergency safety revival!
+            engine.reviveRun()
+            return true
+        }
+        return false
+    }
 
     // Daily streak states
     val currentStreak: StateFlow<Int> = repository.currentStreak
@@ -85,6 +142,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val selectedScarfId: StateFlow<String> = repository.selectedScarf
     val selectedStickId: StateFlow<String> = repository.selectedStick
     val selectedSkinId: StateFlow<String> = repository.selectedSkin
+    val selectedThemeId: StateFlow<String> = repository.selectedTheme
 
     val availableAccessories: List<AccessoryItem> get() = repository.availableAccessories
 
@@ -205,6 +263,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val id = selectedSkinId.value
         return availableAccessories.firstOrNull { it.id == id }
             ?: availableAccessories.first { it.type == AccessoryType.BODY_SKIN }
+    }
+
+    fun getEquippedTheme(): AccessoryItem {
+        val id = selectedThemeId.value
+        return availableAccessories.firstOrNull { it.id == id }
+            ?: availableAccessories.first { it.type == AccessoryType.THEME }
     }
 
     override fun onCleared() {

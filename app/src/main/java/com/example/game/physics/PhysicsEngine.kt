@@ -2,6 +2,7 @@ package com.example.game.physics
 
 import androidx.compose.ui.graphics.Color
 import com.example.model.GemData
+import com.example.model.NearMissInfo
 import com.example.model.Particle
 import com.example.model.ParticleShape
 import com.example.model.PlatformData
@@ -71,7 +72,7 @@ class PhysicsEngine {
     }
 
     /**
-     * Evaluates collision and landing results for the dropped bridge.
+     * Evaluates collision and landing results for the dropped bridge, including near-miss analysis.
      */
     fun evaluateBridgeLanding(
         bridgeStartX: Float,
@@ -87,12 +88,37 @@ class PhysicsEngine {
         val isBullseye = abs(bridgeTipX - platformCenter) <= bullseyeTolerance
         val isSuccessful = bridgeTipX in platformStart..platformEnd
 
+        // Psychological Near-Miss calculation (dopamine trigger)
+        val nearMiss = when {
+            isSuccessful -> null
+            bridgeTipX < platformStart && (platformStart - bridgeTipX) <= 38f -> {
+                val diff = platformStart - bridgeTipX
+                NearMissInfo(
+                    isNearMiss = true,
+                    pixelsDifference = diff,
+                    isUnderShoot = true,
+                    message = "SO CLOSE! Missed by only ${diff.toInt().coerceAtLeast(1)}px!"
+                )
+            }
+            bridgeTipX > platformEnd && (bridgeTipX - platformEnd) <= 38f -> {
+                val diff = bridgeTipX - platformEnd
+                NearMissInfo(
+                    isNearMiss = true,
+                    pixelsDifference = diff,
+                    isUnderShoot = false,
+                    message = "SO CLOSE! Overshot by ${diff.toInt().coerceAtLeast(1)}px!"
+                )
+            }
+            else -> null
+        }
+
         return LandingResult(
             isSuccessful = isSuccessful,
             isBullseye = isBullseye,
             bridgeTipX = bridgeTipX,
             targetWalkX = if (isSuccessful) platformEnd - 35f else bridgeTipX,
-            platformCenter = platformCenter
+            platformCenter = platformCenter,
+            nearMiss = nearMiss
         )
     }
 
@@ -112,13 +138,14 @@ class PhysicsEngine {
 
     /**
      * Checks if the inverted stickman crashes into the side cliff wall of the destination platform.
+     * Uses a tight, forgiving safety buffer.
      */
     fun checkPlatformWallCollision(
         stickmanX: Float,
         isUpsideDown: Boolean,
         platformLeftX: Float
     ): Boolean {
-        return isUpsideDown && stickmanX >= (platformLeftX - 12f)
+        return isUpsideDown && stickmanX >= (platformLeftX - 4f)
     }
 
     /**
@@ -179,7 +206,8 @@ data class LandingResult(
     val isBullseye: Boolean,
     val bridgeTipX: Float,
     val targetWalkX: Float,
-    val platformCenter: Float
+    val platformCenter: Float,
+    val nearMiss: NearMissInfo? = null
 )
 
 data class StickmanFallState(

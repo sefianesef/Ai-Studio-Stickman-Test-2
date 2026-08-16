@@ -6,8 +6,54 @@ enum class AccessoryType {
     HAT,
     SCARF,
     STICK,
-    BODY_SKIN
+    BODY_SKIN,
+    THEME,
+    GEM_VAULT
 }
+
+enum class TournamentLeague(val title: String, val badgeEmoji: String, val colorHex: Long, val minScore: Int) {
+    BRONZE("Bronze League", "🥉", 0xFFCD7F32, 0),
+    SILVER("Silver League", "🥈", 0xFFCBD5E1, 10),
+    GOLD("Gold League", "🥇", 0xFFFFD700, 25),
+    DIAMOND("Diamond League", "💎", 0xFF38BDF8, 50),
+    MASTER("Grandmaster League", "👑", 0xFFA855F7, 100)
+}
+
+data class LeaderboardEntry(
+    val rank: Int,
+    val playerName: String,
+    val avatarEmoji: String,
+    val countryFlag: String,
+    val score: Int,
+    val perfectHits: Int,
+    val league: TournamentLeague = TournamentLeague.MASTER,
+    val isCurrentUser: Boolean = false
+)
+
+data class GemPack(
+    val id: String,
+    val name: String,
+    val gemAmount: Int,
+    val bonusGems: Int = 0,
+    val iconEmoji: String,
+    val tag: String = "",
+    val scoreCost: Int = 0,
+    val isDailyFree: Boolean = false
+)
+
+data class RivalGhost(
+    val name: String,
+    val countryFlag: String,
+    val avatarEmoji: String,
+    val score: Int
+)
+
+data class NearMissInfo(
+    val isNearMiss: Boolean,
+    val pixelsDifference: Float,
+    val isUnderShoot: Boolean,
+    val message: String
+)
 
 enum class ItemRarity(val label: String, val colorHex: Long, val badgeBgHex: Long) {
     COMMON("COMMON", 0xFF94A3B8, 0xFF1E293B),

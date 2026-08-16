@@ -141,6 +141,40 @@ class HapticManager(private val context: Context) {
     }
 
     /**
+     * Subtle pulse on near-miss close call
+     */
+    fun nearMiss() {
+        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 20, 30, 60)
+                val amplitudes = intArrayOf(0, 180, 0, 240)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 20, 30, 60), -1)
+            }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Exciting celebratory burst on leveling up and milestone reached
+     */
+    fun levelUp() {
+        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 35, 45, 45, 45, 75)
+                val amplitudes = intArrayOf(0, 160, 0, 210, 0, 255)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 35, 45, 45, 45, 75), -1)
+            }
+        } catch (_: Exception) {}
+    }
+
+    /**
      * Fanfare buzz when a daily mission is completed or claimed
      */
     fun missionClaim() {

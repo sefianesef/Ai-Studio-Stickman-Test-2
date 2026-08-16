@@ -3,10 +3,6 @@ package com.example.audio
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,19 +26,9 @@ class SoundManager(private val context: Context) {
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         SoundPool.Builder()
-            .setMaxStreams(10)
+            .setMaxStreams(8)
             .setAudioAttributes(audioAttributes)
             .build()
-    }
-
-    private val vibrator: Vibrator? by lazy {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            vibratorManager?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        }
     }
 
     var soundEnabled: Boolean = true
@@ -240,7 +226,6 @@ class SoundManager(private val context: Context) {
 
     fun playBridgePlaced() {
         playSound(soundBridgePlaceId, volume = 0.8f)
-        vibrateMedium()
     }
 
     fun playBridgeLand() {
@@ -249,18 +234,15 @@ class SoundManager(private val context: Context) {
 
     fun playStickmanLand() {
         playSound(soundStickmanLandId, volume = 0.7f)
-        vibrateSubtleTick()
     }
 
     fun playGemCollect() {
         playSound(soundGemCollectId, volume = 0.9f)
-        vibrateSuccess()
     }
 
     fun playGrowTick(pitchIndex: Int) {
         val rate = (1.0f + (pitchIndex % 15) * 0.04f).coerceIn(0.8f, 1.8f)
         playSound(soundGrowTickId, volume = 0.4f, rate = rate)
-        vibrateSubtleTick()
     }
 
     fun playBridgeFall() {
@@ -273,7 +255,6 @@ class SoundManager(private val context: Context) {
 
     fun playPerfectHit() {
         playSound(soundPerfectHitId, volume = 0.95f)
-        vibrateSuccess()
     }
 
     fun playFlip() {
@@ -282,73 +263,10 @@ class SoundManager(private val context: Context) {
 
     fun playGameOver() {
         playSound(soundGameOverId, volume = 0.9f)
-        vibrateError()
     }
 
     fun playButton() {
         playSound(soundButtonId, volume = 0.5f)
-        vibrateSubtleTick()
-    }
-
-    // --- Haptics ---
-    private fun vibrateSubtleTick() {
-        if (!hapticsEnabled) return
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(10)
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun vibrateMedium() {
-        if (!hapticsEnabled) return
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(25)
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun vibrateSuccess() {
-        if (!hapticsEnabled) return
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(
-                    VibrationEffect.createWaveform(
-                        longArrayOf(0, 15, 30, 25),
-                        intArrayOf(0, 120, 0, 180),
-                        -1
-                    )
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(35)
-            }
-        } catch (_: Exception) {}
-    }
-
-    private fun vibrateError() {
-        if (!hapticsEnabled) return
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(
-                    VibrationEffect.createWaveform(
-                        longArrayOf(0, 40, 40, 60),
-                        intArrayOf(0, 200, 0, 255),
-                        -1
-                    )
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(80)
-            }
-        } catch (_: Exception) {}
     }
 
     fun release() {

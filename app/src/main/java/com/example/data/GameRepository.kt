@@ -8,7 +8,11 @@ import com.example.data.local.entity.PlayerProfileEntity
 import com.example.data.local.entity.PurchasedItemEntity
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
+import com.example.model.GemPack
 import com.example.model.ItemRarity
+import com.example.model.LeaderboardEntry
+import com.example.model.RivalGhost
+import com.example.model.TournamentLeague
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +44,7 @@ class GameRepository(
         private const val KEY_SELECTED_SCARF = "SELECTED_SCARF"
         private const val KEY_SELECTED_STICK = "SELECTED_STICK"
         private const val KEY_SELECTED_SKIN = "SELECTED_SKIN"
+        private const val KEY_SELECTED_THEME = "SELECTED_THEME"
         private const val KEY_UNLOCKED_PREFIX = "UNLOCKED_"
         private const val KEY_LAST_CLAIM_DAY = "LAST_CLAIM_DAY"
         private const val KEY_CURRENT_STREAK = "CURRENT_STREAK"
@@ -385,6 +390,85 @@ class GameRepository(
             description = "Astral stardust deep space traveler",
             iconSymbol = "✨",
             rarity = ItemRarity.LEGENDARY
+        ),
+
+        // Stage & Realm Themes
+        AccessoryItem(
+            id = "theme_emerald",
+            name = "Emerald Twilight",
+            type = AccessoryType.THEME,
+            cost = 0,
+            primaryColor = 0xFF10B981,
+            secondaryColor = 0xFF1B4332,
+            description = "Mystic whispering pines & moonlit fog",
+            iconSymbol = "🌲",
+            rarity = ItemRarity.COMMON
+        ),
+        AccessoryItem(
+            id = "theme_sunset",
+            name = "Sunset Canyon",
+            type = AccessoryType.THEME,
+            cost = 35,
+            primaryColor = 0xFFF59E0B,
+            secondaryColor = 0xFFBE185D,
+            description = "Warm golden desert cliffs under purple sky",
+            iconSymbol = "🏜️",
+            rarity = ItemRarity.RARE
+        ),
+        AccessoryItem(
+            id = "theme_cyber",
+            name = "Neon Cyber City",
+            type = AccessoryType.THEME,
+            cost = 50,
+            primaryColor = 0xFF22D3EE,
+            secondaryColor = 0xFF3B0764,
+            description = "Retro synthwave skyscrapers & laser stars",
+            iconSymbol = "🌆",
+            rarity = ItemRarity.EPIC
+        ),
+        AccessoryItem(
+            id = "theme_aurora",
+            name = "Arctic Aurora",
+            type = AccessoryType.THEME,
+            cost = 45,
+            primaryColor = 0xFF38BDF8,
+            secondaryColor = 0xFF064E3B,
+            description = "Glacial peaks under shimmering polar lights",
+            iconSymbol = "❄️",
+            rarity = ItemRarity.RARE
+        ),
+        AccessoryItem(
+            id = "theme_golden",
+            name = "Golden Dawn",
+            type = AccessoryType.THEME,
+            cost = 55,
+            primaryColor = 0xFFFBBF24,
+            secondaryColor = 0xFFB45309,
+            description = "Majestic sunlit mountain summits",
+            iconSymbol = "🌅",
+            rarity = ItemRarity.EPIC
+        ),
+        AccessoryItem(
+            id = "theme_cosmic",
+            name = "Cosmic Nebula",
+            type = AccessoryType.THEME,
+            cost = 70,
+            primaryColor = 0xFFA855F7,
+            secondaryColor = 0xFF3B0764,
+            description = "Deep galactic starry void and neon planets",
+            iconSymbol = "🪐",
+            rarity = ItemRarity.LEGENDARY
+        ),
+        AccessoryItem(
+            id = "theme_volcano",
+            name = "Volcanic Magma",
+            type = AccessoryType.THEME,
+            cost = 60,
+            primaryColor = 0xFFEF4444,
+            secondaryColor = 0xFF7F1D1D,
+            description = "Molten lava rivers and volcanic ash skies",
+            iconSymbol = "🌋",
+            rarity = ItemRarity.LEGENDARY
         )
     )
 
@@ -405,6 +489,9 @@ class GameRepository(
 
     private val _selectedSkin = MutableStateFlow(prefs.getString(KEY_SELECTED_SKIN, "skin_white") ?: "skin_white")
     val selectedSkin: StateFlow<String> = _selectedSkin.asStateFlow()
+
+    private val _selectedTheme = MutableStateFlow(prefs.getString(KEY_SELECTED_THEME, "theme_emerald") ?: "theme_emerald")
+    val selectedTheme: StateFlow<String> = _selectedTheme.asStateFlow()
 
     private val _soundEnabled = MutableStateFlow(prefs.getBoolean(KEY_SOUND_ENABLED, true))
     val soundEnabled: StateFlow<Boolean> = _soundEnabled.asStateFlow()
@@ -705,6 +792,11 @@ class GameRepository(
                 _selectedSkin.value = item.id
                 prefs.edit().putString(KEY_SELECTED_SKIN, item.id).apply()
             }
+            AccessoryType.THEME -> {
+                _selectedTheme.value = item.id
+                prefs.edit().putString(KEY_SELECTED_THEME, item.id).apply()
+            }
+            AccessoryType.GEM_VAULT -> { /* No-op */ }
         }
         scope.launch {
             playerProfileDao.updateEquippedCustomizations(
@@ -734,5 +826,152 @@ class GameRepository(
             playerProfileDao.updateHapticsEnabled(next)
         }
         return next
+    }
+
+    // Gem Vault Packs Catalog
+    val availableGemPacks: List<GemPack> = listOf(
+        GemPack(
+            id = "gem_free_daily",
+            name = "Daily Supply Crate",
+            gemAmount = 30,
+            bonusGems = 0,
+            iconEmoji = "📦",
+            tag = "DAILY FREE",
+            isDailyFree = true
+        ),
+        GemPack(
+            id = "gem_pouch",
+            name = "Pouch of Crystals",
+            gemAmount = 80,
+            bonusGems = 10,
+            iconEmoji = "💰",
+            tag = "POPULAR",
+            scoreCost = 50
+        ),
+        GemPack(
+            id = "gem_chest",
+            name = "Shinobi Treasure Box",
+            gemAmount = 250,
+            bonusGems = 50,
+            iconEmoji = "💎",
+            tag = "BEST VALUE",
+            scoreCost = 120
+        ),
+        GemPack(
+            id = "gem_vault",
+            name = "Dragon Emperor Vault",
+            gemAmount = 800,
+            bonusGems = 200,
+            iconEmoji = "👑",
+            tag = "+35% EXTRA",
+            scoreCost = 300
+        )
+    )
+
+    fun claimDailyFreeGems(): Boolean {
+        val today = getTodayEpochDay()
+        val lastClaimKey = "LAST_GEM_FREE_CLAIM"
+        val lastDay = prefs.getLong(lastClaimKey, 0L)
+        if (lastDay != today) {
+            prefs.edit().putLong(lastClaimKey, today).apply()
+            addGems(30)
+            return true
+        }
+        return false
+    }
+
+    fun isDailyFreeGemsAvailable(): Boolean {
+        val today = getTodayEpochDay()
+        val lastDay = prefs.getLong("LAST_GEM_FREE_CLAIM", 0L)
+        return lastDay != today
+    }
+
+    fun buyGemPackWithTokens(pack: GemPack): Boolean {
+        if (pack.isDailyFree) {
+            return claimDailyFreeGems()
+        }
+        // Grant gems for in-game achievement / score tokens
+        val totalAwarded = pack.gemAmount + pack.bonusGems
+        addGems(totalAwarded)
+        return true
+    }
+
+    fun spinLuckyWheel(): Int {
+        // Variable ratio reward schedule (Skinner Box): 15, 25, 50, 100 gems
+        val roll = (1..100).random()
+        val reward = when {
+            roll <= 45 -> 15
+            roll <= 75 -> 30
+            roll <= 92 -> 60
+            else -> 120 // JACKPOT!
+        }
+        addGems(reward)
+        return reward
+    }
+
+    fun getUserTournamentLeague(): TournamentLeague {
+        val hs = _highScore.value
+        return when {
+            hs >= 80 -> TournamentLeague.MASTER
+            hs >= 40 -> TournamentLeague.DIAMOND
+            hs >= 20 -> TournamentLeague.GOLD
+            hs >= 8 -> TournamentLeague.SILVER
+            else -> TournamentLeague.BRONZE
+        }
+    }
+
+    fun getGlobalLeaderboard(): List<LeaderboardEntry> {
+        val userHighScore = _highScore.value
+        val userPerfects = prefs.getInt(KEY_PERFECT_HITS, 0)
+        val userLeague = getUserTournamentLeague()
+
+        val entries = mutableListOf(
+            LeaderboardEntry(1, "ShadowNinja", "🥷", "🇯🇵", 248, 114, TournamentLeague.MASTER),
+            LeaderboardEntry(2, "BridgeMaster99", "👑", "🇺🇸", 212, 98, TournamentLeague.MASTER),
+            LeaderboardEntry(3, "ValkyrieSpeed", "⚡", "🇩🇪", 189, 82, TournamentLeague.MASTER),
+            LeaderboardEntry(4, "CyberSamurai", "🤖", "🇰🇷", 164, 76, TournamentLeague.MASTER),
+            LeaderboardEntry(5, "PhoenixRider", "🔥", "🇧🇷", 142, 63, TournamentLeague.DIAMOND),
+            LeaderboardEntry(6, "ZenMonk", "🧘", "🇮🇳", 128, 59, TournamentLeague.DIAMOND),
+            LeaderboardEntry(7, "AcrobatQueen", "🤸", "🇫🇷", 115, 50, TournamentLeague.DIAMOND),
+            LeaderboardEntry(8, "PixelDragon", "🐉", "🇨🇦", 98, 44, TournamentLeague.DIAMOND),
+            LeaderboardEntry(9, "LaserEdge", "💠", "🇬🇧", 84, 38, TournamentLeague.GOLD),
+            LeaderboardEntry(10, "NightStalker", "🐺", "🇦🇺", 72, 31, TournamentLeague.GOLD),
+            LeaderboardEntry(11, "FrostSpectre", "❄️", "🇸🇪", 61, 27, TournamentLeague.GOLD),
+            LeaderboardEntry(12, "StarChaser", "✨", "🇮🇹", 49, 21, TournamentLeague.SILVER),
+            LeaderboardEntry(13, "StickHeroPro", "🎯", "🇲🇽", 38, 17, TournamentLeague.SILVER),
+            LeaderboardEntry(14, "NeonRunner", "👟", "🇪🇸", 28, 12, TournamentLeague.BRONZE),
+            LeaderboardEntry(15, "SkyWalker", "☁️", "🇳🇿", 18, 7, TournamentLeague.BRONZE)
+        )
+
+        // Calculate user position
+        val userRank = (entries.indexOfFirst { userHighScore >= it.score }.takeIf { it != -1 }?.plus(1)) ?: (entries.size + 1)
+        val userEntry = LeaderboardEntry(
+            rank = userRank,
+            playerName = "YOU (Hero)",
+            avatarEmoji = "⭐",
+            countryFlag = "🌍",
+            score = userHighScore,
+            perfectHits = userPerfects,
+            league = userLeague,
+            isCurrentUser = true
+        )
+
+        val combined = (entries + userEntry).sortedByDescending { it.score }
+        return combined.mapIndexed { index, item ->
+            item.copy(rank = index + 1)
+        }
+    }
+
+    fun getUpcomingRivals(): List<RivalGhost> {
+        return listOf(
+            RivalGhost("ShadowNinja", "🇯🇵", "🥷", 248),
+            RivalGhost("BridgeMaster", "🇺🇸", "👑", 212),
+            RivalGhost("Valkyrie", "🇩🇪", "⚡", 189),
+            RivalGhost("CyberSamurai", "🇰🇷", "🤖", 164),
+            RivalGhost("ZenMonk", "🇮🇳", "🧘", 128),
+            RivalGhost("PixelDragon", "🇨🇦", "🐉", 98),
+            RivalGhost("FrostSpectre", "🇸🇪", "❄️", 61),
+            RivalGhost("NeonRunner", "🇪🇸", "👟", 28)
+        )
     }
 }

@@ -60,10 +60,49 @@ object StageThemes {
             mountainColor = Color(0xFF78350F),
             celestialType = CelestialType.SUN,
             ambientDescription = "Sunlit cloud summits"
+        ),
+        StageTheme(
+            stageNumber = 6,
+            name = "Cosmic Nebula",
+            bgTopColor = Color(0xFF0A0017),
+            bgBottomColor = Color(0xFF3B0764),
+            platformColor = Color(0xFF130924),
+            platformHighlightColor = Color(0xFFA855F7),
+            mountainColor = Color(0xFF2E1065),
+            celestialType = CelestialType.NEON_PLANET,
+            ambientDescription = "Deep galactic starry void"
+        ),
+        StageTheme(
+            stageNumber = 7,
+            name = "Volcanic Magma",
+            bgTopColor = Color(0xFF1C0505),
+            bgBottomColor = Color(0xFF7F1D1D),
+            platformColor = Color(0xFF180A0A),
+            platformHighlightColor = Color(0xFFEF4444),
+            mountainColor = Color(0xFF450A0A),
+            celestialType = CelestialType.SUN,
+            ambientDescription = "Molten fire and ash peaks"
         )
     )
 
-    fun getThemeForScore(score: Int): StageTheme {
+    fun getThemeById(themeId: String?): StageTheme? {
+        return when (themeId) {
+            "theme_emerald" -> stages[0]
+            "theme_sunset" -> stages[1]
+            "theme_cyber" -> stages[2]
+            "theme_aurora" -> stages[3]
+            "theme_golden" -> stages[4]
+            "theme_cosmic" -> stages[5]
+            "theme_volcano" -> stages[6]
+            else -> null
+        }
+    }
+
+    fun getThemeForScore(score: Int, equippedThemeId: String? = null): StageTheme {
+        if (!equippedThemeId.isNullOrEmpty()) {
+            val custom = getThemeById(equippedThemeId)
+            if (custom != null) return custom
+        }
         val stageIndex = (score / 5) % stages.size
         return stages[stageIndex]
     }

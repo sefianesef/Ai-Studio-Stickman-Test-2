@@ -38,6 +38,13 @@ class StickmanGameEngine(
     private val _isNewHighScore = MutableStateFlow(false)
     val isNewHighScore: StateFlow<Boolean> = _isNewHighScore.asStateFlow()
 
+    private val _lastNearMiss = MutableStateFlow<NearMissInfo?>(null)
+    val lastNearMiss: StateFlow<NearMissInfo?> = _lastNearMiss.asStateFlow()
+
+    // Level milestone & victory celebration state
+    private val _levelVictoryCelebration = MutableStateFlow<String?>(null)
+    val levelVictoryCelebration: StateFlow<String?> = _levelVictoryCelebration.asStateFlow()
+
     val gemsCollectedRun: StateFlow<Int> = gemStateManager.collectedInRun
     val gemCombo: StateFlow<Int> = gemStateManager.currentCombo
 
@@ -113,7 +120,9 @@ class StickmanGameEngine(
         _score.value = 0
         _isNewHighScore.value = false
         _difficultyTier.value = DifficultyTier.APPRENTICE
-        _currentStage.value = StageThemes.getThemeForScore(0)
+        val equippedTheme = repository.selectedTheme.value
+        _currentStage.value = StageThemes.getThemeForScore(0, equippedTheme)
+        _levelVictoryCelebration.value = null
         gemStateManager.resetRun()
 
         currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f)
@@ -146,6 +155,36 @@ class StickmanGameEngine(
         soundManager.playButton()
         hapticManager?.uiClick()
         resetGame(initial = false)
+        _gameState.value = GameState.IDLE
+    }
+
+    /**
+     * Loss Aversion / Revive Mechanic: Revives stickman right back on the platform with full score preserved.
+     */
+    fun reviveRun() {
+        soundManager.playPerfectHit()
+        hapticManager?.perfectHit()
+
+        // Reset bridge & stickman to start of current platform
+        stickLength = 0f
+        bridgeAngle = 0f
+        bridgeAngularVel = 0f
+        bridgeImpactTime = 0f
+        bridgeBounceOffset = 0f
+        bridgeSagOffset = 0f
+        growTickCounter = 0
+
+        stickmanX = currentPlatform.leftX + currentPlatform.width - 40f
+        stickmanY = floorY
+        stickmanFallVel = 0f
+        stickmanRotation = 0f
+        isUpsideDown = false
+        walkPhase = 0f
+
+        // Golden revival shockwave & celebratory particles
+        spawnConfetti(stickmanX, floorY - 60f, count = 25)
+        addFloatingText("SECOND CHANCE! ✨", stickmanX, floorY - 100f, Color(0xFFFFD700), scale = 1.4f)
+
         _gameState.value = GameState.IDLE
     }
 
@@ -206,14 +245,14 @@ class StickmanGameEngine(
                 // Already growing while finger is pressed down
             }
             GameState.WALKING -> {
-                // Tap to flip upside-down / right-side up
+                // Instant responsive tap to toggle flip upside-down / right-side up
                 isUpsideDown = !isUpsideDown
                 soundManager.playFlip()
                 hapticManager?.flip()
                 if (isUpsideDown) {
                     repository.trackMissionProgress("FLIP_WALK", 1)
                 }
-                spawnDust(stickmanX, if (isUpsideDown) floorY + 40f else floorY, count = 4)
+                spawnDust(stickmanX, if (isUpsideDown) floorY + 30f else floorY, count = 6)
             }
             else -> {}
         }
@@ -299,6 +338,7 @@ class StickmanGameEngine(
                     isSuccessfulLanding = landingResult.isSuccessful
                     isPerfectHit = landingResult.isBullseye
                     targetStickmanWalkX = landingResult.targetWalkX
+                    _lastNearMiss.value = landingResult.nearMiss
 
                     if (landingResult.isSuccessful) {
                         spawnLandingEffects(landingResult.bridgeTipX, floorY, landingResult.isBullseye)
@@ -321,6 +361,16 @@ class StickmanGameEngine(
 
                         _gameState.value = GameState.WALKING
                     } else {
+                        landingResult.nearMiss?.let { nearMiss ->
+                            hapticManager?.nearMiss()
+                            addFloatingText(
+                                nearMiss.message,
+                                landingResult.bridgeTipX,
+                                floorY - 80f,
+                                Color(0xFFF43F5E),
+                                scale = 1.25f
+                            )
+                        }
                         _gameState.value = GameState.WALKING
                     }
                 }
@@ -360,8 +410,17 @@ class StickmanGameEngine(
                     }
                 }
 
-                // Obstacle wall collision check
-                if (physicsEngine.checkPlatformWallCollision(stickmanX, isUpsideDown, nextPlatform.leftX)) {
+                // Safe Auto-Flip Assist: If stickman is inverted, the bridge successfully landed, and player reaches destination platform edge
+                if (isSuccessfulLanding && isUpsideDown && stickmanX >= (nextPlatform.leftX - 12f)) {
+                    isUpsideDown = false
+                    soundManager.playFlip()
+                    hapticManager?.flip()
+                    spawnDust(stickmanX, floorY, count = 8)
+                    addFloatingText("SAFE FLIP! 🥷", stickmanX, floorY - 50f, Color(0xFF38BDF8), scale = 1.15f)
+                }
+
+                // Obstacle wall collision check (only fails if bridge was NOT landed safely and stickman walked into obstacle or fell off bridge end)
+                if (!isSuccessfulLanding && physicsEngine.checkPlatformWallCollision(stickmanX, isUpsideDown, nextPlatform.leftX)) {
                     soundManager.playGameOver()
                     hapticManager?.gameOver()
                     spawnDust(stickmanX, floorY + 30f, count = 12)
@@ -380,12 +439,30 @@ class StickmanGameEngine(
                         soundManager.playStickmanLand()
 
                         // Turn complete
+                        val previousLevel = (_score.value / 5) + 1
                         _score.value += 1
+                        val newLevel = (_score.value / 5) + 1
                         val updatedHigh = repository.updateHighScore(_score.value)
                         if (updatedHigh && _score.value > 1) {
                             _isNewHighScore.value = true
                             addFloatingText("NEW BEST!", stickmanX, floorY - 110f, Color(0xFFFBBF24), scale = 1.4f)
                             spawnConfetti(screenWidth / 2f, screenHeight * 0.4f, count = 30)
+                        }
+
+                        // Victory Celebration & Level Progression
+                        if (newLevel > previousLevel) {
+                            val celebrationText = "🎉 LEVEL $previousLevel COMPLETE! 🎉\nCongratulations! You are going to Level $newLevel!"
+                            _levelVictoryCelebration.value = celebrationText
+                            soundManager.playPerfectHit()
+                            hapticManager?.levelUp()
+                            spawnConfetti(screenWidth / 2f, screenHeight * 0.35f, count = 45)
+                            addFloatingText(
+                                "VICTORY! NEXT LEVEL!",
+                                screenWidth / 2f,
+                                screenHeight * 0.30f,
+                                Color(0xFFFFD700),
+                                scale = 1.45f
+                            )
                         }
 
                         // Update difficulty tier & stage theme
@@ -401,8 +478,9 @@ class StickmanGameEngine(
                             )
                         }
 
-                        val newStage = StageThemes.getThemeForScore(_score.value)
-                        if (newStage.stageNumber != _currentStage.value.stageNumber) {
+                        val equippedTheme = repository.selectedTheme.value
+                        val newStage = StageThemes.getThemeForScore(_score.value, equippedTheme)
+                        if (newStage.stageNumber != _currentStage.value.stageNumber || _currentStage.value.name != newStage.name) {
                             _currentStage.value = newStage
                             addFloatingText(
                                 "STAGE ${newStage.stageNumber}: ${newStage.name.uppercase()}",
@@ -650,5 +728,9 @@ class StickmanGameEngine(
                 )
             )
         }
+    }
+
+    fun dismissVictoryCelebration() {
+        _levelVictoryCelebration.value = null
     }
 }

@@ -139,6 +139,11 @@ fun StickmanGameCanvas(
             if (engine.gameState.value == GameState.IDLE) {
                 drawIdleHoldPrompt(engine, textMeasurer, gameTimeSeconds)
             }
+
+            // 9. Draw prompt hint when walking inverted under the bridge
+            if (engine.gameState.value == GameState.WALKING && engine.isUpsideDown) {
+                drawInvertedFlipPrompt(engine, textMeasurer, gameTimeSeconds)
+            }
         }
     }
 }
@@ -1191,6 +1196,33 @@ private fun DrawScope.drawIdleHoldPrompt(
         size.width - 120f
     )
     val promptY = engine.floorY - 140f + (sin(time * 3f) * 6f)
+
+    drawText(
+        textLayoutResult = textLayout,
+        topLeft = Offset(promptX - (textLayout.size.width / 2f), promptY)
+    )
+}
+
+private fun DrawScope.drawInvertedFlipPrompt(
+    engine: StickmanGameEngine,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    time: Float
+) {
+    val pulse = (sin(time * 8f) * 0.25f + 0.75f).coerceIn(0.5f, 1f)
+    val text = "TAP TO FLIP UP ⬆️"
+    val style = TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Black,
+        color = Color(0xFF38BDF8).copy(alpha = pulse),
+        shadow = Shadow(
+            color = Color.Black.copy(alpha = 0.9f),
+            offset = Offset(2f, 2f),
+            blurRadius = 4f
+        )
+    )
+    val textLayout = textMeasurer.measure(text, style)
+    val promptX = engine.stickmanX
+    val promptY = engine.floorY + 65f + (sin(time * 6f) * 4f)
 
     drawText(
         textLayoutResult = textLayout,
