@@ -21,24 +21,34 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
-    - name: Setup Gradle
+    - name: Setup Gradle 9.3.1
       uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '9.3.1'
 
-    - name: Prepare Debug Keystore
+    - name: Prepare Environment and Keystore
       run: |
-        if [ -f "debug.keystore.base64" ]; then
-          base64 -d debug.keystore.base64 > debug.keystore
+        if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+          cp .env.example .env
+        elif [ ! -f ".env" ]; then
+          touch .env
         fi
-        if [ ! -f "debug.keystore" ]; then
+
+        if [ -f "debug.keystore.base64" ]; then
+          base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || true
+        fi
+
+        if [ ! -f "debug.keystore" ] || [ ! -s "debug.keystore" ]; then
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         fi
 
     - name: Build Debug APK
-      run: gradle :app:assembleDebug --no-daemon --stacktrace
+      run: gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace -Dorg.gradle.workers.max=2
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: stickman-hero-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
+        if-no-files-found: error
 

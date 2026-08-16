@@ -20,16 +20,7 @@ import kotlin.math.sin
 class SoundManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Default)
 
-    private val soundPool: SoundPool by lazy {
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_GAME)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        SoundPool.Builder()
-            .setMaxStreams(8)
-            .setAudioAttributes(audioAttributes)
-            .build()
-    }
+    private var soundPool: SoundPool? = null
 
     var soundEnabled: Boolean = true
     var hapticsEnabled: Boolean = true
@@ -49,12 +40,23 @@ class SoundManager(private val context: Context) {
     private val loadedSounds = mutableSetOf<Int>()
 
     init {
-        soundPool.setOnLoadCompleteListener { _, sampleId, status ->
-            if (status == 0) {
-                loadedSounds.add(sampleId)
+        try {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            val pool = SoundPool.Builder()
+                .setMaxStreams(4)
+                .setAudioAttributes(audioAttributes)
+                .build()
+            pool.setOnLoadCompleteListener { _, sampleId, status ->
+                if (status == 0) {
+                    loadedSounds.add(sampleId)
+                }
             }
-        }
-        generateAndLoadSounds()
+            soundPool = pool
+            generateAndLoadSounds()
+        } catch (_: Exception) {}
     }
 
     private fun generateAndLoadSounds() {
@@ -172,7 +174,8 @@ class SoundManager(private val context: Context) {
             val bytes = generator()
             FileOutputStream(file).use { it.write(bytes) }
         }
-        return soundPool.load(file.absolutePath, 1)
+        val pool = soundPool ?: return 0
+        return pool.load(file.absolutePath, 1)
     }
 
     private fun generateWavData(
@@ -218,7 +221,7 @@ class SoundManager(private val context: Context) {
     private fun playSound(soundId: Int, volume: Float = 1.0f, rate: Float = 1.0f) {
         if (!soundEnabled || soundId == 0) return
         try {
-            soundPool.play(soundId, volume, volume, 1, 0, rate)
+            soundPool?.play(soundId, volume, volume, 1, 0, rate)
         } catch (_: Exception) {}
     }
 
@@ -271,7 +274,8 @@ class SoundManager(private val context: Context) {
 
     fun release() {
         try {
-            soundPool.release()
+            soundPool?.release()
+            soundPool = null
         } catch (_: Exception) {}
     }
 }
