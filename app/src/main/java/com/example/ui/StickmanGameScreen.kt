@@ -22,6 +22,11 @@ fun StickmanGameScreen(
     val isHowToPlayOpen by viewModel.isHowToPlayOpen.collectAsState()
     val isDailyRewardOpen by viewModel.isDailyRewardOpen.collectAsState()
     val isDailyMissionsOpen by viewModel.isDailyMissionsOpen.collectAsState()
+    val isWeeklyMissionsOpen by viewModel.isWeeklyMissionsOpen.collectAsState()
+    val isContestsOpen by viewModel.isContestsOpen.collectAsState()
+    val isMainMenuOpen by viewModel.isMainMenuOpen.collectAsState()
+    val isPlayerStatsOpen by viewModel.isPlayerStatsOpen.collectAsState()
+    val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
     val isLeaderboardOpen by viewModel.isLeaderboardOpen.collectAsState()
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
     val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
@@ -103,7 +108,47 @@ fun StickmanGameScreen(
             )
         }
 
-        // 10. Global Arena & Weekly Contest Dialog
+        // 10. Weekly Missions & Trials Dialog
+        if (isWeeklyMissionsOpen) {
+            WeeklyMissionsDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openWeeklyMissions(false) }
+            )
+        }
+
+        // 11. Contests & Tournaments Dialog
+        if (isContestsOpen) {
+            ContestsTournamentsDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openContests(false) }
+            )
+        }
+
+        // 12. Master Professional Game Menu Dialog
+        if (isMainMenuOpen) {
+            ProfessionalMainMenuDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openMainMenu(false) }
+            )
+        }
+
+        // 13. Player Career Battle Records Dialog
+        if (isPlayerStatsOpen) {
+            PlayerCareerStatsDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openPlayerStats(false) }
+            )
+        }
+
+        // 14. Game Preferences & Audio/Display Settings Dialog
+        if (isSettingsOpen) {
+            GameSettingsDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openSettings(false) }
+            )
+        }
+
+        // 15. Global Arena & World Leaderboard Dialog
         if (isLeaderboardOpen) {
             LeaderboardAndContestDialog(
                 viewModel = viewModel,
@@ -111,7 +156,7 @@ fun StickmanGameScreen(
             )
         }
 
-        // 11. Lucky Spin Wheel Dialog
+        // 16. Lucky Spin Wheel Dialog
         if (isSpinWheelOpen) {
             LuckySpinWheelDialog(
                 viewModel = viewModel,
@@ -119,7 +164,7 @@ fun StickmanGameScreen(
             )
         }
 
-        // 12. Level Victory Milestone Celebration Dialog
+        // 17. Level Victory Milestone Celebration Dialog
         levelVictoryCelebration?.let { celebrationText ->
             LevelVictoryCelebrationDialog(
                 celebrationText = celebrationText,

@@ -176,6 +176,10 @@ class StickmanGameEngine(
         particles.clear()
         floatingTexts.clear()
 
+        if (!initial) {
+            repository.recordGamePlayed()
+        }
+
         _gameState.value = if (initial) GameState.START else GameState.IDLE
     }
 
@@ -280,6 +284,7 @@ class StickmanGameEngine(
                 hapticManager?.flip()
                 if (isUpsideDown) {
                     repository.trackMissionProgress("FLIP_WALK", 1)
+                    repository.trackWeeklyMissionProgress("FLIP_WALK", 1)
                 }
                 spawnFlipAcrobaticsEffects(stickmanX, if (isUpsideDown) floorY + 30f else floorY)
             }
@@ -295,6 +300,8 @@ class StickmanGameEngine(
                 soundManager.playBridgeFall()
                 repository.recordBridgeBuilt()
                 repository.trackMissionProgress("BUILD_BRIDGES", 1)
+                repository.trackWeeklyMissionProgress("BUILD_BRIDGES", 1)
+                repository.trackContestProgress("BUILD_BRIDGES", 1)
             } else {
                 // Finger released too quickly; reset back to IDLE
                 stickLength = 0f
@@ -393,6 +400,8 @@ class StickmanGameEngine(
                             hapticManager?.perfectHit(tier.tierLevel)
                             repository.recordPerfectHit()
                             repository.trackMissionProgress("PERFECT_HITS", 1)
+                            repository.trackWeeklyMissionProgress("PERFECT_HITS", 1)
+                            repository.trackContestProgress("PERFECT_HITS", 1)
                             addFloatingText(
                                 "PERFECT! +2",
                                 landingResult.platformCenter,
@@ -402,6 +411,7 @@ class StickmanGameEngine(
                             )
                             _score.value += 1 // Bonus +1 for bullseye
                             repository.addGems(1)
+                            repository.recordGemsHarvested(1)
                         }
 
                         _gameState.value = GameState.WALKING
@@ -451,6 +461,9 @@ class StickmanGameEngine(
                         soundManager.playGemCollect()
                         hapticManager?.gemCollect()
                         repository.trackMissionProgress("COLLECT_GEMS", event.amount)
+                        repository.trackWeeklyMissionProgress("COLLECT_GEMS", event.amount)
+                        repository.trackContestProgress("COLLECT_GEMS", event.amount)
+                        repository.recordGemsHarvested(event.amount)
 
                         val comboLabel = if (event.comboMultiplier > 1) "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)" else "💎 +${event.amount}"
                         addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1) 1.25f else 1.0f)
@@ -491,6 +504,8 @@ class StickmanGameEngine(
                         val previousLevel = computeLevelForScore(_score.value)
                         _score.value += 1
                         repository.trackMissionProgress("REACH_SCORE", _score.value)
+                        repository.trackWeeklyMissionProgress("REACH_SCORE", _score.value)
+                        repository.trackContestProgress("REACH_SCORE", _score.value)
                         val newLevel = computeLevelForScore(_score.value)
                         val updatedHigh = repository.updateHighScore(_score.value)
                         if (updatedHigh && _score.value > 1) {

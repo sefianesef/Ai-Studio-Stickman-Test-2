@@ -48,6 +48,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isDailyMissionsOpen = MutableStateFlow(false)
     val isDailyMissionsOpen: StateFlow<Boolean> = _isDailyMissionsOpen.asStateFlow()
 
+    private val _isWeeklyMissionsOpen = MutableStateFlow(false)
+    val isWeeklyMissionsOpen: StateFlow<Boolean> = _isWeeklyMissionsOpen.asStateFlow()
+
+    private val _isContestsOpen = MutableStateFlow(false)
+    val isContestsOpen: StateFlow<Boolean> = _isContestsOpen.asStateFlow()
+
+    private val _isMainMenuOpen = MutableStateFlow(false)
+    val isMainMenuOpen: StateFlow<Boolean> = _isMainMenuOpen.asStateFlow()
+
+    private val _isPlayerStatsOpen = MutableStateFlow(false)
+    val isPlayerStatsOpen: StateFlow<Boolean> = _isPlayerStatsOpen.asStateFlow()
+
+    private val _isSettingsOpen = MutableStateFlow(false)
+    val isSettingsOpen: StateFlow<Boolean> = _isSettingsOpen.asStateFlow()
+
     private val _isLeaderboardOpen = MutableStateFlow(false)
     val isLeaderboardOpen: StateFlow<Boolean> = _isLeaderboardOpen.asStateFlow()
 
@@ -63,6 +78,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val highScore: StateFlow<Int> = repository.highScore
     val soundEnabled: StateFlow<Boolean> = repository.soundEnabled
     val hapticsEnabled: StateFlow<Boolean> = repository.hapticsEnabled
+    val leftHandedMode: StateFlow<Boolean> = repository.leftHandedMode
+    val highFrameRate: StateFlow<Boolean> = repository.highFrameRate
+    val particleQualityUltra: StateFlow<Boolean> = repository.particleQualityUltra
+    val screenShakeEnabled: StateFlow<Boolean> = repository.screenShakeEnabled
 
     // Gem Vault & Leaderboard catalogs
     val availableGemPacks = repository.availableGemPacks
@@ -170,6 +189,97 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         soundManager.playButton()
         hapticManager.uiClick()
         _isDailyMissionsOpen.value = open
+    }
+
+    fun openWeeklyMissions(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isWeeklyMissionsOpen.value = open
+    }
+
+    fun getWeeklyMissions() = repository.getWeeklyMissions()
+
+    fun claimWeeklyMission(missionId: String, rewardGems: Int) {
+        val claimed = repository.claimWeeklyMission(missionId, rewardGems)
+        if (claimed) {
+            soundManager.playVictoryMusic()
+            soundManager.playGemCollect()
+            soundManager.playPerfectHit()
+            hapticManager.missionClaim()
+        }
+    }
+
+    fun claimAllWeeklyMissions(): Int {
+        val totalGems = repository.claimAllWeeklyMissions()
+        if (totalGems > 0) {
+            soundManager.playVictoryMusic()
+            soundManager.playGemCollect()
+            hapticManager.levelUp()
+        }
+        return totalGems
+    }
+
+    fun openContests(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isContestsOpen.value = open
+    }
+
+    fun getContests() = repository.getContestTournaments()
+
+    fun claimContest(contestId: String): Int {
+        val totalGems = repository.claimContestReward(contestId)
+        if (totalGems > 0) {
+            soundManager.playVictoryMusic()
+            soundManager.playGemCollect()
+            hapticManager.levelUp()
+        }
+        return totalGems
+    }
+
+    fun openMainMenu(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isMainMenuOpen.value = open
+    }
+
+    fun openPlayerStats(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isPlayerStatsOpen.value = open
+    }
+
+    fun getPlayerCareerStats() = repository.getPlayerCareerStats()
+
+    fun openSettings(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isSettingsOpen.value = open
+    }
+
+    fun toggleLeftHanded() {
+        repository.toggleLeftHanded()
+        hapticManager.uiClick()
+    }
+
+    fun toggleHighFrameRate() {
+        repository.toggleHighFrameRate()
+        hapticManager.uiClick()
+    }
+
+    fun toggleParticleQuality() {
+        repository.toggleParticleQuality()
+        hapticManager.uiClick()
+    }
+
+    fun toggleScreenShake() {
+        repository.toggleScreenShake()
+        hapticManager.uiClick()
+    }
+
+    fun resetCareerProgress() {
+        repository.resetCareerProgress()
+        hapticManager.gameOver()
     }
 
     fun claimDailyMission(missionId: String, rewardGems: Int) {

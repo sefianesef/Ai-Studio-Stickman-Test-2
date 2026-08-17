@@ -147,45 +147,21 @@ fun GameHud(
                 }
             }
 
-            // Action Buttons (Leaderboard, Spin, Quests, Sound & Pause)
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                // Leaderboard Button
-                IconButton(
-                    onClick = { viewModel.openLeaderboard(true) },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0x770F172A), CircleShape)
-                        .testTag("hud_leaderboard_button")
-                ) {
-                    Text(text = "🏆", fontSize = 16.sp)
-                }
-
-                // Lucky Spin Wheel Button
-                IconButton(
-                    onClick = { viewModel.openSpinWheel(true) },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0x770F172A), CircleShape)
-                        .testTag("hud_spin_button")
-                ) {
-                    Text(text = "🎰", fontSize = 16.sp)
-                }
-
-                // Daily Missions Button
+            // Action Buttons (Menu, Daily Missions, Weekly, Leaderboard, Spin, Sound & Pause)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Persistent Daily Missions Button (with claimable red badge)
                 Box {
                     IconButton(
                         onClick = { viewModel.openDailyMissions(true) },
                         modifier = Modifier
                             .size(36.dp)
-                            .background(Color(0x770F172A), CircleShape)
+                            .background(if (uncompletedClaimableCount > 0) Color(0xCC065F46) else Color(0x770F172A), CircleShape)
                             .testTag("hud_missions_button")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Assignment,
-                            contentDescription = "Daily Quests",
-                            tint = if (uncompletedClaimableCount > 0) Color(0xFFFBBF24) else Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Text(text = "🎯", fontSize = 16.sp)
                     }
                     if (uncompletedClaimableCount > 0) {
                         Box(
@@ -197,21 +173,45 @@ fun GameHud(
                     }
                 }
 
+                // Weekly Trials Button
                 IconButton(
-                    onClick = { viewModel.toggleSound() },
+                    onClick = { viewModel.openWeeklyMissions(true) },
                     modifier = Modifier
                         .size(36.dp)
                         .background(Color(0x770F172A), CircleShape)
-                        .testTag("hud_sound_toggle")
+                        .testTag("hud_weekly_missions_button")
+                ) {
+                    Text(text = "⚡", fontSize = 16.sp)
+                }
+
+                // Leaderboard Button
+                IconButton(
+                    onClick = { viewModel.openLeaderboard(true) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0x770F172A), CircleShape)
+                        .testTag("hud_leaderboard_button")
+                ) {
+                    Text(text = "🏆", fontSize = 16.sp)
+                }
+
+                // Master Game Menu Button
+                IconButton(
+                    onClick = { viewModel.openMainMenu(true) },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0x992563EB), CircleShape)
+                        .testTag("hud_main_menu_button")
                 ) {
                     Icon(
-                        imageVector = if (soundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                        contentDescription = "Toggle Sound",
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Game Menu",
                         tint = Color.White,
                         modifier = Modifier.size(18.dp)
                     )
                 }
 
+                // Pause Button
                 IconButton(
                     onClick = { viewModel.openPauseMenu(true) },
                     modifier = Modifier
@@ -324,7 +324,7 @@ fun StartScreenOverlay(
             verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxHeight()
         ) {
-            // Top Bar: Gems, Daily Streak Tracker, & High Score
+            // Top Bar: Gems, Master Menu, Daily Streak Tracker, & High Score
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -339,22 +339,44 @@ fun StartScreenOverlay(
                     modifier = Modifier.testTag("start_gems_pill")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        Text(text = "💎", fontSize = 18.sp)
+                        Text(text = "💎", fontSize = 16.sp)
                         Text(
                             text = "$gems",
                             color = Color(0xFF38BDF8),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+
+                // Master Game Menu Button
+                Surface(
+                    onClick = { viewModel.openMainMenu(true) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xEE2563EB),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF60A5FA)),
+                    modifier = Modifier.testTag("start_master_menu_pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "+ Shop",
-                            color = Color(0xFFFBBF24),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
+                            text = "MENU",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp
                         )
                     }
                 }
@@ -373,45 +395,39 @@ fun StartScreenOverlay(
                         .testTag("start_daily_streak_pill")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = "🔥", fontSize = 16.sp)
+                        Text(text = "🔥", fontSize = 15.sp)
                         Text(
                             text = "Day $currentStreak",
                             color = if (isDailyRewardAvailable) Color(0xFFFDE047) else Color(0xFFFB923C),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
-                        if (isDailyRewardAvailable) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(0xFF22C55E), CircleShape)
-                            )
-                        }
                     }
                 }
 
                 // High score badge
                 Surface(
+                    onClick = { viewModel.openLeaderboard(true) },
                     shape = RoundedCornerShape(20.dp),
                     color = Color(0xDD0F172A),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x66FBBF24)),
                     modifier = Modifier.testTag("start_high_score_pill")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = "🏆", fontSize = 16.sp)
+                        Text(text = "🏆", fontSize = 15.sp)
                         Text(
-                            text = "Best: $highScore",
+                            text = "$highScore",
                             color = Color(0xFFFBBF24),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 15.sp
                         )
                     }
                 }

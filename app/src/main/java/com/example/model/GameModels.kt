@@ -30,6 +30,59 @@ data class LeaderboardEntry(
     val isCurrentUser: Boolean = false
 )
 
+data class WeeklyMissionItem(
+    val id: String,
+    val title: String,
+    val description: String,
+    val missionType: String,
+    val targetCount: Int,
+    val currentProgress: Int,
+    val rewardGems: Int,
+    val iconEmoji: String = "⚡",
+    val isCompleted: Boolean = false,
+    val isClaimed: Boolean = false,
+    val badgeLabel: String = "EPIC"
+)
+
+data class ContestTournament(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val iconEmoji: String,
+    val bannerColorHex: Long,
+    val timeRemainingStr: String,
+    val participantsCount: String,
+    val prizePoolGems: Int,
+    val targetGoal: Int,
+    val currentProgress: Int,
+    val goalUnit: String,
+    val isJoined: Boolean = true,
+    val isCompleted: Boolean = false,
+    val isClaimed: Boolean = false,
+    val rewardPerk: String = ""
+)
+
+data class PlayerCareerStats(
+    val totalGamesPlayed: Int,
+    val highScore: Int,
+    val totalBridgesBuilt: Int,
+    val totalPerfectHits: Int,
+    val bullseyeRatePercent: Int,
+    val totalGemsHarvested: Int,
+    val currentStreakDays: Int,
+    val league: TournamentLeague
+)
+
+data class GameSettingsState(
+    val soundEnabled: Boolean = true,
+    val hapticsEnabled: Boolean = true,
+    val leftHandedMode: Boolean = false,
+    val highFrameRate: Boolean = true,
+    val particleQualityUltra: Boolean = true,
+    val screenShakeEnabled: Boolean = true,
+    val floatingScoreFx: Boolean = true
+)
+
 data class LevelVictoryData(
     val levelNumber: Int,
     val nextLevelNumber: Int,

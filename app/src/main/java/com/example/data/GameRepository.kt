@@ -8,11 +8,15 @@ import com.example.data.local.entity.PlayerProfileEntity
 import com.example.data.local.entity.PurchasedItemEntity
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
+import com.example.model.ContestTournament
+import com.example.model.GameSettingsState
 import com.example.model.GemPack
 import com.example.model.ItemRarity
 import com.example.model.LeaderboardEntry
+import com.example.model.PlayerCareerStats
 import com.example.model.RivalGhost
 import com.example.model.TournamentLeague
+import com.example.model.WeeklyMissionItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -48,6 +52,16 @@ class GameRepository(
         private const val KEY_UNLOCKED_PREFIX = "UNLOCKED_"
         private const val KEY_LAST_CLAIM_DAY = "LAST_CLAIM_DAY"
         private const val KEY_CURRENT_STREAK = "CURRENT_STREAK"
+        private const val KEY_LEFT_HANDED = "LEFT_HANDED"
+        private const val KEY_HIGH_FPS = "HIGH_FPS"
+        private const val KEY_PARTICLES_ULTRA = "PARTICLES_ULTRA"
+        private const val KEY_SCREEN_SHAKE = "SCREEN_SHAKE"
+        private const val KEY_TOTAL_GAMES = "TOTAL_GAMES"
+        private const val KEY_TOTAL_GEMS_HARVESTED = "TOTAL_GEMS_HARVESTED"
+        private const val KEY_WEEKLY_PREFIX = "WEEKLY_PROG_"
+        private const val KEY_WEEKLY_CLAIM_PREFIX = "WEEKLY_CLAIM_"
+        private const val KEY_CONTEST_PREFIX = "CONTEST_PROG_"
+        private const val KEY_CONTEST_CLAIM_PREFIX = "CONTEST_CLAIM_"
 
         val DAILY_REWARD_AMOUNTS = listOf(5, 10, 15, 20, 25, 35, 50)
     }
@@ -498,6 +512,18 @@ class GameRepository(
 
     private val _hapticsEnabled = MutableStateFlow(prefs.getBoolean(KEY_HAPTICS_ENABLED, true))
     val hapticsEnabled: StateFlow<Boolean> = _hapticsEnabled.asStateFlow()
+
+    private val _leftHandedMode = MutableStateFlow(prefs.getBoolean(KEY_LEFT_HANDED, false))
+    val leftHandedMode: StateFlow<Boolean> = _leftHandedMode.asStateFlow()
+
+    private val _highFrameRate = MutableStateFlow(prefs.getBoolean(KEY_HIGH_FPS, true))
+    val highFrameRate: StateFlow<Boolean> = _highFrameRate.asStateFlow()
+
+    private val _particleQualityUltra = MutableStateFlow(prefs.getBoolean(KEY_PARTICLES_ULTRA, true))
+    val particleQualityUltra: StateFlow<Boolean> = _particleQualityUltra.asStateFlow()
+
+    private val _screenShakeEnabled = MutableStateFlow(prefs.getBoolean(KEY_SCREEN_SHAKE, true))
+    val screenShakeEnabled: StateFlow<Boolean> = _screenShakeEnabled.asStateFlow()
 
     // Daily Login Reward & Streak
     private val _currentStreak = MutableStateFlow(1)
@@ -1048,5 +1074,249 @@ class GameRepository(
             RivalGhost("FrostSpectre", "🇸🇪", "❄️", 61),
             RivalGhost("NeonRunner", "🇪🇸", "👟", 28)
         )
+    }
+
+    // --- WEEKLY EPIC MISSIONS ---
+    fun getWeeklyMissions(): List<WeeklyMissionItem> {
+        val defs = listOf(
+            Triple("w_architect", "Grand Bridge Architect", "Span 40 total bridge gaps this week") to (("BUILD_BRIDGES" to 40) to (50 to "🥢")),
+            Triple("w_sniper", "Bullseye Grandmaster", "Score 15 red dot bullseye perfect hits") to (("PERFECT_HITS" to 15) to (75 to "🎯")),
+            Triple("w_gem_hoarder", "Gem Vault Magnate", "Harvest 35 under-bridge glowing rubies") to (("COLLECT_GEMS" to 35) to (60 to "💎")),
+            Triple("w_acrobat", "Upside-Down Acrobat", "Complete 20 stealth flip walks safely") to (("FLIP_WALK" to 20) to (60 to "🤸")),
+            Triple("w_marathon", "Endurance Champion", "Reach a high score of 12 or above") to (("REACH_SCORE" to 12) to (100 to "👑"))
+        )
+
+        return defs.map { (info, config) ->
+            val (id, title, desc) = info
+            val (type, target) = config.first
+            val (gemsReward, emoji) = config.second
+
+            val prog = prefs.getInt(KEY_WEEKLY_PREFIX + id, 0)
+            val claimed = prefs.getBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, false)
+            val isDone = prog >= target
+
+            WeeklyMissionItem(
+                id = id,
+                title = title,
+                description = desc,
+                missionType = type,
+                targetCount = target,
+                currentProgress = prog,
+                rewardGems = gemsReward,
+                iconEmoji = emoji,
+                isCompleted = isDone,
+                isClaimed = claimed,
+                badgeLabel = "WEEKLY"
+            )
+        }
+    }
+
+    fun trackWeeklyMissionProgress(missionType: String, delta: Int = 1) {
+        val missions = getWeeklyMissions()
+        for (m in missions) {
+            if (m.missionType == missionType && !m.isCompleted) {
+                val newProgress = if (missionType == "REACH_SCORE") {
+                    maxOf(m.currentProgress, delta).coerceAtMost(m.targetCount)
+                } else {
+                    (m.currentProgress + delta).coerceAtMost(m.targetCount)
+                }
+                prefs.edit().putInt(KEY_WEEKLY_PREFIX + m.id, newProgress).apply()
+            }
+        }
+    }
+
+    fun claimWeeklyMission(id: String, rewardGems: Int): Boolean {
+        if (!prefs.getBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, false)) {
+            prefs.edit().putBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, true).apply()
+            addGems(rewardGems)
+            return true
+        }
+        return false
+    }
+
+    fun claimAllWeeklyMissions(): Int {
+        val weekly = getWeeklyMissions().filter { it.isCompleted && !it.isClaimed }
+        if (weekly.isEmpty()) return 0
+        var total = 0
+        weekly.forEach {
+            prefs.edit().putBoolean(KEY_WEEKLY_CLAIM_PREFIX + it.id, true).apply()
+            total += it.rewardGems
+        }
+        addGems(total)
+        return total
+    }
+
+    // --- EXPANDED TOURNAMENTS & CONTESTS ---
+    fun getContestTournaments(): List<ContestTournament> {
+        val list = listOf(
+            ContestTournament(
+                id = "contest_bridge_rush",
+                title = "Weekend Bridge Rush",
+                subtitle = "Fast-paced bridge building marathon",
+                iconEmoji = "🌟",
+                bannerColorHex = 0xFF4F46E5,
+                timeRemainingStr = "2d 14h",
+                participantsCount = "14,820",
+                prizePoolGems = 300,
+                targetGoal = 25,
+                currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bridge_rush", 0),
+                goalUnit = "Bridges",
+                isJoined = true,
+                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bridge_rush", 0) >= 25,
+                isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_bridge_rush", false),
+                rewardPerk = "300 💎 + Mythic Champion Aura"
+            ),
+            ContestTournament(
+                id = "contest_bullseye_cup",
+                title = "Sniper Bullseye Masters",
+                subtitle = "Chain consecutive red dot perfect bullseyes",
+                iconEmoji = "🎯",
+                bannerColorHex = 0xFFD97706,
+                timeRemainingStr = "1d 08h",
+                participantsCount = "9,430",
+                prizePoolGems = 250,
+                targetGoal = 10,
+                currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bullseye_cup", 0),
+                goalUnit = "Bullseyes",
+                isJoined = true,
+                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bullseye_cup", 0) >= 10,
+                isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_bullseye_cup", false),
+                rewardPerk = "250 💎 + Laser Staff"
+            ),
+            ContestTournament(
+                id = "contest_gem_hunt",
+                title = "Gem Canyon Scavenger",
+                subtitle = "Collect upside-down gems in high-risk zones",
+                iconEmoji = "💎",
+                bannerColorHex = 0xFF059669,
+                timeRemainingStr = "3d 21h",
+                participantsCount = "18,120",
+                prizePoolGems = 200,
+                targetGoal = 15,
+                currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_gem_hunt", 0),
+                goalUnit = "Gems",
+                isJoined = true,
+                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_gem_hunt", 0) >= 15,
+                isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_gem_hunt", false),
+                rewardPerk = "200 💎 + Golden Scarf"
+            ),
+            ContestTournament(
+                id = "contest_speed_blitz",
+                title = "Daily Survival Marathon",
+                subtitle = "Global endurance division speed ladder",
+                iconEmoji = "⚡",
+                bannerColorHex = 0xFF9333EA,
+                timeRemainingStr = "18h 30m",
+                participantsCount = "24,500",
+                prizePoolGems = 400,
+                targetGoal = 8,
+                currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_speed_blitz", 0),
+                goalUnit = "Score",
+                isJoined = true,
+                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_speed_blitz", 0) >= 8,
+                isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_speed_blitz", false),
+                rewardPerk = "400 💎 + Diamond League Badge"
+            )
+        )
+        return list
+    }
+
+    fun trackContestProgress(type: String, delta: Int = 1) {
+        val mapping = when (type) {
+            "BUILD_BRIDGES" -> "contest_bridge_rush"
+            "PERFECT_HITS" -> "contest_bullseye_cup"
+            "COLLECT_GEMS" -> "contest_gem_hunt"
+            "REACH_SCORE" -> "contest_speed_blitz"
+            else -> null
+        }
+        mapping?.let { contestId ->
+            val curr = prefs.getInt(KEY_CONTEST_PREFIX + contestId, 0)
+            val newProg = if (type == "REACH_SCORE") maxOf(curr, delta) else curr + delta
+            prefs.edit().putInt(KEY_CONTEST_PREFIX + contestId, newProg).apply()
+        }
+    }
+
+    fun claimContestReward(contestId: String): Int {
+        val contest = getContestTournaments().find { it.id == contestId } ?: return 0
+        if (contest.isCompleted && !contest.isClaimed) {
+            prefs.edit().putBoolean(KEY_CONTEST_CLAIM_PREFIX + contestId, true).apply()
+            addGems(contest.prizePoolGems)
+            return contest.prizePoolGems
+        }
+        return 0
+    }
+
+    // --- PLAYER CAREER STATS & RECORDS ---
+    fun recordGamePlayed() {
+        val curr = prefs.getInt(KEY_TOTAL_GAMES, 0)
+        prefs.edit().putInt(KEY_TOTAL_GAMES, curr + 1).apply()
+    }
+
+    fun recordGemsHarvested(amount: Int) {
+        val curr = prefs.getInt(KEY_TOTAL_GEMS_HARVESTED, 0)
+        prefs.edit().putInt(KEY_TOTAL_GEMS_HARVESTED, curr + amount).apply()
+    }
+
+    fun getPlayerCareerStats(): PlayerCareerStats {
+        val totalGames = prefs.getInt(KEY_TOTAL_GAMES, 0)
+        val hs = _highScore.value
+        val bridges = prefs.getInt(KEY_TOTAL_BRIDGES, 0)
+        val perfects = prefs.getInt(KEY_PERFECT_HITS, 0)
+        val bullseyePct = if (bridges > 0) ((perfects.toFloat() / bridges.toFloat()) * 100).toInt().coerceIn(0, 100) else 0
+        val gemsEarned = prefs.getInt(KEY_TOTAL_GEMS_HARVESTED, 0) + _gems.value
+        val streak = _currentStreak.value
+
+        return PlayerCareerStats(
+            totalGamesPlayed = totalGames,
+            highScore = hs,
+            totalBridgesBuilt = bridges,
+            totalPerfectHits = perfects,
+            bullseyeRatePercent = bullseyePct,
+            totalGemsHarvested = gemsEarned,
+            currentStreakDays = streak,
+            league = getUserTournamentLeague()
+        )
+    }
+
+    // --- GAME SETTINGS ---
+    fun toggleLeftHanded(): Boolean {
+        val next = !_leftHandedMode.value
+        _leftHandedMode.value = next
+        prefs.edit().putBoolean(KEY_LEFT_HANDED, next).apply()
+        return next
+    }
+
+    fun toggleHighFrameRate(): Boolean {
+        val next = !_highFrameRate.value
+        _highFrameRate.value = next
+        prefs.edit().putBoolean(KEY_HIGH_FPS, next).apply()
+        return next
+    }
+
+    fun toggleParticleQuality(): Boolean {
+        val next = !_particleQualityUltra.value
+        _particleQualityUltra.value = next
+        prefs.edit().putBoolean(KEY_PARTICLES_ULTRA, next).apply()
+        return next
+    }
+
+    fun toggleScreenShake(): Boolean {
+        val next = !_screenShakeEnabled.value
+        _screenShakeEnabled.value = next
+        prefs.edit().putBoolean(KEY_SCREEN_SHAKE, next).apply()
+        return next
+    }
+
+    fun resetCareerProgress() {
+        prefs.edit()
+            .putInt(KEY_HIGH_SCORE, 0)
+            .putInt(KEY_TOTAL_BRIDGES, 0)
+            .putInt(KEY_PERFECT_HITS, 0)
+            .putInt(KEY_TOTAL_GAMES, 0)
+            .apply()
+        _highScore.value = 0
+        scope.launch {
+            playerProfileDao.updateHighScore(0)
+        }
     }
 }
