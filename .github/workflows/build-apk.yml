@@ -9,115 +9,82 @@ on:
 
 jobs:
   build:
-    name: Build & Package APK
+    name: Build & Upload APK
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
-        lfs: true
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: true
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '21'
-        cache: 'gradle'
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-      with:
-        gradle-version: '9.3.1'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '9.3.1'
 
-    - name: Prepare Environment & Debug Keystore
-      run: |
-        echo "=== Preparing Build Environment ==="
-        # Prepare .env file
-        if [ ! -f ".env" ] && [ -f ".env.example" ]; then
-          cp .env.example .env
-        elif [ ! -f ".env" ]; then
-          touch .env
-        fi
+      - name: Prepare Environment & Keystore
+        run: |
+          echo "=== Setting up environment ==="
+          if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+            cp .env.example .env
+          elif [ ! -f ".env" ]; then
+            touch .env
+          fi
 
-        # Restore debug keystore from base64 if present
-        if [ -f "debug.keystore.base64" ]; then
-          base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
-        fi
+          if [ -f "debug.keystore.base64" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
+          fi
 
-        # Generate standard Android debug keystore if not valid
-        if [ ! -f "debug.keystore" ] || [ ! -s "debug.keystore" ]; then
-          echo "Generating standard debug keystore..."
-          keytool -genkey -v \
-            -keystore debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-        fi
+          if [ ! -f "debug.keystore" ] || [ ! -s "debug.keystore" ]; then
+            echo "Generating debug keystore..."
+            keytool -genkey -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
-        # Make gradlew executable if present
-        if [ -f "gradlew" ]; then
-          chmod +x gradlew
-        fi
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+          fi
 
-    - name: Build Debug APK with Gradle
-      run: |
-        echo "=== Assembling Debug APK ==="
-        if [ -x "./gradlew" ]; then
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace
-        else
-          gradle :app:assembleDebug --no-daemon --stacktrace
-        fi
+      - name: Build Debug APK
+        run: |
+          echo "=== Building APK ==="
+          if [ -x "./gradlew" ]; then
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace
+          fi
 
-    - name: Verify & Prepare APK Artifact
-      run: |
-        echo "=== Verifying Generated APK ==="
-        mkdir -p dist
-        APK_PATH=$(find app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
-        if [ -z "$APK_PATH" ]; then
-          echo "Error: No APK was generated."
-          exit 1
-        fi
-        echo "Found APK at: $APK_PATH"
-        cp "$APK_PATH" dist/StickmanHero.apk
-        ls -lh dist/StickmanHero.apk
+      - name: Locate & Copy APK
+        run: |
+          mkdir -p dist
+          APK_PATH=$(find app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "Error: APK not found!"
+            exit 1
+          fi
+          echo "Found APK: $APK_PATH"
+          cp "$APK_PATH" dist/StickmanHero.apk
 
-    - name: Package Complete Project Archive (Including Hidden Files)
-      run: |
-        echo "=== Packaging Complete Source Code ==="
-        python3 -c "
-import os, zipfile
-excluded = ('./.gradle', './app/build', './build', './dist', './stickman_hero_complete_project.zip')
-with zipfile.ZipFile('dist/StickmanHero-Complete-Project.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-    for root, dirs, files in os.walk('.'):
-        if any(root.startswith(p) for p in excluded):
-            continue
-        for file in files:
-            p = os.path.join(root, file)
-            if any(p.startswith(ex) for ex in excluded):
-                continue
-            z.write(p, os.path.relpath(p, '.'))
-print('Created complete project zip in dist/')
-"
-
-    - name: Upload Stickman Hero APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: StickmanHero-Debug-APK
-        path: dist/StickmanHero.apk
-        if-no-files-found: error
-        retention-days: 30
-
-    - name: Upload Complete Source ZIP
-      uses: actions/upload-artifact@v4
-      with:
-        name: StickmanHero-Source-Code
-        path: dist/StickmanHero-Complete-Project.zip
-        if-no-files-found: error
-        retention-days: 30
-
+      - name: Upload Stickman Hero APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StickmanHero-Debug-APK
+          path: dist/StickmanHero.apk
+          if-no-files-found: error
+          retention-days: 30
