@@ -66,7 +66,12 @@ jobs:
           chmod +x gradlew || true
 
       - name: Build Android Debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+        run: |
+          echo "=== Compiling Debug APK ==="
+          ./gradlew :app:assembleDebug \
+            --stacktrace \
+            -Dkotlin.compiler.execution.strategy=daemon \
+            -Dorg.gradle.jvmargs="-Xmx4g -Dfile.encoding=UTF-8"
 
       - name: Package and Verify APK Outputs
         run: |
