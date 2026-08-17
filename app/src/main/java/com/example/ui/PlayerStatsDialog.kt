@@ -160,6 +160,8 @@ fun PlayerCareerStatsDialog(
                     Triple("Perfect Bullseyes", "${stats.totalPerfectHits}", "🎯"),
                     Triple("Bullseye Rate", "${stats.bullseyeRatePercent}%", "⚡"),
                     Triple("Gems Harvested", "${stats.totalGemsHarvested}", "💎"),
+                    Triple("Contest Blue Gems", "${stats.totalBlueGemsEarned}", "🔷"),
+                    Triple("Tournament Red Gems", "${stats.totalRedGemsEarned}", "🔴"),
                     Triple("Daily Login Streak", "${stats.currentStreakDays} Days", "🔥"),
                     Triple("Rank League", "${stats.league.title}", "👑")
                 )

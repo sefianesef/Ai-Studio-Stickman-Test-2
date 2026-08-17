@@ -80,8 +80,74 @@ object StageThemes {
             platformColor = Color(0xFF180A0A),
             platformHighlightColor = Color(0xFFEF4444),
             mountainColor = Color(0xFF450A0A),
-            celestialType = CelestialType.SUN,
+            celestialType = CelestialType.DRAGON_EMBER,
             ambientDescription = "Molten fire and ash peaks"
+        ),
+        StageTheme(
+            stageNumber = 8,
+            name = "Cherry Blossom Shrine",
+            bgTopColor = Color(0xFF2A0845),
+            bgBottomColor = Color(0xFF6441A5),
+            platformColor = Color(0xFF1F112E),
+            platformHighlightColor = Color(0xFFF472B6),
+            mountainColor = Color(0xFF4A154B),
+            celestialType = CelestialType.SAKURA_BLOOM,
+            ambientDescription = "Floating sakura petals & mystic shrine"
+        ),
+        StageTheme(
+            stageNumber = 9,
+            name = "Atlantis Abyss",
+            bgTopColor = Color(0xFF021B29),
+            bgBottomColor = Color(0xFF0369A1),
+            platformColor = Color(0xFF0B192C),
+            platformHighlightColor = Color(0xFF06B6D4),
+            mountainColor = Color(0xFF083344),
+            celestialType = CelestialType.DEEP_ABYSS,
+            ambientDescription = "Bioluminescent coral deeps"
+        ),
+        StageTheme(
+            stageNumber = 10,
+            name = "Matrix Digital Rain",
+            bgTopColor = Color(0xFF021408),
+            bgBottomColor = Color(0xFF064E3B),
+            platformColor = Color(0xFF051C0C),
+            platformHighlightColor = Color(0xFF10B981),
+            mountainColor = Color(0xFF022C12),
+            celestialType = CelestialType.MATRIX_CASCADE,
+            ambientDescription = "Exclusive Sapphire Contest Digital Grid"
+        ),
+        StageTheme(
+            stageNumber = 11,
+            name = "Celestial Moon Palace",
+            bgTopColor = Color(0xFF0F172A),
+            bgBottomColor = Color(0xFF312E81),
+            platformColor = Color(0xFF1E1B4B),
+            platformHighlightColor = Color(0xFF60A5FA),
+            mountainColor = Color(0xFF1E293B),
+            celestialType = CelestialType.CELESTIAL_SHRINE,
+            ambientDescription = "Exclusive Sapphire High Starlight Realm"
+        ),
+        StageTheme(
+            stageNumber = 12,
+            name = "Dragon Sovereign Domain",
+            bgTopColor = Color(0xFF3B0000),
+            bgBottomColor = Color(0xFF7F1D1D),
+            platformColor = Color(0xFF1F0808),
+            platformHighlightColor = Color(0xFFF43F5E),
+            mountainColor = Color(0xFF450A0A),
+            celestialType = CelestialType.DRAGON_EMBER,
+            ambientDescription = "Exclusive Ruby Tournament Obsidian Volcano"
+        ),
+        StageTheme(
+            stageNumber = 13,
+            name = "Mythic Grandmaster Crystal",
+            bgTopColor = Color(0xFF18032E),
+            bgBottomColor = Color(0xFF6B21A8),
+            platformColor = Color(0xFF240E3E),
+            platformHighlightColor = Color(0xFFF472B6),
+            mountainColor = Color(0xFF3B0764),
+            celestialType = CelestialType.CRYSTAL_PRISM,
+            ambientDescription = "Exclusive Grandmaster Prismatic Aurora"
         )
     )
 
@@ -94,6 +160,12 @@ object StageThemes {
             "theme_golden" -> stages[4]
             "theme_cosmic" -> stages[5]
             "theme_volcano" -> stages[6]
+            "theme_sakura" -> stages[7]
+            "theme_abyss" -> stages[8]
+            "theme_matrix" -> stages[9]
+            "theme_moon_palace" -> stages[10]
+            "theme_dragon" -> stages[11]
+            "theme_grandmaster" -> stages[12]
             else -> null
         }
     }

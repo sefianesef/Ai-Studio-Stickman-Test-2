@@ -293,16 +293,21 @@ private fun WeeklyMissionCard(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    val rewardText = buildString {
+                        append("+${mission.rewardGems} 💎")
+                        if (mission.rewardBlueGems > 0) append(" +${mission.rewardBlueGems} 🔷")
+                        if (mission.rewardRedGems > 0) append(" +${mission.rewardRedGems} 🔴")
+                    }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = Color(0x33FBBF24),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x66FBBF24))
                     ) {
                         Text(
-                            text = "+${mission.rewardGems} 💎",
+                            text = rewardText,
                             color = Color(0xFFFBBF24),
                             fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }

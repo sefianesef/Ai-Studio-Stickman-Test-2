@@ -2,6 +2,12 @@ package com.example.model
 
 import androidx.compose.ui.graphics.Color
 
+enum class CurrencyType(val label: String, val symbol: String, val colorHex: Long) {
+    GEM("Gems", "💎", 0xFF38BDF8),
+    BLUE_GEM("Blue Sapphire", "🔷", 0xFF60A5FA),
+    RED_GEM("Ruby Crimson", "🔴", 0xFFF43F5E)
+}
+
 enum class AccessoryType {
     HAT,
     SCARF,
@@ -38,6 +44,8 @@ data class WeeklyMissionItem(
     val targetCount: Int,
     val currentProgress: Int,
     val rewardGems: Int,
+    val rewardBlueGems: Int = 0,
+    val rewardRedGems: Int = 0,
     val iconEmoji: String = "⚡",
     val isCompleted: Boolean = false,
     val isClaimed: Boolean = false,
@@ -53,6 +61,8 @@ data class ContestTournament(
     val timeRemainingStr: String,
     val participantsCount: String,
     val prizePoolGems: Int,
+    val prizePoolBlueGems: Int = 0,
+    val prizePoolRedGems: Int = 0,
     val targetGoal: Int,
     val currentProgress: Int,
     val goalUnit: String,
@@ -69,6 +79,8 @@ data class PlayerCareerStats(
     val totalPerfectHits: Int,
     val bullseyeRatePercent: Int,
     val totalGemsHarvested: Int,
+    val totalBlueGemsEarned: Int = 0,
+    val totalRedGemsEarned: Int = 0,
     val currentStreakDays: Int,
     val league: TournamentLeague
 )
@@ -122,7 +134,8 @@ enum class ItemRarity(val label: String, val colorHex: Long, val badgeBgHex: Lon
     COMMON("COMMON", 0xFF94A3B8, 0xFF1E293B),
     RARE("RARE", 0xFF38BDF8, 0xFF0C4A6E),
     EPIC("EPIC", 0xFFA855F7, 0xFF581C87),
-    LEGENDARY("LEGENDARY", 0xFFF59E0B, 0xFF78350F)
+    LEGENDARY("LEGENDARY", 0xFFF59E0B, 0xFF78350F),
+    MYTHIC("MYTHIC", 0xFFEC4899, 0xFF831843)
 }
 
 data class AccessoryItem(
@@ -134,7 +147,9 @@ data class AccessoryItem(
     val secondaryColor: Long = 0xFFFFFFFF,
     val description: String = "",
     val iconSymbol: String = "",
-    val rarity: ItemRarity = ItemRarity.COMMON
+    val rarity: ItemRarity = ItemRarity.COMMON,
+    val currencyType: CurrencyType = CurrencyType.GEM,
+    val isContestExclusive: Boolean = false
 )
 
 enum class GameState {
@@ -222,5 +237,11 @@ enum class CelestialType {
     MOON,
     SUN,
     NEON_PLANET,
-    AURORA
+    AURORA,
+    SAKURA_BLOOM,
+    DEEP_ABYSS,
+    MATRIX_CASCADE,
+    CELESTIAL_SHRINE,
+    DRAGON_EMBER,
+    CRYSTAL_PRISM
 }

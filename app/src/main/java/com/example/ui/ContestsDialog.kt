@@ -247,16 +247,21 @@ private fun ContestCard(
                     }
                 }
 
+                val prizeText = buildString {
+                    append("+${contest.prizePoolGems} 💎")
+                    if (contest.prizePoolBlueGems > 0) append(" +${contest.prizePoolBlueGems} 🔷")
+                    if (contest.prizePoolRedGems > 0) append(" +${contest.prizePoolRedGems} 🔴")
+                }
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = Color(0x33FBBF24),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x66FBBF24))
                 ) {
                     Text(
-                        text = "+${contest.prizePoolGems} 💎",
+                        text = prizeText,
                         color = Color(0xFFFBBF24),
                         fontWeight = FontWeight.Black,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }

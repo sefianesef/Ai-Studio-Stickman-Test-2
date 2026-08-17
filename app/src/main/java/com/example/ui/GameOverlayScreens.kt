@@ -41,6 +41,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
+import com.example.model.CurrencyType
 import com.example.model.GemPack
 import com.example.model.GameState
 import com.example.model.ItemRarity
@@ -1020,6 +1021,9 @@ fun ShopDialog(
 ) {
     val selectedTab by viewModel.selectedShopTab.collectAsState()
     val gems by viewModel.gems.collectAsState()
+    val blueGems by viewModel.blueGems.collectAsState()
+    val redGems by viewModel.redGems.collectAsState()
+    val shopCurrencyFilter by viewModel.shopCurrencyFilter.collectAsState()
     val selectedHatId by viewModel.selectedHatId.collectAsState()
     val selectedScarfId by viewModel.selectedScarfId.collectAsState()
     val selectedStickId by viewModel.selectedStickId.collectAsState()
@@ -1040,8 +1044,18 @@ fun ShopDialog(
         mutableStateOf<AccessoryItem?>(initialPreview)
     }
 
-    val filteredItems = remember(selectedTab, viewModel.availableAccessories) {
-        viewModel.availableAccessories.filter { it.type == selectedTab }
+    val filteredItems = remember(selectedTab, shopCurrencyFilter, viewModel.availableAccessories) {
+        viewModel.availableAccessories.filter { item ->
+            val matchesTab = item.type == selectedTab
+            val matchesCurrency = when (shopCurrencyFilter) {
+                "ALL" -> true
+                "STANDARD" -> item.currencyType == CurrencyType.GEM
+                "CONTEST_BLUE" -> item.currencyType == CurrencyType.BLUE_GEM
+                "TOURNAMENT_RED" -> item.currencyType == CurrencyType.RED_GEM
+                else -> true
+            }
+            matchesTab && matchesCurrency
+        }
     }
 
     // Dynamic animation time for preview showcase
@@ -1074,7 +1088,7 @@ fun ShopDialog(
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                // 1. Top Header Bar: Title, Gem Wallet, Close Button
+                // 1. Top Header Bar: Title, Gem Wallets, Close Button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1111,26 +1125,70 @@ fun ShopDialog(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Gem Balance Badge
+                        // Standard Gem Balance Badge
                         Surface(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = Color(0xFF0F172A),
-                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
                             modifier = Modifier.testTag("shop_gem_balance")
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                Text(text = "💎", fontSize = 14.sp)
+                                Text(text = "💎", fontSize = 12.sp)
                                 Text(
                                     text = "$gems",
                                     color = Color(0xFF38BDF8),
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 15.sp
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        // Blue Gems (Contest)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF0C2A4D),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                            modifier = Modifier.testTag("shop_blue_gems_balance")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(text = "🔷", fontSize = 12.sp)
+                                Text(
+                                    text = "$blueGems",
+                                    color = Color(0xFF7DD3FC),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        // Red Gems (Tournament)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF4C0519),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFB7185)),
+                            modifier = Modifier.testTag("shop_red_gems_balance")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(text = "🔴", fontSize = 12.sp)
+                                Text(
+                                    text = "$redGems",
+                                    color = Color(0xFFFDA4AF),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp
                                 )
                             }
                         }
@@ -1139,7 +1197,7 @@ fun ShopDialog(
                         IconButton(
                             onClick = { viewModel.openShop(false) },
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(34.dp)
                                 .background(Color(0xFF1E293B), CircleShape)
                                 .testTag("shop_close_button")
                         ) {
@@ -1147,7 +1205,7 @@ fun ShopDialog(
                                 Icons.Default.Close,
                                 contentDescription = "Close",
                                 tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -1317,6 +1375,22 @@ fun ShopDialog(
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
+
+                                    if (currentPreview.isContestExclusive) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (currentPreview.currencyType == CurrencyType.BLUE_GEM) Color(0xFF0284C7) else Color(0xFFE11D48)
+                                        ) {
+                                            Text(
+                                                text = if (currentPreview.currencyType == CurrencyType.BLUE_GEM) "🔷 CONTEST" else "🔴 TOURNEY",
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
                                     Text(
                                         text = "${currentPreview.iconSymbol} PREVIEWING",
                                         color = Color(0xFF64748B),
@@ -1400,7 +1474,45 @@ fun ShopDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                // Currency Filter Sub-bar (for filtering accessories by Gems vs Contest Blue Gems vs Tournament Red Gems)
+                if (selectedTab != AccessoryType.GEM_VAULT) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val filterOptions = listOf(
+                            "ALL" to "All",
+                            "STANDARD" to "💎 Standard",
+                            "CONTEST_BLUE" to "🔷 Blue Gems",
+                            "TOURNAMENT_RED" to "🔴 Red Gems"
+                        )
+                        filterOptions.forEach { (filterKey, filterLabel) ->
+                            val isFilterSelected = shopCurrencyFilter == filterKey
+                            Surface(
+                                onClick = { viewModel.setShopCurrencyFilter(filterKey) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isFilterSelected) Color(0xFF3B82F6) else Color(0xFF1E293B),
+                                border = if (isFilterSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF60A5FA)) else null,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp)
+                                    .testTag("shop_currency_filter_${filterKey.lowercase()}")
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = filterLabel,
+                                        color = if (isFilterSelected) Color.White else Color(0xFF94A3B8),
+                                        fontSize = 9.sp,
+                                        fontWeight = if (isFilterSelected) FontWeight.Black else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 4. Content Area: Gem Vault OR Accessories Grid
                 if (selectedTab == AccessoryType.GEM_VAULT) {
@@ -1429,7 +1541,16 @@ fun ShopDialog(
                             AccessoryType.GEM_VAULT -> false
                         }
                         val isPreviewSelected = previewedItem?.id == item.id
-                        val canAfford = gems >= item.cost
+                        val canAfford = when (item.currencyType) {
+                            CurrencyType.GEM -> gems >= item.cost
+                            CurrencyType.BLUE_GEM -> blueGems >= item.cost
+                            CurrencyType.RED_GEM -> redGems >= item.cost
+                        }
+                        val curSymbol = when (item.currencyType) {
+                            CurrencyType.GEM -> "💎"
+                            CurrencyType.BLUE_GEM -> "🔷"
+                            CurrencyType.RED_GEM -> "🔴"
+                        }
 
                         Surface(
                             shape = RoundedCornerShape(16.dp),
@@ -1476,6 +1597,21 @@ fun ShopDialog(
                                             fontWeight = FontWeight.Black,
                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                         )
+                                    }
+
+                                    if (item.isContestExclusive) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = if (item.currencyType == CurrencyType.BLUE_GEM) Color(0xFF0369A1) else Color(0xFF9F1239)
+                                        ) {
+                                            Text(
+                                                text = if (item.currencyType == CurrencyType.BLUE_GEM) "🔷 CONTEST" else "🔴 TOURNEY",
+                                                color = Color.White,
+                                                fontSize = 7.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                                            )
+                                        }
                                     }
 
                                     if (isEquipped) {
@@ -1548,7 +1684,11 @@ fun ShopDialog(
                                         containerColor = when {
                                             isEquipped -> Color(0xFF38BDF8)
                                             isUnlocked -> Color(0xFF10B981)
-                                            canAfford -> Color(0xFFF59E0B)
+                                            canAfford -> when (item.currencyType) {
+                                                CurrencyType.GEM -> Color(0xFFF59E0B)
+                                                CurrencyType.BLUE_GEM -> Color(0xFF0284C7)
+                                                CurrencyType.RED_GEM -> Color(0xFFE11D48)
+                                            }
                                             else -> Color(0xFF334155)
                                         },
                                         disabledContainerColor = Color(0xFF1E293B)
@@ -1563,13 +1703,13 @@ fun ShopDialog(
                                         text = when {
                                             isEquipped -> "✓ EQUIPPED"
                                             isUnlocked -> "EQUIP"
-                                            canAfford -> "💎 ${item.cost}"
-                                            else -> "NEED ${item.cost} 💎"
+                                            canAfford -> "$curSymbol ${item.cost}"
+                                            else -> "NEED ${item.cost} $curSymbol"
                                         },
                                         color = when {
                                             isEquipped -> Color.Black
                                             isUnlocked -> Color.White
-                                            canAfford -> Color.Black
+                                            canAfford -> Color.White
                                             else -> Color(0xFF64748B)
                                         },
                                         fontWeight = FontWeight.Black,

@@ -75,6 +75,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     // Pass through repository states
     val gems: StateFlow<Int> = repository.gems
+    val blueGems: StateFlow<Int> = repository.blueGems
+    val redGems: StateFlow<Int> = repository.redGems
     val highScore: StateFlow<Int> = repository.highScore
     val soundEnabled: StateFlow<Boolean> = repository.soundEnabled
     val hapticsEnabled: StateFlow<Boolean> = repository.hapticsEnabled
@@ -82,6 +84,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val highFrameRate: StateFlow<Boolean> = repository.highFrameRate
     val particleQualityUltra: StateFlow<Boolean> = repository.particleQualityUltra
     val screenShakeEnabled: StateFlow<Boolean> = repository.screenShakeEnabled
+
+    // Shop Currency Filter
+    private val _shopCurrencyFilter = MutableStateFlow("ALL")
+    val shopCurrencyFilter: StateFlow<String> = _shopCurrencyFilter.asStateFlow()
+
+    fun setShopCurrencyFilter(filter: String) {
+        _shopCurrencyFilter.value = filter
+        soundManager.playButton()
+        hapticManager.uiClick()
+    }
 
     // Gem Vault & Leaderboard catalogs
     val availableGemPacks = repository.availableGemPacks
@@ -199,8 +211,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getWeeklyMissions() = repository.getWeeklyMissions()
 
-    fun claimWeeklyMission(missionId: String, rewardGems: Int) {
-        val claimed = repository.claimWeeklyMission(missionId, rewardGems)
+    fun claimWeeklyMission(missionId: String, rewardGems: Int, rewardBlueGems: Int = 0) {
+        val claimed = repository.claimWeeklyMission(missionId, rewardGems, rewardBlueGems)
         if (claimed) {
             soundManager.playVictoryMusic()
             soundManager.playGemCollect()
@@ -209,14 +221,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun claimAllWeeklyMissions(): Int {
-        val totalGems = repository.claimAllWeeklyMissions()
-        if (totalGems > 0) {
+    fun claimAllWeeklyMissions(): Pair<Int, Int> {
+        val (totalGems, totalBlue) = repository.claimAllWeeklyMissions()
+        if (totalGems > 0 || totalBlue > 0) {
             soundManager.playVictoryMusic()
             soundManager.playGemCollect()
             hapticManager.levelUp()
         }
-        return totalGems
+        return totalGems to totalBlue
     }
 
     fun openContests(open: Boolean = true) {
@@ -227,14 +239,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getContests() = repository.getContestTournaments()
 
-    fun claimContest(contestId: String): Int {
-        val totalGems = repository.claimContestReward(contestId)
-        if (totalGems > 0) {
+    fun claimContest(contestId: String): Triple<Int, Int, Int> {
+        val (totalGems, totalBlue, totalRed) = repository.claimContestReward(contestId)
+        if (totalGems > 0 || totalBlue > 0 || totalRed > 0) {
             soundManager.playVictoryMusic()
             soundManager.playGemCollect()
             hapticManager.levelUp()
         }
-        return totalGems
+        return Triple(totalGems, totalBlue, totalRed)
     }
 
     fun openMainMenu(open: Boolean = true) {

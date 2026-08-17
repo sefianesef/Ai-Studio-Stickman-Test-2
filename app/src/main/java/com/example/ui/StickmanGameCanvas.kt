@@ -256,6 +256,139 @@ private fun DrawScope.drawGameBackground(engine: StickmanGameEngine, stage: Stag
                 )
             )
         }
+        CelestialType.SAKURA_BLOOM -> {
+            // Floating Sakura Blossoms & Ethereal Pink Moon
+            drawCircle(
+                color = Color(0x40F472B6),
+                radius = 54.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawCircle(
+                color = Color(0xFFFBCFE8),
+                radius = 36.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            // Floating Sakura Petals
+            for (p in 0 until 18) {
+                val petX = (p * 55f + sin(time * 1.8f + p) * 30f - parallax * 0.08f).mod(screenW)
+                val petY = (p * 40f + time * 28f + cos(time + p) * 15f).mod(screenH * 0.7f)
+                drawOval(
+                    color = Color(0xCCF472B6),
+                    topLeft = Offset(petX, petY),
+                    size = Size(10.dp.toPx(), 5.dp.toPx())
+                )
+            }
+        }
+        CelestialType.DEEP_ABYSS -> {
+            // Glowing Bioluminescent Deep Sea Moon & Floating Orbs
+            drawCircle(
+                color = Color(0x3306B6D4),
+                radius = 52.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawCircle(
+                color = Color(0xFF22D3EE),
+                radius = 32.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            for (j in 0 until 15) {
+                val jX = (j * 70f + cos(time * 1.2f + j) * 20f - parallax * 0.06f).mod(screenW)
+                val jY = (screenH * 0.7f - (j * 35f + time * 20f).mod(screenH * 0.6f))
+                val jAlpha = (0.3f + 0.4f * sin(time * 2f + j)).coerceIn(0.1f, 0.8f)
+                drawCircle(
+                    color = Color(0xFF38BDF8).copy(alpha = jAlpha),
+                    radius = (4 + (j % 4)).dp.toPx(),
+                    center = Offset(jX, jY)
+                )
+            }
+        }
+        CelestialType.MATRIX_CASCADE -> {
+            // Cyber Matrix Digital Grid Lines
+            drawCircle(
+                color = Color(0x3310B981),
+                radius = 48.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawCircle(
+                color = Color(0xFF34D399),
+                radius = 28.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            for (col in 0 until 16) {
+                val colX = (col * 28.dp.toPx() - parallax * 0.05f).mod(screenW)
+                val dropY = ((time * 120f + col * 45f) % (screenH * 0.6f))
+                drawLine(
+                    color = Color(0x8810B981),
+                    start = Offset(colX, dropY),
+                    end = Offset(colX, dropY + 25.dp.toPx()),
+                    strokeWidth = 2.dp.toPx()
+                )
+            }
+        }
+        CelestialType.CELESTIAL_SHRINE -> {
+            // High Star Shrines & Prismatic Blue Moon
+            drawCircle(
+                color = Color(0x4460A5FA),
+                radius = 60.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawCircle(
+                color = Color(0xFF93C5FD),
+                radius = 36.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawOval(
+                color = Color(0xAA38BDF8),
+                topLeft = Offset(baseCelestialX - 58.dp.toPx(), celestialY - 8.dp.toPx()),
+                size = Size(116.dp.toPx(), 16.dp.toPx()),
+                style = Stroke(width = 2.5.dp.toPx())
+            )
+        }
+        CelestialType.DRAGON_EMBER -> {
+            // Blood-Red Dragon Moon & Floating Lava Embers
+            drawCircle(
+                color = Color(0x44EF4444),
+                radius = 58.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawCircle(
+                color = Color(0xFFF87171),
+                radius = 36.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            for (e in 0 until 20) {
+                val embX = (e * 60f + sin(time * 2f + e) * 25f - parallax * 0.08f).mod(screenW)
+                val embY = (screenH * 0.7f - (e * 30f + time * 35f).mod(screenH * 0.55f))
+                val embAlpha = (0.4f + 0.5f * sin(time * 3f + e)).coerceIn(0.2f, 0.9f)
+                drawCircle(
+                    color = Color(0xFFF97316).copy(alpha = embAlpha),
+                    radius = (2 + (e % 3)).dp.toPx(),
+                    center = Offset(embX, embY)
+                )
+            }
+        }
+        CelestialType.CRYSTAL_PRISM -> {
+            // Prismatic Grandmaster Cosmic Crystals
+            drawCircle(
+                color = Color(0x44EC4899),
+                radius = 62.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawCircle(
+                color = Color(0xFFF472B6),
+                radius = 38.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            for (c in 0 until 12) {
+                val cX = (c * 80f + cos(time * 1.5f + c) * 35f - parallax * 0.06f).mod(screenW)
+                val cY = ((c * 50f + time * 18f) % (screenH * 0.5f)) + 30f
+                drawCircle(
+                    color = if (c % 2 == 0) Color(0xFFC084FC) else Color(0xFF38BDF8),
+                    radius = (3 + (c % 3)).dp.toPx(),
+                    center = Offset(cX, cY)
+                )
+            }
+        }
     }
 
     // 4. Distant Parallax Mountain Range (Slow Speed: 0.10x)

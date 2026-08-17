@@ -39,6 +39,8 @@ class GameRepository(
 
     companion object {
         private const val KEY_GEMS = "GEMS"
+        private const val KEY_BLUE_GEMS = "BLUE_GEMS"
+        private const val KEY_RED_GEMS = "RED_GEMS"
         private const val KEY_HIGH_SCORE = "HIGH_SCORE"
         private const val KEY_TOTAL_BRIDGES = "TOTAL_BRIDGES"
         private const val KEY_PERFECT_HITS = "PERFECT_HITS"
@@ -58,6 +60,8 @@ class GameRepository(
         private const val KEY_SCREEN_SHAKE = "SCREEN_SHAKE"
         private const val KEY_TOTAL_GAMES = "TOTAL_GAMES"
         private const val KEY_TOTAL_GEMS_HARVESTED = "TOTAL_GEMS_HARVESTED"
+        private const val KEY_TOTAL_BLUE_GEMS_EARNED = "TOTAL_BLUE_GEMS_EARNED"
+        private const val KEY_TOTAL_RED_GEMS_EARNED = "TOTAL_RED_GEMS_EARNED"
         private const val KEY_WEEKLY_PREFIX = "WEEKLY_PROG_"
         private const val KEY_WEEKLY_CLAIM_PREFIX = "WEEKLY_CLAIM_"
         private const val KEY_CONTEST_PREFIX = "CONTEST_PROG_"
@@ -68,7 +72,7 @@ class GameRepository(
 
     // Default catalog of shop items
     val availableAccessories: List<AccessoryItem> = listOf(
-        // Hats
+        // Hats (Standard Gems & Exclusive Contest Gems)
         AccessoryItem(
             id = "hat_none",
             name = "Default Band",
@@ -157,6 +161,33 @@ class GameRepository(
             iconSymbol = "🏴‍☠️",
             rarity = ItemRarity.EPIC
         ),
+        // Special Contest Blue Gem & Red Gem Hats
+        AccessoryItem(
+            id = "hat_sapphire_crown",
+            name = "Sapphire Diadem",
+            type = AccessoryType.HAT,
+            cost = 12,
+            currencyType = com.example.model.CurrencyType.BLUE_GEM,
+            primaryColor = 0xFF38BDF8,
+            secondaryColor = 0xFF1D4ED8,
+            description = "Contest Exclusive: Frost sapphire jewel",
+            iconSymbol = "👑",
+            rarity = ItemRarity.EPIC,
+            isContestExclusive = true
+        ),
+        AccessoryItem(
+            id = "hat_dragon_horns",
+            name = "Crimson Dragon Horns",
+            type = AccessoryType.HAT,
+            cost = 10,
+            currencyType = com.example.model.CurrencyType.RED_GEM,
+            primaryColor = 0xFFEF4444,
+            secondaryColor = 0xFF7F1D1D,
+            description = "Tournament Exclusive: Fiery draconic crest",
+            iconSymbol = "🐲",
+            rarity = ItemRarity.MYTHIC,
+            isContestExclusive = true
+        ),
 
         // Scarves / Capes
         AccessoryItem(
@@ -224,6 +255,33 @@ class GameRepository(
             description = "Blazing solar ember plumage",
             iconSymbol = "🔥",
             rarity = ItemRarity.LEGENDARY
+        ),
+        // Special Contest Scarves
+        AccessoryItem(
+            id = "scarf_glacial",
+            name = "Glacial Comet Cape",
+            type = AccessoryType.SCARF,
+            cost = 15,
+            currencyType = com.example.model.CurrencyType.BLUE_GEM,
+            primaryColor = 0xFF67E8F9,
+            secondaryColor = 0xFF0284C7,
+            description = "Contest Exclusive: Subzero crystalline comet tail",
+            iconSymbol = "☄️",
+            rarity = ItemRarity.EPIC,
+            isContestExclusive = true
+        ),
+        AccessoryItem(
+            id = "scarf_bloodfire",
+            name = "Bloodfire Wings",
+            type = AccessoryType.SCARF,
+            cost = 14,
+            currencyType = com.example.model.CurrencyType.RED_GEM,
+            primaryColor = 0xFFF43F5E,
+            secondaryColor = 0xFF881337,
+            description = "Tournament Exclusive: Prismatic molten ember drape",
+            iconSymbol = "🪽",
+            rarity = ItemRarity.MYTHIC,
+            isContestExclusive = true
         ),
 
         // Sticks (Bridge Visual Themes)
@@ -315,6 +373,33 @@ class GameRepository(
             iconSymbol = "🟢",
             rarity = ItemRarity.EPIC
         ),
+        // Special Contest Sticks
+        AccessoryItem(
+            id = "stick_cryo",
+            name = "Sapphire Cryo Beam",
+            type = AccessoryType.STICK,
+            cost = 14,
+            currencyType = com.example.model.CurrencyType.BLUE_GEM,
+            primaryColor = 0xFF38BDF8,
+            secondaryColor = 0xFF1E3A8A,
+            description = "Contest Exclusive: Pulsing freezing ice girder",
+            iconSymbol = "❄️",
+            rarity = ItemRarity.EPIC,
+            isContestExclusive = true
+        ),
+        AccessoryItem(
+            id = "stick_dark_matter",
+            name = "Dark Matter Scepter",
+            type = AccessoryType.STICK,
+            cost = 12,
+            currencyType = com.example.model.CurrencyType.RED_GEM,
+            primaryColor = 0xFFF43F5E,
+            secondaryColor = 0xFF4C0519,
+            description = "Tournament Exclusive: Supercharged ruby particle bridge",
+            iconSymbol = "⚡",
+            rarity = ItemRarity.MYTHIC,
+            isContestExclusive = true
+        ),
 
         // Body Skins / Outfits
         AccessoryItem(
@@ -405,8 +490,35 @@ class GameRepository(
             iconSymbol = "✨",
             rarity = ItemRarity.LEGENDARY
         ),
+        // Special Contest Skins
+        AccessoryItem(
+            id = "skin_diamond_phantom",
+            name = "Diamond Phantom",
+            type = AccessoryType.BODY_SKIN,
+            cost = 20,
+            currencyType = com.example.model.CurrencyType.BLUE_GEM,
+            primaryColor = 0xFF67E8F9,
+            secondaryColor = 0xFF1E40AF,
+            description = "Contest Exclusive: Translucent diamond ninja",
+            iconSymbol = "💎",
+            rarity = ItemRarity.EPIC,
+            isContestExclusive = true
+        ),
+        AccessoryItem(
+            id = "skin_infernal_ninja",
+            name = "Infernal Sovereign",
+            type = AccessoryType.BODY_SKIN,
+            cost = 18,
+            currencyType = com.example.model.CurrencyType.RED_GEM,
+            primaryColor = 0xFFEF4444,
+            secondaryColor = 0xFF450A0A,
+            description = "Tournament Exclusive: Blazing crimson overlord",
+            iconSymbol = "🥷",
+            rarity = ItemRarity.MYTHIC,
+            isContestExclusive = true
+        ),
 
-        // Stage & Realm Themes
+        // Stage & Realm Themes / Backgrounds
         AccessoryItem(
             id = "theme_emerald",
             name = "Emerald Twilight",
@@ -483,11 +595,92 @@ class GameRepository(
             description = "Molten lava rivers and volcanic ash skies",
             iconSymbol = "🌋",
             rarity = ItemRarity.LEGENDARY
+        ),
+        AccessoryItem(
+            id = "theme_sakura",
+            name = "Cherry Blossom Shrine",
+            type = AccessoryType.THEME,
+            cost = 80,
+            primaryColor = 0xFFF472B6,
+            secondaryColor = 0xFF6441A5,
+            description = "Floating sakura petals & mystic Japanese temple",
+            iconSymbol = "🌸",
+            rarity = ItemRarity.EPIC
+        ),
+        AccessoryItem(
+            id = "theme_abyss",
+            name = "Atlantis Abyss",
+            type = AccessoryType.THEME,
+            cost = 90,
+            primaryColor = 0xFF06B6D4,
+            secondaryColor = 0xFF021B29,
+            description = "Bioluminescent coral trench & floating orbs",
+            iconSymbol = "🌊",
+            rarity = ItemRarity.LEGENDARY
+        ),
+        // Special Contest & Tournament Exclusive Backgrounds (Blue & Red Gems)
+        AccessoryItem(
+            id = "theme_matrix",
+            name = "Cyber Matrix Grid",
+            type = AccessoryType.THEME,
+            cost = 20,
+            currencyType = com.example.model.CurrencyType.BLUE_GEM,
+            primaryColor = 0xFF10B981,
+            secondaryColor = 0xFF021408,
+            description = "Contest Exclusive: Neon digital rain cascades & cyber girders",
+            iconSymbol = "💻",
+            rarity = ItemRarity.EPIC,
+            isContestExclusive = true
+        ),
+        AccessoryItem(
+            id = "theme_moon_palace",
+            name = "Celestial Moon Palace",
+            type = AccessoryType.THEME,
+            cost = 25,
+            currencyType = com.example.model.CurrencyType.BLUE_GEM,
+            primaryColor = 0xFF60A5FA,
+            secondaryColor = 0xFF0F172A,
+            description = "Contest Exclusive: High ethereal shrines floating above starlight",
+            iconSymbol = "🌙",
+            rarity = ItemRarity.LEGENDARY,
+            isContestExclusive = true
+        ),
+        AccessoryItem(
+            id = "theme_dragon",
+            name = "Dragon Sovereign Domain",
+            type = AccessoryType.THEME,
+            cost = 16,
+            currencyType = com.example.model.CurrencyType.RED_GEM,
+            primaryColor = 0xFFEF4444,
+            secondaryColor = 0xFF3B0000,
+            description = "Tournament Exclusive: Ancient obsidian towers & blood dragon moon",
+            iconSymbol = "🐉",
+            rarity = ItemRarity.MYTHIC,
+            isContestExclusive = true
+        ),
+        AccessoryItem(
+            id = "theme_grandmaster",
+            name = "Mythic Grandmaster Crystal",
+            type = AccessoryType.THEME,
+            cost = 22,
+            currencyType = com.example.model.CurrencyType.RED_GEM,
+            primaryColor = 0xFFF472B6,
+            secondaryColor = 0xFF18032E,
+            description = "Tournament Exclusive: Divine prismatic crystalline auroras",
+            iconSymbol = "👑",
+            rarity = ItemRarity.MYTHIC,
+            isContestExclusive = true
         )
     )
 
     private val _gems = MutableStateFlow(prefs.getInt(KEY_GEMS, 10)) // 10 starter gems!
     val gems: StateFlow<Int> = _gems.asStateFlow()
+
+    private val _blueGems = MutableStateFlow(prefs.getInt(KEY_BLUE_GEMS, 6)) // Starter Blue Gems for contest testing!
+    val blueGems: StateFlow<Int> = _blueGems.asStateFlow()
+
+    private val _redGems = MutableStateFlow(prefs.getInt(KEY_RED_GEMS, 3)) // Starter Red Gems for championship testing!
+    val redGems: StateFlow<Int> = _redGems.asStateFlow()
 
     private val _highScore = MutableStateFlow(prefs.getInt(KEY_HIGH_SCORE, 0))
     val highScore: StateFlow<Int> = _highScore.asStateFlow()
@@ -804,6 +997,46 @@ class GameRepository(
         return false
     }
 
+    fun addBlueGems(amount: Int) {
+        val newGems = _blueGems.value + amount
+        _blueGems.value = newGems
+        val totalEarned = prefs.getInt(KEY_TOTAL_BLUE_GEMS_EARNED, 0) + amount
+        prefs.edit()
+            .putInt(KEY_BLUE_GEMS, newGems)
+            .putInt(KEY_TOTAL_BLUE_GEMS_EARNED, totalEarned)
+            .apply()
+    }
+
+    fun spendBlueGems(amount: Int): Boolean {
+        if (_blueGems.value >= amount) {
+            val newGems = _blueGems.value - amount
+            _blueGems.value = newGems
+            prefs.edit().putInt(KEY_BLUE_GEMS, newGems).apply()
+            return true
+        }
+        return false
+    }
+
+    fun addRedGems(amount: Int) {
+        val newGems = _redGems.value + amount
+        _redGems.value = newGems
+        val totalEarned = prefs.getInt(KEY_TOTAL_RED_GEMS_EARNED, 0) + amount
+        prefs.edit()
+            .putInt(KEY_RED_GEMS, newGems)
+            .putInt(KEY_TOTAL_RED_GEMS_EARNED, totalEarned)
+            .apply()
+    }
+
+    fun spendRedGems(amount: Int): Boolean {
+        if (_redGems.value >= amount) {
+            val newGems = _redGems.value - amount
+            _redGems.value = newGems
+            prefs.edit().putInt(KEY_RED_GEMS, newGems).apply()
+            return true
+        }
+        return false
+    }
+
     fun updateHighScore(score: Int): Boolean {
         if (score > _highScore.value) {
             _highScore.value = score
@@ -837,7 +1070,12 @@ class GameRepository(
             equip(item)
             return true
         }
-        if (spendGems(item.cost)) {
+        val purchaseSuccess = when (item.currencyType) {
+            com.example.model.CurrencyType.GEM -> spendGems(item.cost)
+            com.example.model.CurrencyType.BLUE_GEM -> spendBlueGems(item.cost)
+            com.example.model.CurrencyType.RED_GEM -> spendRedGems(item.cost)
+        }
+        if (purchaseSuccess) {
             unlockItem(item.id, item.type, item.cost)
             equip(item)
             return true
@@ -1079,17 +1317,19 @@ class GameRepository(
     // --- WEEKLY EPIC MISSIONS ---
     fun getWeeklyMissions(): List<WeeklyMissionItem> {
         val defs = listOf(
-            Triple("w_architect", "Grand Bridge Architect", "Span 40 total bridge gaps this week") to (("BUILD_BRIDGES" to 40) to (50 to "🥢")),
-            Triple("w_sniper", "Bullseye Grandmaster", "Score 15 red dot bullseye perfect hits") to (("PERFECT_HITS" to 15) to (75 to "🎯")),
-            Triple("w_gem_hoarder", "Gem Vault Magnate", "Harvest 35 under-bridge glowing rubies") to (("COLLECT_GEMS" to 35) to (60 to "💎")),
-            Triple("w_acrobat", "Upside-Down Acrobat", "Complete 20 stealth flip walks safely") to (("FLIP_WALK" to 20) to (60 to "🤸")),
-            Triple("w_marathon", "Endurance Champion", "Reach a high score of 12 or above") to (("REACH_SCORE" to 12) to (100 to "👑"))
+            Triple("w_architect", "Grand Bridge Architect", "Span 40 total bridge gaps this week") to ((("BUILD_BRIDGES" to 40) to (50 to "🥢")) to 4),
+            Triple("w_sniper", "Bullseye Grandmaster", "Score 15 red dot bullseye perfect hits") to ((("PERFECT_HITS" to 15) to (75 to "🎯")) to 6),
+            Triple("w_gem_hoarder", "Gem Vault Magnate", "Harvest 35 under-bridge glowing rubies") to ((("COLLECT_GEMS" to 35) to (60 to "💎")) to 5),
+            Triple("w_acrobat", "Upside-Down Acrobat", "Complete 20 stealth flip walks safely") to ((("FLIP_WALK" to 20) to (60 to "🤸")) to 5),
+            Triple("w_marathon", "Endurance Champion", "Reach a high score of 12 or above") to ((("REACH_SCORE" to 12) to (100 to "👑")) to 8)
         )
 
         return defs.map { (info, config) ->
             val (id, title, desc) = info
-            val (type, target) = config.first
-            val (gemsReward, emoji) = config.second
+            val (mainConfig, blueGemReward) = config
+            val (typeConfig, rewardConfig) = mainConfig
+            val (type, target) = typeConfig
+            val (gemsReward, emoji) = rewardConfig
 
             val prog = prefs.getInt(KEY_WEEKLY_PREFIX + id, 0)
             val claimed = prefs.getBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, false)
@@ -1103,6 +1343,7 @@ class GameRepository(
                 targetCount = target,
                 currentProgress = prog,
                 rewardGems = gemsReward,
+                rewardBlueGems = blueGemReward,
                 iconEmoji = emoji,
                 isCompleted = isDone,
                 isClaimed = claimed,
@@ -1125,25 +1366,29 @@ class GameRepository(
         }
     }
 
-    fun claimWeeklyMission(id: String, rewardGems: Int): Boolean {
+    fun claimWeeklyMission(id: String, rewardGems: Int, rewardBlueGems: Int = 0): Boolean {
         if (!prefs.getBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, false)) {
             prefs.edit().putBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, true).apply()
-            addGems(rewardGems)
+            if (rewardGems > 0) addGems(rewardGems)
+            if (rewardBlueGems > 0) addBlueGems(rewardBlueGems)
             return true
         }
         return false
     }
 
-    fun claimAllWeeklyMissions(): Int {
+    fun claimAllWeeklyMissions(): Pair<Int, Int> {
         val weekly = getWeeklyMissions().filter { it.isCompleted && !it.isClaimed }
-        if (weekly.isEmpty()) return 0
-        var total = 0
+        if (weekly.isEmpty()) return 0 to 0
+        var totalGems = 0
+        var totalBlue = 0
         weekly.forEach {
             prefs.edit().putBoolean(KEY_WEEKLY_CLAIM_PREFIX + it.id, true).apply()
-            total += it.rewardGems
+            totalGems += it.rewardGems
+            totalBlue += it.rewardBlueGems
         }
-        addGems(total)
-        return total
+        if (totalGems > 0) addGems(totalGems)
+        if (totalBlue > 0) addBlueGems(totalBlue)
+        return totalGems to totalBlue
     }
 
     // --- EXPANDED TOURNAMENTS & CONTESTS ---
@@ -1158,13 +1403,15 @@ class GameRepository(
                 timeRemainingStr = "2d 14h",
                 participantsCount = "14,820",
                 prizePoolGems = 300,
+                prizePoolBlueGems = 15,
+                prizePoolRedGems = 5,
                 targetGoal = 25,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bridge_rush", 0),
                 goalUnit = "Bridges",
                 isJoined = true,
                 isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bridge_rush", 0) >= 25,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_bridge_rush", false),
-                rewardPerk = "300 💎 + Mythic Champion Aura"
+                rewardPerk = "300 💎 + 15 🔷 + 5 🔴"
             ),
             ContestTournament(
                 id = "contest_bullseye_cup",
@@ -1175,13 +1422,15 @@ class GameRepository(
                 timeRemainingStr = "1d 08h",
                 participantsCount = "9,430",
                 prizePoolGems = 250,
+                prizePoolBlueGems = 20,
+                prizePoolRedGems = 8,
                 targetGoal = 10,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bullseye_cup", 0),
                 goalUnit = "Bullseyes",
                 isJoined = true,
                 isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bullseye_cup", 0) >= 10,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_bullseye_cup", false),
-                rewardPerk = "250 💎 + Laser Staff"
+                rewardPerk = "250 💎 + 20 🔷 + 8 🔴"
             ),
             ContestTournament(
                 id = "contest_gem_hunt",
@@ -1192,13 +1441,15 @@ class GameRepository(
                 timeRemainingStr = "3d 21h",
                 participantsCount = "18,120",
                 prizePoolGems = 200,
+                prizePoolBlueGems = 12,
+                prizePoolRedGems = 4,
                 targetGoal = 15,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_gem_hunt", 0),
                 goalUnit = "Gems",
                 isJoined = true,
                 isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_gem_hunt", 0) >= 15,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_gem_hunt", false),
-                rewardPerk = "200 💎 + Golden Scarf"
+                rewardPerk = "200 💎 + 12 🔷 + 4 🔴"
             ),
             ContestTournament(
                 id = "contest_speed_blitz",
@@ -1209,13 +1460,15 @@ class GameRepository(
                 timeRemainingStr = "18h 30m",
                 participantsCount = "24,500",
                 prizePoolGems = 400,
+                prizePoolBlueGems = 25,
+                prizePoolRedGems = 10,
                 targetGoal = 8,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_speed_blitz", 0),
                 goalUnit = "Score",
                 isJoined = true,
                 isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_speed_blitz", 0) >= 8,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_speed_blitz", false),
-                rewardPerk = "400 💎 + Diamond League Badge"
+                rewardPerk = "400 💎 + 25 🔷 + 10 🔴"
             )
         )
         return list
@@ -1236,14 +1489,16 @@ class GameRepository(
         }
     }
 
-    fun claimContestReward(contestId: String): Int {
-        val contest = getContestTournaments().find { it.id == contestId } ?: return 0
+    fun claimContestReward(contestId: String): Triple<Int, Int, Int> {
+        val contest = getContestTournaments().find { it.id == contestId } ?: return Triple(0, 0, 0)
         if (contest.isCompleted && !contest.isClaimed) {
             prefs.edit().putBoolean(KEY_CONTEST_CLAIM_PREFIX + contestId, true).apply()
-            addGems(contest.prizePoolGems)
-            return contest.prizePoolGems
+            if (contest.prizePoolGems > 0) addGems(contest.prizePoolGems)
+            if (contest.prizePoolBlueGems > 0) addBlueGems(contest.prizePoolBlueGems)
+            if (contest.prizePoolRedGems > 0) addRedGems(contest.prizePoolRedGems)
+            return Triple(contest.prizePoolGems, contest.prizePoolBlueGems, contest.prizePoolRedGems)
         }
-        return 0
+        return Triple(0, 0, 0)
     }
 
     // --- PLAYER CAREER STATS & RECORDS ---
@@ -1264,6 +1519,8 @@ class GameRepository(
         val perfects = prefs.getInt(KEY_PERFECT_HITS, 0)
         val bullseyePct = if (bridges > 0) ((perfects.toFloat() / bridges.toFloat()) * 100).toInt().coerceIn(0, 100) else 0
         val gemsEarned = prefs.getInt(KEY_TOTAL_GEMS_HARVESTED, 0) + _gems.value
+        val blueGemsEarned = prefs.getInt(KEY_TOTAL_BLUE_GEMS_EARNED, 0) + _blueGems.value
+        val redGemsEarned = prefs.getInt(KEY_TOTAL_RED_GEMS_EARNED, 0) + _redGems.value
         val streak = _currentStreak.value
 
         return PlayerCareerStats(
@@ -1273,6 +1530,8 @@ class GameRepository(
             totalPerfectHits = perfects,
             bullseyeRatePercent = bullseyePct,
             totalGemsHarvested = gemsEarned,
+            totalBlueGemsEarned = blueGemsEarned,
+            totalRedGemsEarned = redGemsEarned,
             currentStreakDays = streak,
             league = getUserTournamentLeague()
         )
