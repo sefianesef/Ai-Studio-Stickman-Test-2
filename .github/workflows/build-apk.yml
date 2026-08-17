@@ -87,11 +87,37 @@ jobs:
         cp "$APK_PATH" dist/StickmanHero.apk
         ls -lh dist/StickmanHero.apk
 
+    - name: Package Complete Project Archive (Including Hidden Files)
+      run: |
+        echo "=== Packaging Complete Source Code ==="
+        python3 -c "
+import os, zipfile
+excluded = ('./.gradle', './app/build', './build', './dist', './stickman_hero_complete_project.zip')
+with zipfile.ZipFile('dist/StickmanHero-Complete-Project.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+    for root, dirs, files in os.walk('.'):
+        if any(root.startswith(p) for p in excluded):
+            continue
+        for file in files:
+            p = os.path.join(root, file)
+            if any(p.startswith(ex) for ex in excluded):
+                continue
+            z.write(p, os.path.relpath(p, '.'))
+print('Created complete project zip in dist/')
+"
+
     - name: Upload Stickman Hero APK
       uses: actions/upload-artifact@v4
       with:
         name: StickmanHero-Debug-APK
         path: dist/StickmanHero.apk
+        if-no-files-found: error
+        retention-days: 30
+
+    - name: Upload Complete Source ZIP
+      uses: actions/upload-artifact@v4
+      with:
+        name: StickmanHero-Source-Code
+        path: dist/StickmanHero-Complete-Project.zip
         if-no-files-found: error
         retention-days: 30
 
