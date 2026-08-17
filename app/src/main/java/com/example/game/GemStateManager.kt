@@ -35,6 +35,9 @@ class GemStateManager(
 
     /**
      * Generates a gem entity located between the start and destination platform.
+     * As levels increase:
+     * - Gem spawn rates become more selective and exclusive.
+     * - Gem positioning on higher levels tests acrobatic timing (tight flip windows requiring precise reflexes).
      */
     fun createGemForSpan(
         spanStartX: Float,
@@ -42,17 +45,29 @@ class GemStateManager(
         difficultyTier: DifficultyTier
     ): GemData? {
         val spanWidth = spanEndX - spanStartX
-        if (spanWidth < 90f) return null
+        if (spanWidth < 85f) return null
 
         if (Random.nextFloat() > difficultyTier.gemSpawnRate) return null
 
-        // Position gem in the first 25% - 60% of the bridge span so player always has ample space to flip up safely
-        val minX = spanStartX + (spanWidth * 0.25f)
-        val maxX = (spanStartX + (spanWidth * 0.60f)).coerceAtMost(spanEndX - 55f)
+        // In higher tiers (Adept, Expert, Master, Legend), gems are placed in trickier positions on the bridge
+        val (minFrac, maxFrac) = when (difficultyTier) {
+            DifficultyTier.NOVICE_TRAINING -> Pair(0.30f, 0.60f)
+            DifficultyTier.APPRENTICE -> Pair(0.25f, 0.65f)
+            DifficultyTier.ADEPT -> Pair(0.20f, 0.70f)
+            DifficultyTier.EXPERT, DifficultyTier.MASTER, DifficultyTier.GRANDMASTER -> Pair(0.20f, 0.75f)
+        }
+
+        val minX = spanStartX + (spanWidth * minFrac)
+        val maxX = (spanStartX + (spanWidth * maxFrac)).coerceAtMost(spanEndX - 45f)
         val gemX = if (maxX > minX) minX + Random.nextFloat() * (maxX - minX) else (spanStartX + spanEndX) / 2f
 
-        // 70% under the bridge (requiring flip), 30% on top of bridge
-        val isUnder = Random.nextFloat() < 0.70f
+        // Higher difficulty tiers have 80% flip under-bridge challenge
+        val flipThreshold = when (difficultyTier) {
+            DifficultyTier.NOVICE_TRAINING -> 0.60f
+            DifficultyTier.APPRENTICE -> 0.70f
+            else -> 0.80f
+        }
+        val isUnder = Random.nextFloat() < flipThreshold
 
         return GemData(
             id = System.nanoTime(),

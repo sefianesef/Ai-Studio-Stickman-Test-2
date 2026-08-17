@@ -520,6 +520,7 @@ class StickmanGameEngine(
                             
                             soundManager.playVictoryMusic()
                             hapticManager?.levelUp()
+                            spawnBalloonBurst(screenWidth / 2f, screenHeight * 0.35f, balloonCount = if (isMajorMilestone) 5 else 3)
                             spawnConfetti(screenWidth / 2f, screenHeight * 0.35f, count = 55)
                             addFloatingText(
                                 "LEVEL $newLevel REACHED! +$bonusGems 💎",
@@ -863,6 +864,103 @@ class StickmanGameEngine(
                     vRot = Random.nextFloat() * 450f - 225f
                 )
             )
+        }
+    }
+
+    private fun spawnBalloonBurst(centerX: Float, centerY: Float, balloonCount: Int = 3) {
+        val balloonThemes = listOf(
+            Pair(Color(0xFFEF4444), listOf(Color(0xFFFCA5A5), Color(0xFFEF4444), Color(0xFFB91C1C))), // Red
+            Pair(Color(0xFF3B82F6), listOf(Color(0xFF93C5FD), Color(0xFF3B82F6), Color(0xFF1D4ED8))), // Blue
+            Pair(Color(0xFF10B981), listOf(Color(0xFF6EE7B7), Color(0xFF10B981), Color(0xFF047857))), // Emerald
+            Pair(Color(0xFFF59E0B), listOf(Color(0xFFFDE68A), Color(0xFFF59E0B), Color(0xFFD97706))), // Gold
+            Pair(Color(0xFFA855F7), listOf(Color(0xFFE9D5FF), Color(0xFFA855F7), Color(0xFF6B21A8))), // Purple
+            Pair(Color(0xFFEC4899), listOf(Color(0xFFFBCFE8), Color(0xFFEC4899), Color(0xFFBE185D)))  // Hot Pink
+        )
+
+        for (b in 0 until balloonCount) {
+            val offsetX = (b - (balloonCount - 1) / 2f) * 110f + (Random.nextFloat() * 30f - 15f)
+            val offsetY = (Random.nextFloat() * 50f - 25f)
+            val bx = centerX + offsetX
+            val by = centerY + offsetY
+            val theme = balloonThemes[Random.nextInt(balloonThemes.size)]
+
+            // Shockwave pop ring
+            particles.add(
+                Particle(
+                    x = bx,
+                    y = by,
+                    vx = 0f,
+                    vy = 0f,
+                    color = theme.first,
+                    radius = 12f,
+                    maxLife = 0.5f,
+                    life = 0.5f,
+                    shape = ParticleShape.RING_WAVE
+                )
+            )
+
+            // Rubber balloon shards bursting outwards
+            for (i in 0 until 18) {
+                val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+                val speed = Random.nextFloat() * 260f + 90f
+                particles.add(
+                    Particle(
+                        x = bx,
+                        y = by,
+                        vx = kotlin.math.cos(angle) * speed,
+                        vy = kotlin.math.sin(angle) * speed - 60f,
+                        color = theme.second[Random.nextInt(theme.second.size)],
+                        radius = Random.nextFloat() * 6f + 3.5f,
+                        maxLife = Random.nextFloat() * 0.4f + 0.9f,
+                        life = 1.3f,
+                        shape = ParticleShape.BALLOON_POP,
+                        rotation = Random.nextFloat() * 360f,
+                        vRot = Random.nextFloat() * 600f - 300f
+                    )
+                )
+            }
+
+            // Confetti and streamer ribbons fluttering from inside balloon
+            for (i in 0 until 12) {
+                val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+                val speed = Random.nextFloat() * 200f + 60f
+                particles.add(
+                    Particle(
+                        x = bx,
+                        y = by,
+                        vx = kotlin.math.cos(angle) * speed,
+                        vy = kotlin.math.sin(angle) * speed - 110f,
+                        color = theme.second[Random.nextInt(theme.second.size)],
+                        radius = Random.nextFloat() * 5f + 3f,
+                        maxLife = 1.5f,
+                        life = 1.5f,
+                        shape = if (i % 2 == 0) ParticleShape.RIBBON else ParticleShape.CONFETTI,
+                        rotation = Random.nextFloat() * 360f,
+                        vRot = Random.nextFloat() * 500f - 250f
+                    )
+                )
+            }
+
+            // Sparkles & Stars
+            for (i in 0 until 8) {
+                val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+                val speed = Random.nextFloat() * 180f + 40f
+                particles.add(
+                    Particle(
+                        x = bx,
+                        y = by,
+                        vx = kotlin.math.cos(angle) * speed,
+                        vy = kotlin.math.sin(angle) * speed - 40f,
+                        color = Color.White,
+                        radius = Random.nextFloat() * 3.5f + 2f,
+                        maxLife = 0.7f,
+                        life = 0.7f,
+                        shape = ParticleShape.STAR,
+                        rotation = Random.nextFloat() * 360f,
+                        vRot = Random.nextFloat() * 400f - 200f
+                    )
+                )
+            }
         }
     }
 

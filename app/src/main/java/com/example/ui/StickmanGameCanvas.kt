@@ -1208,6 +1208,47 @@ private fun DrawScope.drawParticles(particles: List<Particle>) {
                     center = Offset(p.x, p.y)
                 )
             }
+            ParticleShape.BALLOON_POP -> {
+                // Balloon fragment/shard: tear-drop / rubber petal curve with glossy highlight
+                rotate(degrees = p.rotation, pivot = Offset(p.x, p.y)) {
+                    val progress = (1f - (p.life / p.maxLife)).coerceIn(0f, 1f)
+                    val stretch = p.radius * (1f + progress * 0.4f)
+                    val path = Path().apply {
+                        moveTo(p.x, p.y - stretch * 1.5f)
+                        cubicTo(
+                            p.x + stretch * 1.2f, p.y - stretch * 0.5f,
+                            p.x + stretch * 0.8f, p.y + stretch * 1.2f,
+                            p.x, p.y + stretch * 1.4f
+                        )
+                        cubicTo(
+                            p.x - stretch * 0.8f, p.y + stretch * 1.2f,
+                            p.x - stretch * 1.2f, p.y - stretch * 0.5f,
+                            p.x, p.y - stretch * 1.5f
+                        )
+                        close()
+                    }
+                    drawPath(path = path, color = pColor)
+                    // Curved specular shine
+                    drawCircle(
+                        color = Color.White.copy(alpha = (p.alpha * 0.75f).coerceIn(0f, 1f)),
+                        radius = stretch * 0.35f,
+                        center = Offset(p.x - stretch * 0.25f, p.y - stretch * 0.4f)
+                    )
+                }
+            }
+            ParticleShape.RIBBON -> {
+                // Spiraling celebratory streamer ribbon
+                rotate(degrees = p.rotation, pivot = Offset(p.x, p.y)) {
+                    val width = p.radius * 2.6f
+                    val height = p.radius * 0.8f
+                    drawRoundRect(
+                        color = pColor,
+                        topLeft = Offset(p.x - width / 2f, p.y - height / 2f),
+                        size = Size(width, height),
+                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    )
+                }
+            }
             else -> {
                 drawCircle(
                     color = pColor,

@@ -137,7 +137,9 @@ enum class ParticleShape {
     RING_WAVE,
     SPARKLE,
     FIRE_EMBER,
-    NEON_ORB
+    NEON_ORB,
+    BALLOON_POP,
+    RIBBON
 }
 
 data class FloatingPopupText(
