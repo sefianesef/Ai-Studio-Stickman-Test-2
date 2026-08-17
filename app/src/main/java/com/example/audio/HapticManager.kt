@@ -24,32 +24,40 @@ class HapticManager(private val context: Context) {
     var isEnabled: Boolean = true
 
     /**
-     * Subtle micro-click during bridge stretching
+     * Progressive micro-click during bridge stretching that scales dynamically
+     * with the difficulty tier and level tension!
      */
-    fun tick() {
+    fun tick(tierLevel: Int = 1) {
         if (!isEnabled || vibrator?.hasVibrator() != true) return
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(8, 60))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val duration = (5 + tierLevel * 2).toLong().coerceIn(6L, 18L)
+                val amplitude = when (tierLevel) {
+                    1 -> 45   // Gentle, satisfying, effortless for early levels 1-10
+                    2 -> 80   // Crisp, engaging
+                    3 -> 125  // Firm tactile response
+                    4 -> 175  // Tense, energetic
+                    5 -> 220  // High stakes master pulse
+                    else -> 255 // Maximum tension legend vibration
+                }
+                vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude))
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(8)
+                vibrator.vibrate((6 + tierLevel * 2).toLong())
             }
         } catch (_: Exception) {}
     }
 
     /**
-     * Solid impact when the bridge lands onto a platform
+     * Solid progressive impact when the bridge lands onto a platform
      */
-    fun bridgePlaced() {
+    fun bridgePlaced(tierLevel: Int = 1) {
         if (!isEnabled || vibrator?.hasVibrator() != true) return
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(25, 180))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val duration = (18 + tierLevel * 4).toLong().coerceIn(18L, 42L)
+                val amplitude = (120 + tierLevel * 25).coerceIn(120, 255)
+                vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude))
             } else {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(25)
@@ -58,18 +66,34 @@ class HapticManager(private val context: Context) {
     }
 
     /**
-     * Double rhythmic pulse for a precision center red-dot bullseye!
+     * Progressive celebratory rhythmic pulse for a precision center red-dot bullseye!
      */
-    fun perfectHit() {
+    fun perfectHit(tierLevel: Int = 1) {
         if (!isEnabled || vibrator?.hasVibrator() != true) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val timings = longArrayOf(0, 30, 40, 50)
-                val amplitudes = intArrayOf(0, 220, 0, 255)
+                val baseAmp = (180 + tierLevel * 15).coerceIn(180, 255)
+                val timings = longArrayOf(0, 25, 35, 45, 35, 60)
+                val amplitudes = intArrayOf(0, (baseAmp * 0.75f).toInt(), 0, baseAmp, 0, 255)
                 vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
             } else {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(longArrayOf(0, 30, 40, 50), -1)
+            }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Subtle pulse warning when aligning timing on dynamic moving pillars
+     */
+    fun movingPillarWarning() {
+        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(10, 90))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(10)
             }
         } catch (_: Exception) {}
     }

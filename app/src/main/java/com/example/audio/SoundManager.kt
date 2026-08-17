@@ -36,6 +36,10 @@ class SoundManager(private val context: Context) {
     private var soundFlipId: Int = 0
     private var soundGameOverId: Int = 0
     private var soundButtonId: Int = 0
+    private var soundVictoryMusicId: Int = 0
+    private var soundStickmanFallId: Int = 0
+    private var soundPurchaseSuccessId: Int = 0
+    private var soundComboStreakId: Int = 0
 
     private val loadedSounds = mutableSetOf<Int>()
 
@@ -158,6 +162,65 @@ class SoundManager(private val context: Context) {
                         sin(2.0 * PI * 700.0 * t) * decay * 0.4
                     }
                 }
+
+                // 11. Level Victory Fanfare / Music (Glorious multi-note triumph)
+                soundVictoryMusicId = loadWavSound(soundDir, "level_victory.wav") {
+                    generateWavData(durationMs = 650, sampleRate = 22050) { t, frac ->
+                        val freq = when {
+                            frac < 0.15 -> 523.25  // C5
+                            frac < 0.30 -> 659.25  // E5
+                            frac < 0.45 -> 783.99  // G5
+                            frac < 0.65 -> 1046.50 // C6
+                            else -> 1318.51        // E6 (Triumphant high flourish!)
+                        }
+                        val segmentFrac = (frac % 0.15) / 0.15
+                        val decay = 1.0 - (segmentFrac * 0.45)
+                        // Add rich brass/chime 2nd harmonic
+                        (sin(2.0 * PI * freq * t) * 0.75 + sin(2.0 * PI * freq * 2.0 * t) * 0.35) * decay
+                    }
+                }
+
+                // 12. Stickman Fall Down (Cartoon slide whistle drop down to hilarious thud)
+                soundStickmanFallId = loadWavSound(soundDir, "stickman_fall.wav") {
+                    generateWavData(durationMs = 550, sampleRate = 22050) { t, frac ->
+                        if (frac < 0.82) {
+                            // Descending slide whistle with comedic vibrato
+                            val fallFrac = frac / 0.82
+                            val baseFreq = 780.0 - (fallFrac * fallFrac * 620.0) // 780Hz -> 160Hz
+                            val vibrato = sin(2.0 * PI * 18.0 * t) * 25.0
+                            val decay = 1.0 - fallFrac * 0.3
+                            sin(2.0 * PI * (baseFreq + vibrato) * t) * decay * 0.85
+                        } else {
+                            // Comedic cartoon thud / splash impact
+                            val impactFrac = (frac - 0.82) / 0.18
+                            val decay = 1.0 - impactFrac
+                            (sin(2.0 * PI * 85.0 * t) * 0.8 + sin(2.0 * PI * 42.0 * t) * 0.5) * decay
+                        }
+                    }
+                }
+
+                // 13. Gem Purchase / Real Money Triumph Fanfare
+                soundPurchaseSuccessId = loadWavSound(soundDir, "purchase_success.wav") {
+                    generateWavData(durationMs = 500, sampleRate = 22050) { t, frac ->
+                        val freq = when {
+                            frac < 0.2 -> 659.25   // E5
+                            frac < 0.4 -> 880.00   // A5
+                            frac < 0.6 -> 1174.66  // D6
+                            else -> 1760.00        // A6 (Crystal sparkle)
+                        }
+                        val decay = 1.0 - frac * 0.7
+                        (sin(2.0 * PI * freq * t) * 0.8 + sin(2.0 * PI * (freq * 1.5) * t) * 0.3) * decay
+                    }
+                }
+
+                // 14. Combo Streak / On Fire Chime
+                soundComboStreakId = loadWavSound(soundDir, "combo_streak.wav") {
+                    generateWavData(durationMs = 240, sampleRate = 22050) { t, frac ->
+                        val freq = 580.0 + (frac * 600.0)
+                        val decay = 1.0 - frac
+                        sin(2.0 * PI * freq * t) * decay * 0.8
+                    }
+                }
             } catch (_: Exception) {
                 // Gracefully fallback
             }
@@ -270,6 +333,22 @@ class SoundManager(private val context: Context) {
 
     fun playButton() {
         playSound(soundButtonId, volume = 0.5f)
+    }
+
+    fun playVictoryMusic() {
+        playSound(soundVictoryMusicId, volume = 1.0f)
+    }
+
+    fun playStickmanFall() {
+        playSound(soundStickmanFallId, volume = 0.95f)
+    }
+
+    fun playBuyGemsSuccess() {
+        playSound(soundPurchaseSuccessId, volume = 1.0f)
+    }
+
+    fun playComboStreak() {
+        playSound(soundComboStreakId, volume = 0.9f)
     }
 
     fun release() {

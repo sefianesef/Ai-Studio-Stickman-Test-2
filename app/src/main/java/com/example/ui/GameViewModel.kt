@@ -94,11 +94,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun buyGemPack(pack: com.example.model.GemPack): Boolean {
         val success = repository.buyGemPackWithTokens(pack)
         if (success) {
+            soundManager.playBuyGemsSuccess()
             soundManager.playGemCollect()
-            soundManager.playPerfectHit()
             hapticManager.missionClaim()
         }
         return success
+    }
+
+    fun buyGemPackRealMoney(pack: com.example.model.GemPack): Boolean {
+        val totalAwarded = pack.gemAmount + pack.bonusGems
+        repository.addGems(totalAwarded)
+        soundManager.playBuyGemsSuccess()
+        soundManager.playVictoryMusic()
+        hapticManager.levelUp()
+        return true
+    }
+
+    val activeLevelVictory: StateFlow<com.example.model.LevelVictoryData?> = engine.activeLevelVictory
+
+    fun dismissLevelVictory() {
+        engine.dismissLevelVictory()
     }
 
     fun revivePlayer(): Boolean {

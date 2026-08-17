@@ -828,43 +828,73 @@ class GameRepository(
         return next
     }
 
-    // Gem Vault Packs Catalog
+    // Gem Vault Packs Catalog (Real-Money IAP and Free Claim)
     val availableGemPacks: List<GemPack> = listOf(
         GemPack(
             id = "gem_free_daily",
             name = "Daily Supply Crate",
-            gemAmount = 30,
+            gemAmount = 35,
             bonusGems = 0,
             iconEmoji = "📦",
             tag = "DAILY FREE",
-            isDailyFree = true
+            priceUsd = "FREE",
+            isDailyFree = true,
+            perks = "Free daily refill every 24 hours"
+        ),
+        GemPack(
+            id = "gem_starter",
+            name = "Handful of Crystals",
+            gemAmount = 100,
+            bonusGems = 25,
+            iconEmoji = "✨",
+            tag = "STARTER DEAL",
+            priceUsd = "$0.99",
+            scoreCost = 30,
+            perks = "125 Gems + 1 Free Revival Heart"
         ),
         GemPack(
             id = "gem_pouch",
-            name = "Pouch of Crystals",
-            gemAmount = 80,
-            bonusGems = 10,
+            name = "Pouch of Rubies",
+            gemAmount = 350,
+            bonusGems = 100,
             iconEmoji = "💰",
-            tag = "POPULAR",
-            scoreCost = 50
+            tag = "MOST POPULAR",
+            priceUsd = "$2.99",
+            scoreCost = 80,
+            perks = "450 Gems + 3 Free Revivals"
         ),
         GemPack(
             id = "gem_chest",
             name = "Shinobi Treasure Box",
-            gemAmount = 250,
-            bonusGems = 50,
+            gemAmount = 900,
+            bonusGems = 350,
             iconEmoji = "💎",
-            tag = "BEST VALUE",
-            scoreCost = 120
+            tag = "BEST VALUE 🔥",
+            priceUsd = "$4.99",
+            scoreCost = 150,
+            perks = "1,250 Gems + VIP Golden Bridge Skin"
         ),
         GemPack(
             id = "gem_vault",
             name = "Dragon Emperor Vault",
-            gemAmount = 800,
-            bonusGems = 200,
+            gemAmount = 2600,
+            bonusGems = 1200,
             iconEmoji = "👑",
-            tag = "+35% EXTRA",
-            scoreCost = 300
+            tag = "+45% EXTRA",
+            priceUsd = "$9.99",
+            scoreCost = 350,
+            perks = "3,800 Gems + 10 Free Revivals + Crown"
+        ),
+        GemPack(
+            id = "gem_ultimate",
+            name = "Master Mythic Cache",
+            gemAmount = 7500,
+            bonusGems = 4000,
+            iconEmoji = "🌌",
+            tag = "GOD TIER ⚡",
+            priceUsd = "$19.99",
+            scoreCost = 700,
+            perks = "11,500 Gems + Permanent 2x Gem Multiplier"
         )
     )
 

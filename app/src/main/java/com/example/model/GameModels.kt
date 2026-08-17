@@ -30,6 +30,14 @@ data class LeaderboardEntry(
     val isCurrentUser: Boolean = false
 )
 
+data class LevelVictoryData(
+    val levelNumber: Int,
+    val nextLevelNumber: Int,
+    val bonusGems: Int,
+    val title: String,
+    val milestoneReward: String = ""
+)
+
 data class GemPack(
     val id: String,
     val name: String,
@@ -37,8 +45,10 @@ data class GemPack(
     val bonusGems: Int = 0,
     val iconEmoji: String,
     val tag: String = "",
+    val priceUsd: String = "",
     val scoreCost: Int = 0,
-    val isDailyFree: Boolean = false
+    val isDailyFree: Boolean = false,
+    val perks: String = ""
 )
 
 data class RivalGhost(

@@ -45,6 +45,13 @@ class StickmanGameEngine(
     private val _levelVictoryCelebration = MutableStateFlow<String?>(null)
     val levelVictoryCelebration: StateFlow<String?> = _levelVictoryCelebration.asStateFlow()
 
+    private val _activeLevelVictory = MutableStateFlow<LevelVictoryData?>(null)
+    val activeLevelVictory: StateFlow<LevelVictoryData?> = _activeLevelVictory.asStateFlow()
+
+    fun dismissLevelVictory() {
+        _activeLevelVictory.value = null
+    }
+
     val gemsCollectedRun: StateFlow<Int> = gemStateManager.collectedInRun
     val gemCombo: StateFlow<Int> = gemStateManager.currentCombo
 
@@ -119,10 +126,11 @@ class StickmanGameEngine(
     fun resetGame(initial: Boolean = false) {
         _score.value = 0
         _isNewHighScore.value = false
-        _difficultyTier.value = DifficultyTier.APPRENTICE
+        _difficultyTier.value = DifficultyTier.NOVICE_TRAINING
         val equippedTheme = repository.selectedTheme.value
         _currentStage.value = StageThemes.getThemeForScore(0, equippedTheme)
         _levelVictoryCelebration.value = null
+        _activeLevelVictory.value = null
         gemStateManager.resetRun()
 
         currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f)
@@ -274,6 +282,22 @@ class StickmanGameEngine(
         }
     }
 
+    fun computeLevelForScore(score: Int): Int {
+        return when {
+            score < 2 -> 1
+            score < 4 -> 2
+            score < 6 -> 3
+            score < 8 -> 4
+            score < 10 -> 5
+            score < 13 -> 6
+            score < 16 -> 7
+            score < 19 -> 8
+            score < 22 -> 9
+            score < 25 -> 10
+            else -> 10 + ((score - 25) / 4) + 1
+        }
+    }
+
     // Main Game Update Loop (deltaTime in seconds)
     fun update(dt: Float) {
         val clampedDt = dt.coerceIn(0.001f, 0.05f)
@@ -283,8 +307,9 @@ class StickmanGameEngine(
 
         when (_gameState.value) {
             GameState.GROWING -> {
-                // Growth speed accelerates slightly over time
-                val speed = 340f + (stickLength * 0.45f)
+                // Growth speed scales gently with current difficulty tier for easy early control
+                val tier = difficultyManager.getTier(_score.value)
+                val speed = (310f + (stickLength * 0.40f)) * tier.growthSpeedFactor
                 val prevLength = stickLength
                 stickLength += speed * clampedDt
 
@@ -292,7 +317,7 @@ class StickmanGameEngine(
                 if ((stickLength / 22f).toInt() > (prevLength / 22f).toInt()) {
                     growTickCounter++
                     soundManager.playGrowTick(growTickCounter)
-                    hapticManager?.tick()
+                    hapticManager?.tick(tier.tierLevel)
 
                     // Small upward spark at the growing tip
                     if (particles.size < 60) {
@@ -323,11 +348,12 @@ class StickmanGameEngine(
                     bridgeAngle = PhysicsEngine.MAX_BRIDGE_ANGLE
                     bridgeAngularVel = 0f
                     bridgeImpactTime = 0f
-                    soundManager.playBridgePlaced()
-                    hapticManager?.bridgePlaced()
 
                     // Evaluate landing with PhysicsEngine collision geometry and difficulty tolerance
                     val tier = difficultyManager.getTier(_score.value)
+                    soundManager.playBridgePlaced()
+                    hapticManager?.bridgePlaced(tier.tierLevel)
+
                     val landingResult = physicsEngine.evaluateBridgeLanding(
                         bridgeStartX = bridgeStartX,
                         stickLength = stickLength,
@@ -345,7 +371,7 @@ class StickmanGameEngine(
 
                         if (landingResult.isBullseye) {
                             soundManager.playPerfectHit()
-                            hapticManager?.perfectHit()
+                            hapticManager?.perfectHit(tier.tierLevel)
                             repository.recordPerfectHit()
                             repository.trackMissionProgress("PERFECT_HITS", 1)
                             addFloatingText(
@@ -421,6 +447,7 @@ class StickmanGameEngine(
 
                 // Obstacle wall collision check (only fails if bridge was NOT landed safely and stickman walked into obstacle or fell off bridge end)
                 if (!isSuccessfulLanding && physicsEngine.checkPlatformWallCollision(stickmanX, isUpsideDown, nextPlatform.leftX)) {
+                    soundManager.playStickmanFall()
                     soundManager.playGameOver()
                     hapticManager?.gameOver()
                     spawnDust(stickmanX, floorY + 30f, count = 12)
@@ -439,9 +466,9 @@ class StickmanGameEngine(
                         soundManager.playStickmanLand()
 
                         // Turn complete
-                        val previousLevel = (_score.value / 5) + 1
+                        val previousLevel = computeLevelForScore(_score.value)
                         _score.value += 1
-                        val newLevel = (_score.value / 5) + 1
+                        val newLevel = computeLevelForScore(_score.value)
                         val updatedHigh = repository.updateHighScore(_score.value)
                         if (updatedHigh && _score.value > 1) {
                             _isNewHighScore.value = true
@@ -449,19 +476,45 @@ class StickmanGameEngine(
                             spawnConfetti(screenWidth / 2f, screenHeight * 0.4f, count = 30)
                         }
 
-                        // Victory Celebration & Level Progression
+                        // Victory Celebration & Level Progression with Music Fanfare
                         if (newLevel > previousLevel) {
-                            val celebrationText = "🎉 LEVEL $previousLevel COMPLETE! 🎉\nCongratulations! You are going to Level $newLevel!"
+                            val bonusGems = when {
+                                previousLevel == 10 -> 25
+                                previousLevel % 5 == 0 -> 15
+                                else -> 5
+                            }
+                            repository.addGems(bonusGems)
+                            val title = when (previousLevel) {
+                                1 -> "Novice Step Complete!"
+                                2 -> "Bridge Explorer!"
+                                3 -> "Precision Walker!"
+                                4 -> "Acrobat Warrior!"
+                                5 -> "Level 5 Milestone Cleared!"
+                                6 -> "Shinobi Strider!"
+                                7 -> "Sky Hopper!"
+                                8 -> "Canyon Conqueror!"
+                                9 -> "Elite Trailblazer!"
+                                10 -> "🏆 LEVEL 10 GRADUATE! 🏆"
+                                else -> "Level $previousLevel Master!"
+                            }
+                            val celebrationText = "🎉 LEVEL $previousLevel VICTORY! 🎉\n+$bonusGems Bonus Gems! Advancing to Level $newLevel!"
                             _levelVictoryCelebration.value = celebrationText
-                            soundManager.playPerfectHit()
+                            _activeLevelVictory.value = LevelVictoryData(
+                                levelNumber = previousLevel,
+                                nextLevelNumber = newLevel,
+                                bonusGems = bonusGems,
+                                title = title,
+                                milestoneReward = if (previousLevel == 10) "Unlocks Legendary Title + 25 Gems" else "+$bonusGems Gems"
+                            )
+                            soundManager.playVictoryMusic()
                             hapticManager?.levelUp()
-                            spawnConfetti(screenWidth / 2f, screenHeight * 0.35f, count = 45)
+                            spawnConfetti(screenWidth / 2f, screenHeight * 0.35f, count = 55)
                             addFloatingText(
-                                "VICTORY! NEXT LEVEL!",
+                                "LEVEL $previousLevel CLEAR! +$bonusGems 💎",
                                 screenWidth / 2f,
                                 screenHeight * 0.30f,
                                 Color(0xFFFFD700),
-                                scale = 1.45f
+                                scale = 1.5f
                             )
                         }
 
@@ -502,6 +555,7 @@ class StickmanGameEngine(
                         stickmanX = targetStickmanWalkX
                         bridgeAngularVel = 0f
                         stickmanFallVel = 0f
+                        soundManager.playStickmanFall()
                         soundManager.playGameOver()
                         hapticManager?.gameOver()
                         _gameState.value = GameState.DROPPING_FAIL

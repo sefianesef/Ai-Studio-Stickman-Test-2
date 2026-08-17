@@ -14,77 +14,99 @@ enum class DifficultyTier(
     val gemSpawnRate: Float,
     val doubleGemChance: Float,
     val movingPlatformChance: Float,
+    val growthSpeedFactor: Float,
     val badgeColorHex: Long
 ) {
-    APPRENTICE(
+    // Early Easy Levels (Scores 0-10): Super forgiving, wide platforms, high bullseye hits, dopamine & confidence building!
+    NOVICE_TRAINING(
         tierLevel = 1,
-        title = "NOVICE",
+        title = "RECRUIT",
         minScore = 0,
-        minWidth = 100f,
-        maxWidth = 145f,
-        minGap = 100f,
-        maxGap = 190f,
-        bullseyeTolerance = 14f,
-        gemSpawnRate = 0.50f,
-        doubleGemChance = 0.0f,
-        movingPlatformChance = 0.0f,
-        badgeColorHex = 0xFF10B981 // Emerald
-    ),
-    ADEPT(
-        tierLevel = 2,
-        title = "ADEPT",
-        minScore = 5,
-        minWidth = 75f,
-        maxWidth = 110f,
-        minGap = 130f,
-        maxGap = 260f,
-        bullseyeTolerance = 12f,
+        minWidth = 140f,
+        maxWidth = 190f,
+        minGap = 75f,
+        maxGap = 150f,
+        bullseyeTolerance = 24f,
         gemSpawnRate = 0.65f,
+        doubleGemChance = 0.05f,
+        movingPlatformChance = 0.0f,
+        growthSpeedFactor = 0.88f,
+        badgeColorHex = 0xFF10B981 // Emerald Green
+    ),
+    APPRENTICE(
+        tierLevel = 2,
+        title = "APPRENTICE",
+        minScore = 11,
+        minWidth = 115f,
+        maxWidth = 165f,
+        minGap = 90f,
+        maxGap = 190f,
+        bullseyeTolerance = 20f,
+        gemSpawnRate = 0.70f,
         doubleGemChance = 0.15f,
         movingPlatformChance = 0.0f,
+        growthSpeedFactor = 0.94f,
         badgeColorHex = 0xFF38BDF8 // Sky Blue
     ),
-    EXPERT(
+    ADEPT(
         tierLevel = 3,
-        title = "EXPERT",
-        minScore = 12,
-        minWidth = 52f,
-        maxWidth = 85f,
-        minGap = 160f,
-        maxGap = 320f,
-        bullseyeTolerance = 10f,
-        gemSpawnRate = 0.80f,
+        title = "ADEPT",
+        minScore = 22,
+        minWidth = 90f,
+        maxWidth = 135f,
+        minGap = 115f,
+        maxGap = 240f,
+        bullseyeTolerance = 16f,
+        gemSpawnRate = 0.78f,
         doubleGemChance = 0.25f,
-        movingPlatformChance = 0.20f,
+        movingPlatformChance = 0.08f,
+        growthSpeedFactor = 1.0f,
         badgeColorHex = 0xFFA855F7 // Purple
     ),
-    MASTER(
+    EXPERT(
         tierLevel = 4,
-        title = "MASTER",
-        minScore = 22,
-        minWidth = 38f,
-        maxWidth = 65f,
-        minGap = 180f,
-        maxGap = 370f,
-        bullseyeTolerance = 8.5f,
-        gemSpawnRate = 0.90f,
-        doubleGemChance = 0.40f,
-        movingPlatformChance = 0.40f,
+        title = "EXPERT",
+        minScore = 35,
+        minWidth = 65f,
+        maxWidth = 100f,
+        minGap = 145f,
+        maxGap = 295f,
+        bullseyeTolerance = 12.5f,
+        gemSpawnRate = 0.85f,
+        doubleGemChance = 0.35f,
+        movingPlatformChance = 0.22f,
+        growthSpeedFactor = 1.06f,
         badgeColorHex = 0xFFF59E0B // Amber
     ),
-    GRANDMASTER(
+    MASTER(
         tierLevel = 5,
+        title = "MASTER",
+        minScore = 52,
+        minWidth = 48f,
+        maxWidth = 75f,
+        minGap = 170f,
+        maxGap = 350f,
+        bullseyeTolerance = 10f,
+        gemSpawnRate = 0.92f,
+        doubleGemChance = 0.45f,
+        movingPlatformChance = 0.38f,
+        growthSpeedFactor = 1.12f,
+        badgeColorHex = 0xFFEC4899 // Pink Neon
+    ),
+    GRANDMASTER(
+        tierLevel = 6,
         title = "LEGEND",
-        minScore = 35,
-        minWidth = 26f,
-        maxWidth = 48f,
-        minGap = 200f,
-        maxGap = 420f,
-        bullseyeTolerance = 7.5f,
+        minScore = 75,
+        minWidth = 32f,
+        maxWidth = 55f,
+        minGap = 195f,
+        maxGap = 410f,
+        bullseyeTolerance = 8f,
         gemSpawnRate = 0.98f,
         doubleGemChance = 0.55f,
-        movingPlatformChance = 0.60f,
-        badgeColorHex = 0xFFEF4444 // Red
+        movingPlatformChance = 0.55f,
+        growthSpeedFactor = 1.18f,
+        badgeColorHex = 0xFFEF4444 // Crimson Red
     );
 
     companion object {
@@ -94,7 +116,8 @@ enum class DifficultyTier(
                 score >= MASTER.minScore -> MASTER
                 score >= EXPERT.minScore -> EXPERT
                 score >= ADEPT.minScore -> ADEPT
-                else -> APPRENTICE
+                score >= APPRENTICE.minScore -> APPRENTICE
+                else -> NOVICE_TRAINING
             }
         }
     }

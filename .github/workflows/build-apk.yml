@@ -9,11 +9,25 @@ on:
 
 jobs:
   build:
+    name: Build & Package APK
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout source code
+    - name: Checkout repository (fetch all files intact)
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        lfs: true
+
+    - name: Verify repository structure and integrity
+      run: |
+        echo "=== Verifying Project Integrity ==="
+        ls -la
+        test -f "settings.gradle.kts" || (echo "Missing settings.gradle.kts" && exit 1)
+        test -f "build.gradle.kts" || (echo "Missing root build.gradle.kts" && exit 1)
+        test -f "app/build.gradle.kts" || (echo "Missing app/build.gradle.kts" && exit 1)
+        test -f "app/src/main/AndroidManifest.xml" || (echo "Missing AndroidManifest.xml" && exit 1)
+        echo "All core project configuration files verified successfully."
 
     - name: Set up JDK 21
       uses: actions/setup-java@v4
@@ -26,29 +40,48 @@ jobs:
       with:
         gradle-version: '9.3.1'
 
-    - name: Prepare Environment and Keystore
+    - name: Prepare Environment and Signing Keystore
       run: |
+        # Set up .env configuration
         if [ ! -f ".env" ] && [ -f ".env.example" ]; then
           cp .env.example .env
         elif [ ! -f ".env" ]; then
           touch .env
         fi
 
+        # Restore debug keystore if base64 exists
         if [ -f "debug.keystore.base64" ]; then
           base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || true
         fi
 
+        # Generate debug keystore if not present
         if [ ! -f "debug.keystore" ] || [ ! -s "debug.keystore" ]; then
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         fi
 
+        # Grant execution rights to Gradle wrapper
+        if [ -f "gradlew" ]; then
+          chmod +x gradlew
+        fi
+
     - name: Build Debug APK
-      run: gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace -Dorg.gradle.workers.max=2
+      run: |
+        if [ -x "./gradlew" ]; then
+          ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace -Dorg.gradle.workers.max=2
+        else
+          gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace -Dorg.gradle.workers.max=2
+        fi
+
+    - name: List Generated APK Files
+      run: |
+        echo "=== Generated Build Artifacts ==="
+        find app/build/outputs/apk/ -type f -name "*.apk" || echo "No APK found"
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: stickman-hero-debug-apk
-        path: app/build/outputs/apk/debug/app-debug.apk
+        name: stickman-hero-apk
+        path: app/build/outputs/apk/debug/*.apk
         if-no-files-found: error
+        retention-days: 14
 

@@ -2,6 +2,7 @@ package com.example.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,12 +33,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.R
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
 import com.example.model.GemPack
@@ -417,14 +420,32 @@ fun StartScreenOverlay(
             // Center: Title, Daily Gift Card & Tap Prompt
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Game Logo Icon
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFF0F172A),
+                    border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFF10B981)),
+                    modifier = Modifier
+                        .size(84.dp)
+                        .shadow(16.dp, RoundedCornerShape(24.dp), ambientColor = Color(0xFF10B981), spotColor = Color(0xFF10B981))
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_launcher_stickman),
+                        contentDescription = "Stickman Hero Logo",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(22.dp))
+                    )
+                }
+
                 // Title
                 Text(
                     text = "STICKMAN\nHERO",
                     color = Color.White,
-                    fontSize = 42.sp,
-                    lineHeight = 46.sp,
+                    fontSize = 38.sp,
+                    lineHeight = 42.sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Center,
                     letterSpacing = 2.sp,
@@ -436,7 +457,7 @@ fun StartScreenOverlay(
                 Text(
                     text = "Bridge Master & Gem Rush",
                     color = Color(0xFF38BDF8),
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 1.sp
                 )
@@ -2344,6 +2365,7 @@ fun GemVaultContent(
 ) {
     val gemPacks = viewModel.availableGemPacks
     val isDailyFreeAvailable = viewModel.isDailyFreeGemsAvailable()
+    var selectedPackForCheckout by remember { mutableStateOf<GemPack?>(null) }
 
     Column(
         modifier = modifier
@@ -2405,9 +2427,9 @@ fun GemVaultContent(
             }
         }
 
-        // 2. Gem Packs List
+        // 2. Real Money & Gem Packs Grid
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 140.dp),
+            columns = GridCells.Adaptive(minSize = 145.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
@@ -2428,6 +2450,15 @@ fun GemVaultContent(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable {
+                            if (isClaimable) {
+                                if (isFreeCrate) {
+                                    viewModel.buyGemPack(pack)
+                                } else {
+                                    selectedPackForCheckout = pack
+                                }
+                            }
+                        }
                         .testTag("gem_pack_${pack.id}")
                 ) {
                     Column(
@@ -2450,7 +2481,7 @@ fun GemVaultContent(
                             }
                         }
 
-                        Text(text = pack.iconEmoji, fontSize = 26.sp)
+                        Text(text = pack.iconEmoji, fontSize = 28.sp)
 
                         Text(
                             text = pack.name,
@@ -2468,7 +2499,7 @@ fun GemVaultContent(
                         )
 
                         Text(
-                            text = if (pack.bonusGems > 0) "+${pack.bonusGems} Bonus Included!" else "Instant Delivery",
+                            text = if (pack.bonusGems > 0) "+${pack.bonusGems} Bonus Included!" else pack.perks,
                             color = Color(0xFF94A3B8),
                             fontSize = 9.sp,
                             textAlign = TextAlign.Center,
@@ -2478,7 +2509,13 @@ fun GemVaultContent(
                         Spacer(modifier = Modifier.height(2.dp))
 
                         Button(
-                            onClick = { viewModel.buyGemPack(pack) },
+                            onClick = {
+                                if (isFreeCrate) {
+                                    viewModel.buyGemPack(pack)
+                                } else {
+                                    selectedPackForCheckout = pack
+                                }
+                            },
                             enabled = isClaimable,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isFreeCrate) Color(0xFF10B981) else Color(0xFFF59E0B),
@@ -2492,7 +2529,12 @@ fun GemVaultContent(
                                 .testTag("buy_pack_${pack.id}")
                         ) {
                             Text(
-                                text = if (isFreeCrate && !isDailyFreeAvailable) "CLAIMED TODAY" else if (isFreeCrate) "FREE DAILY" else "${pack.scoreCost} PTS",
+                                text = when {
+                                    isFreeCrate && !isDailyFreeAvailable -> "CLAIMED"
+                                    isFreeCrate -> "FREE DAILY"
+                                    pack.priceUsd.isNotEmpty() -> pack.priceUsd
+                                    else -> "${pack.scoreCost} PTS"
+                                },
                                 color = if (isClaimable) Color.Black else Color(0xFF94A3B8),
                                 fontWeight = FontWeight.Black,
                                 fontSize = 10.sp
@@ -2500,6 +2542,198 @@ fun GemVaultContent(
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // Interactive Real-Money IAP Dialog
+    selectedPackForCheckout?.let { pack ->
+        RealMoneyIapCheckoutDialog(
+            pack = pack,
+            onConfirmPurchase = {
+                viewModel.buyGemPackRealMoney(pack)
+                selectedPackForCheckout = null
+            },
+            onDismiss = { selectedPackForCheckout = null }
+        )
+    }
+}
+
+@Composable
+fun RealMoneyIapCheckoutDialog(
+    pack: GemPack,
+    onConfirmPurchase: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+            modifier = modifier
+                .fillMaxWidth(0.92f)
+                .shadow(20.dp, RoundedCornerShape(24.dp))
+                .testTag("iap_checkout_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF1E293B),
+                                Color(0xFF0F172A)
+                            )
+                        )
+                    )
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Store Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = "🛡️", fontSize = 16.sp)
+                        Text(
+                            text = "SECURE IN-APP PURCHASE",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF94A3B8))
+                    }
+                }
+
+                // Pack Icon & Title
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF1E3A8A),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(text = pack.iconEmoji, fontSize = 36.sp)
+                    }
+                }
+
+                Text(
+                    text = pack.name,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+
+                // Gems Breakdown Card
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF0284C7).copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Base Gem Amount", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text("${pack.gemAmount} 💎", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+
+                        if (pack.bonusGems > 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Bonus Extra Gems", color = Color(0xFF34D399), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("+${pack.bonusGems} 💎", color = Color(0xFF34D399), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+
+                        Divider(color = Color(0xFF334155), modifier = Modifier.padding(vertical = 4.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Total Delivered", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                            Text(
+                                "${pack.gemAmount + pack.bonusGems} GEMS",
+                                color = Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                // Perks
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF1E293B),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "✨", fontSize = 14.sp)
+                        Text(
+                            text = pack.perks,
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Confirm Buy Button
+                Button(
+                    onClick = onConfirmPurchase,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("confirm_real_money_purchase_btn")
+                ) {
+                    Text(
+                        text = "1-TAP BUY FOR ${if (pack.priceUsd.isNotEmpty()) pack.priceUsd else "$0.99"} 💎",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Text(
+                    text = "Instant delivery • Secure simulated checkout",
+                    color = Color(0xFF64748B),
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
