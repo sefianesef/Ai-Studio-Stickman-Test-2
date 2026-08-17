@@ -13,12 +13,16 @@ import android.os.VibratorManager
  */
 class HapticManager(private val context: Context) {
 
-    private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-        vibratorManager?.defaultVibrator
-    } else {
-        @Suppress("DEPRECATION")
-        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    private val vibrator: Vibrator? = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            vibratorManager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+    } catch (_: Throwable) {
+        null
     }
 
     var isEnabled: Boolean = true
@@ -45,7 +49,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate((6 + tierLevel * 2).toLong())
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -62,7 +66,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(25)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -80,7 +84,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(longArrayOf(0, 30, 40, 50), -1)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -95,7 +99,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(10)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -112,7 +116,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(14)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -127,7 +131,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(12)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -144,7 +148,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(longArrayOf(0, 70, 50, 110), -1)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -161,7 +165,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(10)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -178,7 +182,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(longArrayOf(0, 20, 30, 60), -1)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -195,7 +199,7 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(longArrayOf(0, 35, 45, 45, 45, 75), -1)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -212,6 +216,6 @@ class HapticManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(longArrayOf(0, 40, 50, 40, 50, 80), -1)
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 }

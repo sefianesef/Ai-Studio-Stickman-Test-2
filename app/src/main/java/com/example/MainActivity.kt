@@ -20,15 +20,20 @@ class MainActivity : ComponentActivity() {
     } catch (t: Throwable) {
       Log.w("MainActivity", "Failed to enable edge-to-edge", t)
     }
-    setContent {
-      MyApplicationTheme {
-        Surface(
-          modifier = Modifier.fillMaxSize(),
-          color = Color(0xFF06140E)
-        ) {
-          StickmanGameScreen()
+
+    try {
+      setContent {
+        MyApplicationTheme {
+          Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFF06140E)
+          ) {
+            StickmanGameScreen()
+          }
         }
       }
+    } catch (t: Throwable) {
+      Log.e("MainActivity", "Error setting content", t)
     }
   }
 }

@@ -431,13 +431,18 @@ fun StartScreenOverlay(
                         .size(84.dp)
                         .shadow(16.dp, RoundedCornerShape(24.dp), ambientColor = Color(0xFF10B981), spotColor = Color(0xFF10B981))
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_launcher_stickman),
-                        contentDescription = "Stickman Hero Logo",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(22.dp))
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_launcher_stickman),
+                            contentDescription = "Stickman Hero Logo",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(22.dp))
+                        )
+                    }
                 }
 
                 // Title

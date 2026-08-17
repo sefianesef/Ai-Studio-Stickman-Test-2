@@ -522,38 +522,40 @@ class GameRepository(
 
         // Initialize / sync Room database in background
         scope.launch {
-            val existingProfile = playerProfileDao.getPlayerProfile()
-            if (existingProfile == null) {
-                val initialProfile = PlayerProfileEntity(
-                    id = 1,
-                    totalGems = _gems.value,
-                    highScore = _highScore.value,
-                    totalBridgesBuilt = prefs.getInt(KEY_TOTAL_BRIDGES, 0),
-                    totalPerfectHits = prefs.getInt(KEY_PERFECT_HITS, 0),
-                    currentStreak = prefs.getInt(KEY_CURRENT_STREAK, 1),
-                    lastClaimEpochDay = prefs.getLong(KEY_LAST_CLAIM_DAY, 0L),
-                    selectedHatId = _selectedHat.value,
-                    selectedScarfId = _selectedScarf.value,
-                    selectedStickId = _selectedStick.value,
-                    selectedSkinId = _selectedSkin.value,
-                    soundEnabled = _soundEnabled.value,
-                    hapticsEnabled = _hapticsEnabled.value
-                )
-                playerProfileDao.insertOrUpdate(initialProfile)
-            }
+            try {
+                val existingProfile = playerProfileDao.getPlayerProfile()
+                if (existingProfile == null) {
+                    val initialProfile = PlayerProfileEntity(
+                        id = 1,
+                        totalGems = _gems.value,
+                        highScore = _highScore.value,
+                        totalBridgesBuilt = prefs.getInt(KEY_TOTAL_BRIDGES, 0),
+                        totalPerfectHits = prefs.getInt(KEY_PERFECT_HITS, 0),
+                        currentStreak = prefs.getInt(KEY_CURRENT_STREAK, 1),
+                        lastClaimEpochDay = prefs.getLong(KEY_LAST_CLAIM_DAY, 0L),
+                        selectedHatId = _selectedHat.value,
+                        selectedScarfId = _selectedScarf.value,
+                        selectedStickId = _selectedStick.value,
+                        selectedSkinId = _selectedSkin.value,
+                        soundEnabled = _soundEnabled.value,
+                        hapticsEnabled = _hapticsEnabled.value
+                    )
+                    playerProfileDao.insertOrUpdate(initialProfile)
+                }
 
-            // Sync free items to inventory DAO
-            val purchasedEntities = freeItems.map {
-                PurchasedItemEntity(
-                    itemId = it.id,
-                    itemType = it.type.name,
-                    costPaid = it.cost
-                )
-            }
-            inventoryDao.insertItems(purchasedEntities)
+                // Sync free items to inventory DAO
+                val purchasedEntities = freeItems.map {
+                    PurchasedItemEntity(
+                        itemId = it.id,
+                        itemType = it.type.name,
+                        costPaid = it.cost
+                    )
+                }
+                inventoryDao.insertItems(purchasedEntities)
 
-            // Setup or refresh Daily Missions for today
-            initDailyMissions()
+                // Setup or refresh Daily Missions for today
+                initDailyMissions()
+            } catch (_: Throwable) {}
         }
 
         refreshDailyRewardState()
@@ -629,9 +631,9 @@ class GameRepository(
 
     private fun getTodayEpochDay(): Long {
         return try {
-            java.time.LocalDate.now().toEpochDay()
-        } catch (_: Exception) {
             System.currentTimeMillis() / (1000L * 60 * 60 * 24)
+        } catch (_: Throwable) {
+            0L
         }
     }
 
