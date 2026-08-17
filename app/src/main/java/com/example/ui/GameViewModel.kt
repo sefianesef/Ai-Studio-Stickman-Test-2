@@ -180,6 +180,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         hapticManager.missionClaim()
     }
 
+    fun claimAllDailyMissions(): Int {
+        val totalGems = repository.claimAllCompletedMissions(dailyMissions.value)
+        if (totalGems > 0) {
+            soundManager.playVictoryMusic()
+            soundManager.playGemCollect()
+            hapticManager.levelUp()
+        }
+        return totalGems
+    }
+
     fun claimDailyReward(): Int {
         val gemsAwarded = repository.claimDailyReward()
         soundManager.playGemCollect()

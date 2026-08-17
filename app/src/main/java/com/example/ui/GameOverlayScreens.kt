@@ -2336,11 +2336,34 @@ fun DailyMissionsDialog(
                         }
                     }
 
+                    val readyToClaimCount = dailyMissions.count { (it.currentProgress >= it.targetCount || it.isCompleted) && !it.isClaimed }
+                    val readyToClaimTotalGems = dailyMissions.filter { (it.currentProgress >= it.targetCount || it.isCompleted) && !it.isClaimed }.sumOf { it.rewardGems }
+
+                    if (readyToClaimCount > 0) {
+                        Button(
+                            onClick = { viewModel.claimAllDailyMissions() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("claim_all_daily_missions_button")
+                        ) {
+                            Text(
+                                text = "✨ CLAIM ALL ($readyToClaimCount QUESTS • +$readyToClaimTotalGems 💎)",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
                     TextButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(38.dp)
+                            .testTag("daily_missions_close_bottom_button")
                     ) {
                         Text(
                             text = "CLOSE",

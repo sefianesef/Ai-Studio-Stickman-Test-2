@@ -570,23 +570,23 @@ class GameRepository(
                 DailyMissionEntity(
                     id = "m_bridge_${today}",
                     title = "Master Builder",
-                    description = "Build 6 bridges successfully",
+                    description = "Build 8 bridges successfully",
                     missionType = "BUILD_BRIDGES",
-                    targetCount = 6,
+                    targetCount = 8,
                     currentProgress = 0,
-                    rewardGems = 10,
+                    rewardGems = 12,
                     isCompleted = false,
                     isClaimed = false,
                     assignedEpochDay = today
                 ),
                 DailyMissionEntity(
                     id = "m_bullseye_${today}",
-                    title = "Bullseye Precision",
-                    description = "Land 2 perfect center red-dot hits",
+                    title = "Bullseye Sniper",
+                    description = "Land 3 perfect center red-dot hits",
                     missionType = "PERFECT_HITS",
-                    targetCount = 2,
+                    targetCount = 3,
                     currentProgress = 0,
-                    rewardGems = 15,
+                    rewardGems = 20,
                     isCompleted = false,
                     isClaimed = false,
                     assignedEpochDay = today
@@ -594,11 +594,35 @@ class GameRepository(
                 DailyMissionEntity(
                     id = "m_gem_${today}",
                     title = "Crystal Harvester",
-                    description = "Collect 4 gems across runs",
+                    description = "Collect 6 gems across runs",
                     missionType = "COLLECT_GEMS",
+                    targetCount = 6,
+                    currentProgress = 0,
+                    rewardGems = 15,
+                    isCompleted = false,
+                    isClaimed = false,
+                    assignedEpochDay = today
+                ),
+                DailyMissionEntity(
+                    id = "m_flip_${today}",
+                    title = "Acrobatic Shinobi",
+                    description = "Perform 4 upside-down flip walks",
+                    missionType = "FLIP_WALK",
                     targetCount = 4,
                     currentProgress = 0,
-                    rewardGems = 12,
+                    rewardGems = 15,
+                    isCompleted = false,
+                    isClaimed = false,
+                    assignedEpochDay = today
+                ),
+                DailyMissionEntity(
+                    id = "m_score_${today}",
+                    title = "Endurance Runner",
+                    description = "Reach a score of 6 in a single run",
+                    missionType = "REACH_SCORE",
+                    targetCount = 6,
+                    currentProgress = 0,
+                    rewardGems = 25,
                     isCompleted = false,
                     isClaimed = false,
                     assignedEpochDay = today
@@ -614,7 +638,11 @@ class GameRepository(
             val missions = dailyMissionDao.getMissionsForDay(today)
             for (m in missions) {
                 if (m.missionType == missionType && !m.isCompleted) {
-                    val newProgress = (m.currentProgress + delta).coerceAtMost(m.targetCount)
+                    val newProgress = if (missionType == "REACH_SCORE") {
+                        maxOf(m.currentProgress, delta).coerceAtMost(m.targetCount)
+                    } else {
+                        (m.currentProgress + delta).coerceAtMost(m.targetCount)
+                    }
                     val isDone = newProgress >= m.targetCount
                     dailyMissionDao.updateProgress(m.id, newProgress, isDone)
                 }
@@ -626,7 +654,22 @@ class GameRepository(
         scope.launch {
             dailyMissionDao.markClaimed(missionId)
         }
-        addGems(rewardGems)
+        if (rewardGems > 0) {
+            addGems(rewardGems)
+        }
+    }
+
+    fun claimAllCompletedMissions(missions: List<DailyMissionEntity>): Int {
+        val claimable = missions.filter { (it.currentProgress >= it.targetCount || it.isCompleted) && !it.isClaimed }
+        if (claimable.isEmpty()) return 0
+        val totalGems = claimable.sumOf { it.rewardGems }
+        scope.launch {
+            for (m in claimable) {
+                dailyMissionDao.markClaimed(m.id)
+            }
+        }
+        addGems(totalGems)
+        return totalGems
     }
 
     private fun getTodayEpochDay(): Long {

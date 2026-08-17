@@ -203,11 +203,10 @@ class StickmanGameEngine(
         val tier = difficultyManager.getTier(currentScore)
         _difficultyTier.value = tier
 
-        val baseMinGap = tier.minGap
-        val maxAvailableGap = (screenW * 0.48f).coerceIn(tier.minGap + 40f, tier.maxGap)
-        val gap = Random.nextFloat() * (maxAvailableGap - baseMinGap) + baseMinGap
+        val level = computeLevelForScore(currentScore)
+        val gap = difficultyManager.generatePlatformGap(currentScore, level, screenW)
 
-        val width = difficultyManager.generatePlatformWidth(currentScore).coerceIn(36f, 160f)
+        val width = difficultyManager.generatePlatformWidth(currentScore).coerceIn(36f, 185f)
         val nextLeft = currentPlatform.leftX + currentPlatform.width + gap
 
         // Procedural Gem Placement via GemStateManager
@@ -260,7 +259,7 @@ class StickmanGameEngine(
                 if (isUpsideDown) {
                     repository.trackMissionProgress("FLIP_WALK", 1)
                 }
-                spawnDust(stickmanX, if (isUpsideDown) floorY + 30f else floorY, count = 6)
+                spawnFlipAcrobaticsEffects(stickmanX, if (isUpsideDown) floorY + 30f else floorY)
             }
             else -> {}
         }
@@ -291,10 +290,15 @@ class StickmanGameEngine(
             score < 10 -> 5
             score < 13 -> 6
             score < 16 -> 7
-            score < 19 -> 8
-            score < 22 -> 9
-            score < 25 -> 10
-            else -> 10 + ((score - 25) / 4) + 1
+            score < 20 -> 8
+            score < 24 -> 9
+            score < 28 -> 10
+            score < 33 -> 11
+            score < 38 -> 12
+            score < 44 -> 13
+            score < 50 -> 14
+            score < 56 -> 15
+            else -> 15 + ((score - 56) / 5) + 1
         }
     }
 
@@ -319,21 +323,10 @@ class StickmanGameEngine(
                     soundManager.playGrowTick(growTickCounter)
                     hapticManager?.tick(tier.tierLevel)
 
-                    // Small upward spark at the growing tip
-                    if (particles.size < 60) {
-                        particles.add(
-                            Particle(
-                                x = bridgeStartX + (Random.nextFloat() * 6f - 3f),
-                                y = floorY - stickLength,
-                                vx = Random.nextFloat() * 40f - 20f,
-                                vy = -Random.nextFloat() * 50f - 20f,
-                                color = Color(0xFF67E8F9),
-                                radius = 2f,
-                                maxLife = 0.25f,
-                                life = 0.25f,
-                                shape = ParticleShape.STAR
-                            )
-                        )
+                    // Themed sparks at the growing bridge tip
+                    if (particles.size < 80) {
+                        val stickSkin = repository.availableAccessories.find { it.id == repository.selectedStick.value }
+                        spawnTipSparks(bridgeStartX, floorY - stickLength, stickSkin)
                     }
                 }
             }
@@ -416,9 +409,12 @@ class StickmanGameEngine(
                 val walkProgress = ((stickmanX - bridgeStartX) / spanWidth).coerceIn(0f, 1f)
                 bridgeSagOffset = physicsEngine.computeBridgeSag(walkProgress, stickLength)
 
-                // Footstep sound
+                // Footstep sound & subtle dust puff
                 if (sin(walkPhase) > 0.95f) {
                     soundManager.playWalkStep()
+                    if (particles.size < 70) {
+                        spawnFootstepDust(stickmanX, if (isUpsideDown) floorY - 20f else floorY)
+                    }
                 }
 
                 // Check Gem Pickup along the bridge using PhysicsEngine & GemStateManager
@@ -441,7 +437,7 @@ class StickmanGameEngine(
                     isUpsideDown = false
                     soundManager.playFlip()
                     hapticManager?.flip()
-                    spawnDust(stickmanX, floorY, count = 8)
+                    spawnFlipAcrobaticsEffects(stickmanX, floorY)
                     addFloatingText("SAFE FLIP! 🥷", stickmanX, floorY - 50f, Color(0xFF38BDF8), scale = 1.15f)
                 }
 
@@ -450,7 +446,7 @@ class StickmanGameEngine(
                     soundManager.playStickmanFall()
                     soundManager.playGameOver()
                     hapticManager?.gameOver()
-                    spawnDust(stickmanX, floorY + 30f, count = 12)
+                    spawnDust(stickmanX, floorY + 30f, count = 14)
                     stickmanFallVel = 50f
                     _gameState.value = GameState.DROPPING_FAIL
                     return
@@ -468,12 +464,13 @@ class StickmanGameEngine(
                         // Turn complete
                         val previousLevel = computeLevelForScore(_score.value)
                         _score.value += 1
+                        repository.trackMissionProgress("REACH_SCORE", _score.value)
                         val newLevel = computeLevelForScore(_score.value)
                         val updatedHigh = repository.updateHighScore(_score.value)
                         if (updatedHigh && _score.value > 1) {
                             _isNewHighScore.value = true
                             addFloatingText("NEW BEST!", stickmanX, floorY - 110f, Color(0xFFFBBF24), scale = 1.4f)
-                            spawnConfetti(screenWidth / 2f, screenHeight * 0.4f, count = 30)
+                            spawnConfetti(screenWidth / 2f, screenHeight * 0.4f, count = 35)
                         }
 
                         // Victory Celebration & Level Progression with Music Fanfare
@@ -654,20 +651,90 @@ class StickmanGameEngine(
         )
     }
 
-    private fun spawnDust(x: Float, y: Float, count: Int = 6) {
-        for (i in 0 until count) {
-            val angle = Random.nextFloat() * Math.PI.toFloat()
-            val speed = Random.nextFloat() * 80f + 20f
+    private fun spawnTipSparks(tipX: Float, tipY: Float, stickSkin: com.example.model.AccessoryItem?) {
+        val (pColor, shape) = when (stickSkin?.id) {
+            "stick_laser" -> Pair(Color(0xFF22D3EE), ParticleShape.SPARKLE)
+            "stick_lava" -> Pair(Color(0xFFEA580C), ParticleShape.FIRE_EMBER)
+            "stick_dark" -> Pair(Color(0xFFA855F7), ParticleShape.NEON_ORB)
+            "stick_rainbow" -> {
+                val rainbow = listOf(Color(0xFFEC4899), Color(0xFFFBBF24), Color(0xFF38BDF8), Color(0xFF4ADE80))
+                Pair(rainbow[Random.nextInt(rainbow.size)], ParticleShape.STAR)
+            }
+            "stick_gold" -> Pair(Color(0xFFFFD700), ParticleShape.STAR)
+            "stick_cyber" -> Pair(Color(0xFF10B981), ParticleShape.SPARKLE)
+            else -> Pair(Color(0xFF67E8F9), ParticleShape.SPARKLE)
+        }
+
+        particles.add(
+            Particle(
+                x = tipX + (Random.nextFloat() * 6f - 3f),
+                y = tipY,
+                vx = Random.nextFloat() * 50f - 25f,
+                vy = -Random.nextFloat() * 60f - 20f,
+                color = pColor,
+                radius = Random.nextFloat() * 2.5f + 1.5f,
+                maxLife = 0.35f,
+                life = 0.35f,
+                shape = shape,
+                rotation = Random.nextFloat() * 360f,
+                vRot = Random.nextFloat() * 300f - 150f
+            )
+        )
+    }
+
+    private fun spawnFootstepDust(x: Float, y: Float) {
+        particles.add(
+            Particle(
+                x = x - 6f + Random.nextFloat() * 4f,
+                y = y + Random.nextFloat() * 2f,
+                vx = -Random.nextFloat() * 25f - 10f,
+                vy = -Random.nextFloat() * 15f,
+                color = Color.White.copy(alpha = 0.45f),
+                radius = Random.nextFloat() * 2.5f + 1.2f,
+                maxLife = 0.28f,
+                life = 0.28f,
+                shape = ParticleShape.DUST
+            )
+        )
+    }
+
+    private fun spawnFlipAcrobaticsEffects(x: Float, y: Float) {
+        val flipColors = listOf(Color(0xFF38BDF8), Color(0xFF818CF8), Color(0xFFC084FC), Color.White)
+        for (i in 0 until 10) {
+            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = Random.nextFloat() * 120f + 40f
             particles.add(
                 Particle(
                     x = x,
                     y = y,
                     vx = kotlin.math.cos(angle) * speed,
-                    vy = -kotlin.math.sin(angle) * speed * 0.6f,
-                    color = Color.White.copy(alpha = 0.6f),
-                    radius = Random.nextFloat() * 3.5f + 2f,
-                    maxLife = 0.5f,
-                    life = 0.5f,
+                    vy = kotlin.math.sin(angle) * speed,
+                    color = flipColors[Random.nextInt(flipColors.size)],
+                    radius = Random.nextFloat() * 3.5f + 1.8f,
+                    maxLife = 0.35f,
+                    life = 0.35f,
+                    shape = if (i % 2 == 0) ParticleShape.STAR else ParticleShape.SPARKLE,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 400f - 200f
+                )
+            )
+        }
+    }
+
+    private fun spawnDust(x: Float, y: Float, count: Int = 6) {
+        for (i in 0 until count) {
+            val angle = Random.nextFloat() * Math.PI.toFloat()
+            val speed = Random.nextFloat() * 90f + 20f
+            particles.add(
+                Particle(
+                    x = x,
+                    y = y,
+                    vx = kotlin.math.cos(angle) * speed,
+                    vy = -kotlin.math.sin(angle) * speed * 0.7f,
+                    color = Color.White.copy(alpha = 0.65f),
+                    radius = Random.nextFloat() * 4f + 2f,
+                    maxLife = 0.45f,
+                    life = 0.45f,
                     shape = ParticleShape.DUST
                 )
             )
@@ -684,6 +751,7 @@ class StickmanGameEngine(
             Color(0xFFFFD700)
         )
 
+        // Expanding shockwave ripple
         particles.add(
             Particle(
                 x = x,
@@ -691,36 +759,44 @@ class StickmanGameEngine(
                 vx = 0f,
                 vy = 0f,
                 color = Color(0xFF38BDF8),
-                radius = 6f,
+                radius = 8f,
                 maxLife = 0.45f,
                 life = 0.45f,
                 shape = ParticleShape.RING_WAVE
             )
         )
 
-        for (i in 0 until 24) {
+        // Sparkling faceted diamond shards and stars
+        for (i in 0 until 28) {
             val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-            val speed = Random.nextFloat() * 180f + 40f
-            val shape = if (i % 2 == 0) ParticleShape.GEM_BURST else ParticleShape.STAR
+            val speed = Random.nextFloat() * 210f + 50f
+            val shape = when {
+                i % 3 == 0 -> ParticleShape.GEM_BURST
+                i % 3 == 1 -> ParticleShape.STAR
+                else -> ParticleShape.SPARKLE
+            }
             particles.add(
                 Particle(
                     x = x,
                     y = y,
                     vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - 30f,
+                    vy = kotlin.math.sin(angle) * speed - 35f,
                     color = gemColors[Random.nextInt(gemColors.size)],
                     radius = Random.nextFloat() * 4.5f + 2.5f,
-                    maxLife = Random.nextFloat() * 0.4f + 0.5f,
-                    life = 0.8f,
-                    shape = shape
+                    maxLife = Random.nextFloat() * 0.35f + 0.5f,
+                    life = 0.85f,
+                    shape = shape,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 500f - 250f
                 )
             )
         }
     }
 
     private fun spawnLandingEffects(x: Float, y: Float, isBullseye: Boolean) {
-        spawnDust(x, y, count = if (isBullseye) 16 else 10)
+        spawnDust(x, y, count = if (isBullseye) 18 else 10)
 
+        // Ring shockwave
         particles.add(
             Particle(
                 x = x,
@@ -728,18 +804,35 @@ class StickmanGameEngine(
                 vx = 0f,
                 vy = 0f,
                 color = if (isBullseye) Color(0xFFFFD700) else Color(0xFF60A5FA),
-                radius = if (isBullseye) 8f else 5f,
-                maxLife = 0.4f,
-                life = 0.4f,
+                radius = if (isBullseye) 10f else 5f,
+                maxLife = 0.42f,
+                life = 0.42f,
                 shape = ParticleShape.RING_WAVE
             )
         )
 
-        val burstCount = if (isBullseye) 28 else 14
+        if (isBullseye) {
+            // Secondary Crimson shockwave ring
+            particles.add(
+                Particle(
+                    x = x,
+                    y = y,
+                    vx = 0f,
+                    vy = 0f,
+                    color = Color(0xFFEF4444),
+                    radius = 5f,
+                    maxLife = 0.32f,
+                    life = 0.32f,
+                    shape = ParticleShape.RING_WAVE
+                )
+            )
+        }
+
+        val burstCount = if (isBullseye) 36 else 16
         val burstColor = if (isBullseye) Color(0xFFFFD700) else Color(0xFF93C5FD)
         for (i in 0 until burstCount) {
-            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.8f + 0.1f)
-            val speed = Random.nextFloat() * 200f + 60f
+            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.85f + 0.08f)
+            val speed = Random.nextFloat() * 240f + 60f
             particles.add(
                 Particle(
                     x = x,
@@ -747,38 +840,43 @@ class StickmanGameEngine(
                     vx = kotlin.math.cos(angle) * speed,
                     vy = kotlin.math.sin(angle) * speed,
                     color = if (isBullseye && i % 2 == 0) Color(0xFFEF4444) else burstColor,
-                    radius = Random.nextFloat() * 3.5f + 2f,
-                    maxLife = Random.nextFloat() * 0.3f + 0.45f,
-                    life = 0.75f,
-                    shape = if (isBullseye) ParticleShape.STAR else ParticleShape.CIRCLE
+                    radius = Random.nextFloat() * 4.5f + 2f,
+                    maxLife = Random.nextFloat() * 0.35f + 0.45f,
+                    life = 0.8f,
+                    shape = if (isBullseye) (if (i % 3 == 0) ParticleShape.STAR else ParticleShape.SPARKLE) else ParticleShape.CIRCLE,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 450f - 225f
                 )
             )
         }
     }
 
-    private fun spawnConfetti(x: Float, y: Float, count: Int = 30) {
+    private fun spawnConfetti(x: Float, y: Float, count: Int = 35) {
         val colors = listOf(
             Color(0xFFFFD700),
             Color(0xFFEF4444),
             Color(0xFF38BDF8),
             Color(0xFF4ADE80),
             Color(0xFFA855F7),
-            Color(0xFFF43F5E)
+            Color(0xFFF43F5E),
+            Color(0xFFFDE047)
         )
         for (i in 0 until count) {
             val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-            val speed = Random.nextFloat() * 260f + 60f
+            val speed = Random.nextFloat() * 280f + 70f
             particles.add(
                 Particle(
                     x = x,
                     y = y,
                     vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - 120f,
+                    vy = kotlin.math.sin(angle) * speed - 140f,
                     color = colors[Random.nextInt(colors.size)],
-                    radius = Random.nextFloat() * 5f + 3f,
-                    maxLife = 1.4f,
-                    life = 1.4f,
-                    shape = ParticleShape.CONFETTI
+                    radius = Random.nextFloat() * 5.5f + 3f,
+                    maxLife = 1.6f,
+                    life = 1.6f,
+                    shape = ParticleShape.CONFETTI,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 500f - 250f
                 )
             )
         }

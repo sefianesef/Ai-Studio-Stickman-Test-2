@@ -123,7 +123,9 @@ data class Particle(
     var alpha: Float = 1f,
     var life: Float = 1f,
     val maxLife: Float = 1f,
-    val shape: ParticleShape = ParticleShape.CIRCLE
+    val shape: ParticleShape = ParticleShape.CIRCLE,
+    var rotation: Float = 0f,
+    var vRot: Float = 0f
 )
 
 enum class ParticleShape {
@@ -132,7 +134,10 @@ enum class ParticleShape {
     CONFETTI,
     DUST,
     GEM_BURST,
-    RING_WAVE
+    RING_WAVE,
+    SPARKLE,
+    FIRE_EMBER,
+    NEON_ORB
 }
 
 data class FloatingPopupText(

@@ -1071,13 +1071,13 @@ private fun DrawScope.drawHeroHat(
 
 private fun DrawScope.drawParticles(particles: List<Particle>) {
     particles.forEach { p ->
-        val pColor = p.color.copy(alpha = p.alpha)
+        val pColor = p.color.copy(alpha = p.alpha.coerceIn(0f, 1f))
         when (p.shape) {
             ParticleShape.RING_WAVE -> {
                 // Expanding shockwave ripple ring
-                val progress = 1f - (p.life / p.maxLife)
-                val expandingRadius = p.radius + (progress * 28.dp.toPx())
-                val ringStroke = (2.5f * (1f - progress)).coerceAtLeast(0.5f).dp.toPx()
+                val progress = (1f - (p.life / p.maxLife)).coerceIn(0f, 1f)
+                val expandingRadius = p.radius + (progress * 32.dp.toPx())
+                val ringStroke = (3f * (1f - progress)).coerceAtLeast(0.5f).dp.toPx()
                 drawCircle(
                     color = pColor,
                     radius = expandingRadius,
@@ -1087,53 +1087,125 @@ private fun DrawScope.drawParticles(particles: List<Particle>) {
             }
             ParticleShape.GEM_BURST -> {
                 // Faceted diamond gem shard with sparkle core
-                val progress = 1f - (p.life / p.maxLife)
-                val dynamicRadius = p.radius * (1f + progress * 0.3f)
-                val path = Path().apply {
-                    moveTo(p.x, p.y - dynamicRadius * 1.3f)
-                    lineTo(p.x + dynamicRadius * 0.8f, p.y)
-                    lineTo(p.x, p.y + dynamicRadius * 1.3f)
-                    lineTo(p.x - dynamicRadius * 0.8f, p.y)
-                    close()
+                val progress = (1f - (p.life / p.maxLife)).coerceIn(0f, 1f)
+                val dynamicRadius = p.radius * (1f + progress * 0.35f)
+                rotate(degrees = p.rotation, pivot = Offset(p.x, p.y)) {
+                    val path = Path().apply {
+                        moveTo(p.x, p.y - dynamicRadius * 1.3f)
+                        lineTo(p.x + dynamicRadius * 0.8f, p.y)
+                        lineTo(p.x, p.y + dynamicRadius * 1.3f)
+                        lineTo(p.x - dynamicRadius * 0.8f, p.y)
+                        close()
+                    }
+                    drawPath(path = path, color = pColor)
+                    // Center white twinkle core
+                    drawCircle(
+                        color = Color.White.copy(alpha = (p.alpha * 0.9f).coerceIn(0f, 1f)),
+                        radius = dynamicRadius * 0.35f,
+                        center = Offset(p.x, p.y)
+                    )
                 }
-                drawPath(path = path, color = pColor)
-                // Center white twinkle core
-                drawCircle(
-                    color = Color.White.copy(alpha = (p.alpha * 0.9f).coerceIn(0f, 1f)),
-                    radius = dynamicRadius * 0.35f,
-                    center = Offset(p.x, p.y)
-                )
             }
             ParticleShape.STAR -> {
-                // 4-Point Diamond Sparkle Star
-                val path = Path().apply {
-                    moveTo(p.x, p.y - p.radius * 1.4f)
-                    lineTo(p.x + p.radius * 0.35f, p.y)
-                    lineTo(p.x, p.y + p.radius * 1.4f)
-                    lineTo(p.x - p.radius * 0.35f, p.y)
-                    close()
+                // 4-Point Diamond Sparkle Star with rotation
+                rotate(degrees = p.rotation, pivot = Offset(p.x, p.y)) {
+                    val path = Path().apply {
+                        moveTo(p.x, p.y - p.radius * 1.4f)
+                        lineTo(p.x + p.radius * 0.35f, p.y)
+                        lineTo(p.x, p.y + p.radius * 1.4f)
+                        lineTo(p.x - p.radius * 0.35f, p.y)
+                        close()
+                    }
+                    val pathH = Path().apply {
+                        moveTo(p.x - p.radius * 1.4f, p.y)
+                        lineTo(p.x, p.y + p.radius * 0.35f)
+                        lineTo(p.x + p.radius * 1.4f, p.y)
+                        lineTo(p.x, p.y - p.radius * 0.35f)
+                        close()
+                    }
+                    drawPath(path = path, color = pColor)
+                    drawPath(path = pathH, color = pColor)
+                    drawCircle(
+                        color = Color.White.copy(alpha = (p.alpha * 0.85f).coerceIn(0f, 1f)),
+                        radius = p.radius * 0.4f,
+                        center = Offset(p.x, p.y)
+                    )
                 }
-                val pathH = Path().apply {
-                    moveTo(p.x - p.radius * 1.4f, p.y)
-                    lineTo(p.x, p.y + p.radius * 0.35f)
-                    lineTo(p.x + p.radius * 1.4f, p.y)
-                    lineTo(p.x, p.y - p.radius * 0.35f)
-                    close()
+            }
+            ParticleShape.CONFETTI -> {
+                rotate(degrees = p.rotation, pivot = Offset(p.x, p.y)) {
+                    drawRoundRect(
+                        color = pColor,
+                        topLeft = Offset(p.x - p.radius, p.y - p.radius * 0.6f),
+                        size = Size(p.radius * 2f, p.radius * 1.2f),
+                        cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
+                    )
                 }
-                drawPath(path = path, color = pColor)
-                drawPath(path = pathH, color = pColor)
+            }
+            ParticleShape.FIRE_EMBER -> {
+                // Warm glowing fire ember with core
+                drawCircle(
+                    color = pColor.copy(alpha = (p.alpha * 0.4f).coerceIn(0f, 1f)),
+                    radius = p.radius * 1.8f,
+                    center = Offset(p.x, p.y)
+                )
+                drawCircle(
+                    color = pColor,
+                    radius = p.radius,
+                    center = Offset(p.x, p.y)
+                )
                 drawCircle(
                     color = Color.White.copy(alpha = (p.alpha * 0.8f).coerceIn(0f, 1f)),
                     radius = p.radius * 0.4f,
                     center = Offset(p.x, p.y)
                 )
             }
-            ParticleShape.CONFETTI -> {
-                drawRoundRect(
+            ParticleShape.SPARKLE -> {
+                // High-intensity micro spark
+                drawCircle(
                     color = pColor,
-                    topLeft = Offset(p.x - p.radius, p.y - p.radius * 0.6f),
-                    size = Size(p.radius * 2f, p.radius * 1.2f),
-                    cornerRadius = CornerRadius(1.dp.toPx(), 1.dp.toPx())
+                    radius = p.radius,
+                    center = Offset(p.x, p.y)
+                )
+                drawLine(
+                    color = Color.White.copy(alpha = p.alpha),
+                    start = Offset(p.x - p.radius * 1.6f, p.y),
+                    end = Offset(p.x + p.radius * 1.6f, p.y),
+                    strokeWidth = 1.2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = Color.White.copy(alpha = p.alpha),
+                    start = Offset(p.x, p.y - p.radius * 1.6f),
+                    end = Offset(p.x, p.y + p.radius * 1.6f),
+                    strokeWidth = 1.2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+            ParticleShape.NEON_ORB -> {
+                // Pulsing glowing orb
+                drawCircle(
+                    color = pColor.copy(alpha = (p.alpha * 0.35f).coerceIn(0f, 1f)),
+                    radius = p.radius * 2.2f,
+                    center = Offset(p.x, p.y)
+                )
+                drawCircle(
+                    color = pColor,
+                    radius = p.radius,
+                    center = Offset(p.x, p.y)
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = (p.alpha * 0.9f).coerceIn(0f, 1f)),
+                    radius = p.radius * 0.45f,
+                    center = Offset(p.x, p.y)
+                )
+            }
+            ParticleShape.DUST -> {
+                // Soft billowing dust puff
+                drawCircle(
+                    color = pColor,
+                    radius = p.radius,
+                    center = Offset(p.x, p.y)
                 )
             }
             else -> {

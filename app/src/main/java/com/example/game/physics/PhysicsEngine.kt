@@ -164,7 +164,7 @@ class PhysicsEngine {
     }
 
     /**
-     * Updates 2D particle dynamics: velocity integration, air friction, flutter harmonics, and alpha decay.
+     * Updates 2D particle dynamics: velocity integration, air friction, flutter harmonics, rotational tumbling, and alpha decay.
      */
     fun updateParticles(particles: MutableList<Particle>, dt: Float) {
         val iterator = particles.iterator()
@@ -172,6 +172,7 @@ class PhysicsEngine {
             val p = iterator.next()
             p.x += p.vx * dt
             p.y += p.vy * dt
+            p.rotation += p.vRot * dt
 
             when (p.shape) {
                 ParticleShape.RING_WAVE -> {
@@ -181,11 +182,28 @@ class PhysicsEngine {
                 }
                 ParticleShape.GEM_BURST, ParticleShape.STAR -> {
                     p.vx *= (1f - 1.5f * dt).coerceAtLeast(0f)
-                    p.vy += 140f * dt // gentle floating gravity
+                    p.vy += 120f * dt // gentle floating gravity
                 }
                 ParticleShape.CONFETTI -> {
-                    p.vx *= (1f - 0.8f * dt).coerceAtLeast(0f)
-                    p.vy += 220f * dt // fluttering gravity
+                    p.vx *= (1f - 0.7f * dt).coerceAtLeast(0f)
+                    p.vy += 160f * dt // fluttering gravity
+                }
+                ParticleShape.FIRE_EMBER -> {
+                    // Upward floating ember with gentle horizontal sway
+                    p.vy -= 180f * dt
+                    p.vx *= (1f - 1.2f * dt).coerceAtLeast(0f)
+                }
+                ParticleShape.SPARKLE -> {
+                    p.vx *= (1f - 2.5f * dt).coerceAtLeast(0f)
+                    p.vy += 200f * dt
+                }
+                ParticleShape.NEON_ORB -> {
+                    p.vx *= (1f - 1.0f * dt).coerceAtLeast(0f)
+                    p.vy *= (1f - 1.0f * dt).coerceAtLeast(0f)
+                }
+                ParticleShape.DUST -> {
+                    p.vx *= (1f - 3.0f * dt).coerceAtLeast(0f)
+                    p.vy *= (1f - 2.0f * dt).coerceAtLeast(0f)
                 }
                 else -> {
                     p.vy += 340f * dt // standard gravity
