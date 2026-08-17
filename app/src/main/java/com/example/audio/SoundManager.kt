@@ -2,296 +2,287 @@ package com.example.audio
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.SoundPool
+import android.media.AudioFormat
+import android.media.AudioTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * SoundPool Manager that synthesizes and loads low-latency sound effects for
- * bridge placement, stickman landing, gem collection, and arcade interactions.
+ * Ultra-resilient, low-latency SoundManager powered directly by in-memory raw PCM waveforms
+ * and non-blocking streaming AudioTracks.
+ * Safe across all Android devices, handles hardware limitations gracefully, and never crashes.
  */
 class SoundManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Default)
 
-    private var soundPool: SoundPool? = null
-
     var soundEnabled: Boolean = true
     var hapticsEnabled: Boolean = true
 
-    // Sound effect IDs for SoundPool
-    private var soundBridgePlaceId: Int = 0
-    private var soundStickmanLandId: Int = 0
-    private var soundGemCollectId: Int = 0
-    private var soundGrowTickId: Int = 0
-    private var soundBridgeFallId: Int = 0
-    private var soundWalkStepId: Int = 0
-    private var soundPerfectHitId: Int = 0
-    private var soundFlipId: Int = 0
-    private var soundGameOverId: Int = 0
-    private var soundButtonId: Int = 0
-    private var soundVictoryMusicId: Int = 0
-    private var soundStickmanFallId: Int = 0
-    private var soundPurchaseSuccessId: Int = 0
-    private var soundComboStreakId: Int = 0
+    // Standard game sample rate
+    private val standardSampleRate = 22050
 
-    private val loadedSounds = mutableSetOf<Int>()
+    // Audio attributes
+    private val audioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_GAME)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
+
+    // Pre-synthesized PCM waveform tables (stored purely in JVM heap)
+    private val soundBuffers = ConcurrentHashMap<String, ShortArray>()
+
+    // Thread-safe pool of streaming AudioTracks
+    private val streamingTracks = CopyOnWriteArrayList<AudioTrack>()
+    private val trackIndex = AtomicInteger(0)
 
     init {
-        try {
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-            val pool = SoundPool.Builder()
-                .setMaxStreams(4)
-                .setAudioAttributes(audioAttributes)
-                .build()
-            pool.setOnLoadCompleteListener { _, sampleId, status ->
-                if (status == 0) {
-                    loadedSounds.add(sampleId)
-                }
-            }
-            soundPool = pool
-            generateAndLoadSounds()
-        } catch (_: Exception) {}
-    }
-
-    private fun generateAndLoadSounds() {
         scope.launch {
             try {
-                val soundDir = File(context.cacheDir, "game_sounds").apply { mkdirs() }
+                initAllSounds()
+            } catch (_: Throwable) {}
+        }
+    }
 
-                // 1. Bridge Placed (Thud + resonance)
-                soundBridgePlaceId = loadWavSound(soundDir, "bridge_placed.wav") {
-                    generateWavData(durationMs = 120, sampleRate = 22050) { t, frac ->
-                        val decay = (1.0 - frac * frac)
-                        (sin(2.0 * PI * 120.0 * t) * 0.7 + sin(2.0 * PI * 65.0 * t) * 0.5) * decay
-                    }
-                }
+    private fun getOrCreateTrack(): AudioTrack? {
+        val existing = streamingTracks.firstOrNull()
+        if (existing != null && existing.state == AudioTrack.STATE_INITIALIZED) {
+            return existing
+        }
+        return synchronized(streamingTracks) {
+            val trackCheck = streamingTracks.firstOrNull()
+            if (trackCheck != null && trackCheck.state == AudioTrack.STATE_INITIALIZED) {
+                trackCheck
+            } else {
+                try {
+                    val minBuf = AudioTrack.getMinBufferSize(
+                        standardSampleRate,
+                        AudioFormat.CHANNEL_OUT_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT
+                    ).coerceAtLeast(4096)
 
-                // 2. Stickman Landing (Satisfying platform step / contact tone)
-                soundStickmanLandId = loadWavSound(soundDir, "stickman_land.wav") {
-                    generateWavData(durationMs = 100, sampleRate = 22050) { t, frac ->
-                        val decay = (1.0 - frac)
-                        (sin(2.0 * PI * 440.0 * t) * 0.6 + sin(2.0 * PI * 880.0 * t) * 0.4) * decay
-                    }
-                }
+                    val format = AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(standardSampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build()
 
-                // 3. Gem Collect (Crisp bright dual crystal chime)
-                soundGemCollectId = loadWavSound(soundDir, "gem_collect.wav") {
-                    generateWavData(durationMs = 160, sampleRate = 22050) { t, frac ->
-                        val freq = if (frac < 0.35) 987.77 else 1479.98 // B5 -> F#6
-                        val decay = (1.0 - frac)
-                        sin(2.0 * PI * freq * t) * decay * 0.85
-                    }
-                }
+                    val track = AudioTrack.Builder()
+                        .setAudioAttributes(audioAttributes)
+                        .setAudioFormat(format)
+                        .setBufferSizeInBytes(minBuf)
+                        .setTransferMode(AudioTrack.MODE_STREAM)
+                        .build()
 
-                // 4. Grow Tick (Short percussive click)
-                soundGrowTickId = loadWavSound(soundDir, "grow_tick.wav") {
-                    generateWavData(durationMs = 25, sampleRate = 22050) { t, frac ->
-                        val decay = 1.0 - frac
-                        sin(2.0 * PI * 520.0 * t) * decay * 0.4
+                    if (track.state == AudioTrack.STATE_INITIALIZED) {
+                        track.play()
+                        streamingTracks.add(track)
+                        track
+                    } else {
+                        null
                     }
+                } catch (_: Throwable) {
+                    null
                 }
-
-                // 5. Bridge Fall (Whistle descending)
-                soundBridgeFallId = loadWavSound(soundDir, "bridge_fall.wav") {
-                    generateWavData(durationMs = 90, sampleRate = 22050) { t, frac ->
-                        val freq = 240.0 - frac * 120.0
-                        val decay = 1.0 - frac
-                        sin(2.0 * PI * freq * t) * decay * 0.6
-                    }
-                }
-
-                // 6. Walk Step (Subtle light tap)
-                soundWalkStepId = loadWavSound(soundDir, "walk_step.wav") {
-                    generateWavData(durationMs = 20, sampleRate = 22050) { t, frac ->
-                        val decay = 1.0 - frac
-                        sin(2.0 * PI * 600.0 * t) * decay * 0.25
-                    }
-                }
-
-                // 7. Perfect Bullseye Fanfare (Bright quad arpeggio)
-                soundPerfectHitId = loadWavSound(soundDir, "perfect_hit.wav") {
-                    generateWavData(durationMs = 280, sampleRate = 22050) { t, frac ->
-                        val freq = when {
-                            frac < 0.25 -> 523.25 // C5
-                            frac < 0.50 -> 659.25 // E5
-                            frac < 0.75 -> 783.99 // G5
-                            else -> 1046.50       // C6
-                        }
-                        val noteFrac = (frac % 0.25) / 0.25
-                        val decay = 1.0 - noteFrac * 0.7
-                        sin(2.0 * PI * freq * t) * decay * 0.9
-                    }
-                }
-
-                // 8. Stickman Flip
-                soundFlipId = loadWavSound(soundDir, "flip.wav") {
-                    generateWavData(durationMs = 50, sampleRate = 22050) { t, frac ->
-                        val freq = 450.0 + frac * 400.0
-                        val decay = 1.0 - frac
-                        sin(2.0 * PI * freq * t) * decay * 0.5
-                    }
-                }
-
-                // 9. Game Over Defeat Chime
-                soundGameOverId = loadWavSound(soundDir, "game_over.wav") {
-                    generateWavData(durationMs = 380, sampleRate = 22050) { t, frac ->
-                        val freq = when {
-                            frac < 0.3 -> 349.23  // F4
-                            frac < 0.6 -> 311.13  // Eb4
-                            else -> 220.00        // A3
-                        }
-                        val decay = 1.0 - frac * 0.8
-                        sin(2.0 * PI * freq * t) * decay * 0.85
-                    }
-                }
-
-                // 10. UI Button Click
-                soundButtonId = loadWavSound(soundDir, "btn_click.wav") {
-                    generateWavData(durationMs = 35, sampleRate = 22050) { t, frac ->
-                        val decay = 1.0 - frac
-                        sin(2.0 * PI * 700.0 * t) * decay * 0.4
-                    }
-                }
-
-                // 11. Level Victory Fanfare / Music (Glorious multi-note triumph)
-                soundVictoryMusicId = loadWavSound(soundDir, "level_victory.wav") {
-                    generateWavData(durationMs = 650, sampleRate = 22050) { t, frac ->
-                        val freq = when {
-                            frac < 0.15 -> 523.25  // C5
-                            frac < 0.30 -> 659.25  // E5
-                            frac < 0.45 -> 783.99  // G5
-                            frac < 0.65 -> 1046.50 // C6
-                            else -> 1318.51        // E6 (Triumphant high flourish!)
-                        }
-                        val segmentFrac = (frac % 0.15) / 0.15
-                        val decay = 1.0 - (segmentFrac * 0.45)
-                        // Add rich brass/chime 2nd harmonic
-                        (sin(2.0 * PI * freq * t) * 0.75 + sin(2.0 * PI * freq * 2.0 * t) * 0.35) * decay
-                    }
-                }
-
-                // 12. Stickman Fall Down (Cartoon slide whistle drop down to hilarious thud)
-                soundStickmanFallId = loadWavSound(soundDir, "stickman_fall.wav") {
-                    generateWavData(durationMs = 550, sampleRate = 22050) { t, frac ->
-                        if (frac < 0.82) {
-                            // Descending slide whistle with comedic vibrato
-                            val fallFrac = frac / 0.82
-                            val baseFreq = 780.0 - (fallFrac * fallFrac * 620.0) // 780Hz -> 160Hz
-                            val vibrato = sin(2.0 * PI * 18.0 * t) * 25.0
-                            val decay = 1.0 - fallFrac * 0.3
-                            sin(2.0 * PI * (baseFreq + vibrato) * t) * decay * 0.85
-                        } else {
-                            // Comedic cartoon thud / splash impact
-                            val impactFrac = (frac - 0.82) / 0.18
-                            val decay = 1.0 - impactFrac
-                            (sin(2.0 * PI * 85.0 * t) * 0.8 + sin(2.0 * PI * 42.0 * t) * 0.5) * decay
-                        }
-                    }
-                }
-
-                // 13. Gem Purchase / Real Money Triumph Fanfare
-                soundPurchaseSuccessId = loadWavSound(soundDir, "purchase_success.wav") {
-                    generateWavData(durationMs = 500, sampleRate = 22050) { t, frac ->
-                        val freq = when {
-                            frac < 0.2 -> 659.25   // E5
-                            frac < 0.4 -> 880.00   // A5
-                            frac < 0.6 -> 1174.66  // D6
-                            else -> 1760.00        // A6 (Crystal sparkle)
-                        }
-                        val decay = 1.0 - frac * 0.7
-                        (sin(2.0 * PI * freq * t) * 0.8 + sin(2.0 * PI * (freq * 1.5) * t) * 0.3) * decay
-                    }
-                }
-
-                // 14. Combo Streak / On Fire Chime
-                soundComboStreakId = loadWavSound(soundDir, "combo_streak.wav") {
-                    generateWavData(durationMs = 240, sampleRate = 22050) { t, frac ->
-                        val freq = 580.0 + (frac * 600.0)
-                        val decay = 1.0 - frac
-                        sin(2.0 * PI * freq * t) * decay * 0.8
-                    }
-                }
-            } catch (_: Exception) {
-                // Gracefully fallback
             }
         }
     }
 
-    private fun loadWavSound(
-        dir: File,
-        fileName: String,
-        generator: () -> ByteArray
-    ): Int {
-        val file = File(dir, fileName)
-        if (!file.exists() || file.length() == 0L) {
-            val bytes = generator()
-            FileOutputStream(file).use { it.write(bytes) }
+    private fun initAllSounds() {
+        // 1. Bridge Placed (Thud + deep resonance)
+        registerSound("bridge_place", durationMs = 120) { t, frac ->
+            val decay = (1.0 - frac * frac)
+            (sin(2.0 * PI * 120.0 * t) * 0.7 + sin(2.0 * PI * 65.0 * t) * 0.5) * decay
         }
-        val pool = soundPool ?: return 0
-        return pool.load(file.absolutePath, 1)
+
+        // 2. Stickman Landing (Satisfying platform step / contact tone)
+        registerSound("stickman_land", durationMs = 100) { t, frac ->
+            val decay = (1.0 - frac)
+            (sin(2.0 * PI * 440.0 * t) * 0.6 + sin(2.0 * PI * 880.0 * t) * 0.4) * decay
+        }
+
+        // 3. Gem Collect (Crisp bright dual crystal chime)
+        registerSound("gem_collect", durationMs = 160) { t, frac ->
+            val freq = if (frac < 0.35) 987.77 else 1479.98
+            val decay = (1.0 - frac)
+            sin(2.0 * PI * freq * t) * decay * 0.85
+        }
+
+        // 4. Grow Tick (Short percussive click)
+        registerSound("grow_tick", durationMs = 25) { t, frac ->
+            val decay = 1.0 - frac
+            sin(2.0 * PI * 520.0 * t) * decay * 0.45
+        }
+
+        // 5. Bridge Fall (Whistle descending)
+        registerSound("bridge_fall", durationMs = 90) { t, frac ->
+            val freq = 240.0 - frac * 120.0
+            val decay = 1.0 - frac
+            sin(2.0 * PI * freq * t) * decay * 0.6
+        }
+
+        // 6. Walk Step (Subtle light tap)
+        registerSound("walk_step", durationMs = 20) { t, frac ->
+            val decay = 1.0 - frac
+            sin(2.0 * PI * 600.0 * t) * decay * 0.25
+        }
+
+        // 7. Perfect Bullseye Fanfare (Bright quad arpeggio)
+        registerSound("perfect_hit", durationMs = 280) { t, frac ->
+            val freq = when {
+                frac < 0.25 -> 523.25 // C5
+                frac < 0.50 -> 659.25 // E5
+                frac < 0.75 -> 783.99 // G5
+                else -> 1046.50       // C6
+            }
+            val noteFrac = (frac % 0.25) / 0.25
+            val decay = 1.0 - noteFrac * 0.7
+            sin(2.0 * PI * freq * t) * decay * 0.9
+        }
+
+        // 8. Stickman Flip
+        registerSound("flip", durationMs = 50) { t, frac ->
+            val freq = 450.0 + frac * 400.0
+            val decay = 1.0 - frac
+            sin(2.0 * PI * freq * t) * decay * 0.5
+        }
+
+        // 9. Game Over Defeat Chime
+        registerSound("game_over", durationMs = 380) { t, frac ->
+            val freq = when {
+                frac < 0.3 -> 349.23  // F4
+                frac < 0.6 -> 311.13  // Eb4
+                else -> 220.00        // A3
+            }
+            val decay = 1.0 - frac * 0.8
+            sin(2.0 * PI * freq * t) * decay * 0.85
+        }
+
+        // 10. UI Button Click
+        registerSound("button_click", durationMs = 35) { t, frac ->
+            val decay = 1.0 - frac
+            sin(2.0 * PI * 700.0 * t) * decay * 0.4
+        }
+
+        // 11. Level Victory Fanfare / Music (Glorious multi-note triumph)
+        registerSound("level_victory", durationMs = 650) { t, frac ->
+            val freq = when {
+                frac < 0.15 -> 523.25  // C5
+                frac < 0.30 -> 659.25  // E5
+                frac < 0.45 -> 783.99  // G5
+                frac < 0.65 -> 1046.50 // C6
+                else -> 1318.51        // E6
+            }
+            val segmentFrac = (frac % 0.15) / 0.15
+            val decay = 1.0 - (segmentFrac * 0.45)
+            (sin(2.0 * PI * freq * t) * 0.75 + sin(2.0 * PI * freq * 2.0 * t) * 0.35) * decay
+        }
+
+        // 12. Stickman Fall Down (Cartoon slide whistle drop down to hilarious thud)
+        registerSound("stickman_fall", durationMs = 550) { t, frac ->
+            if (frac < 0.82) {
+                val fallFrac = frac / 0.82
+                val baseFreq = 780.0 - (fallFrac * fallFrac * 620.0)
+                val vibrato = sin(2.0 * PI * 18.0 * t) * 25.0
+                val decay = 1.0 - fallFrac * 0.3
+                sin(2.0 * PI * (baseFreq + vibrato) * t) * decay * 0.85
+            } else {
+                val impactFrac = (frac - 0.82) / 0.18
+                val decay = 1.0 - impactFrac
+                (sin(2.0 * PI * 85.0 * t) * 0.8 + sin(2.0 * PI * 42.0 * t) * 0.5) * decay
+            }
+        }
+
+        // 13. Gem Purchase / Real Money Triumph Fanfare
+        registerSound("purchase_success", durationMs = 500) { t, frac ->
+            val freq = when {
+                frac < 0.2 -> 659.25   // E5
+                frac < 0.4 -> 880.00   // A5
+                frac < 0.6 -> 1174.66  // D6
+                else -> 1760.00        // A6
+            }
+            val decay = 1.0 - frac * 0.7
+            (sin(2.0 * PI * freq * t) * 0.8 + sin(2.0 * PI * (freq * 1.5) * t) * 0.3) * decay
+        }
+
+        // 14. Combo Streak / On Fire Chime
+        registerSound("combo_streak", durationMs = 240) { t, frac ->
+            val freq = 580.0 + (frac * 600.0)
+            val decay = 1.0 - frac
+            sin(2.0 * PI * freq * t) * decay * 0.8
+        }
     }
 
-    private fun generateWavData(
+    private fun registerSound(
+        key: String,
         durationMs: Int,
-        sampleRate: Int = 22050,
+        sampleRate: Int = standardSampleRate,
         waveFn: (t: Double, frac: Double) -> Double
-    ): ByteArray {
-        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt().coerceAtLeast(1)
-        val dataSize = numSamples * 2
-        val totalSize = 44 + dataSize
+    ) {
+        try {
+            val numSamples = (sampleRate * (durationMs / 1000.0)).toInt().coerceAtLeast(1)
+            val pcmData = ShortArray(numSamples)
 
-        val buffer = ByteBuffer.allocate(totalSize).order(ByteOrder.LITTLE_ENDIAN)
+            for (i in 0 until numSamples) {
+                val t = i.toDouble() / sampleRate
+                val frac = i.toDouble() / numSamples
+                val sampleVal = (waveFn(t, frac) * 32767.0).toInt().coerceIn(-32768, 32767)
+                pcmData[i] = sampleVal.toShort()
+            }
 
-        // RIFF header
-        buffer.put("RIFF".toByteArray())
-        buffer.putInt(36 + dataSize)
-        buffer.put("WAVE".toByteArray())
-
-        // fmt chunk
-        buffer.put("fmt ".toByteArray())
-        buffer.putInt(16) // Subchunk1Size (16 for PCM)
-        buffer.putShort(1) // AudioFormat (1 for PCM)
-        buffer.putShort(1) // NumChannels (1 = mono)
-        buffer.putInt(sampleRate) // SampleRate
-        buffer.putInt(sampleRate * 2) // ByteRate (SampleRate * NumChannels * BitsPerSample/8)
-        buffer.putShort(2) // BlockAlign (NumChannels * BitsPerSample/8)
-        buffer.putShort(16) // BitsPerSample
-
-        // data chunk
-        buffer.put("data".toByteArray())
-        buffer.putInt(dataSize)
-
-        for (i in 0 until numSamples) {
-            val t = i.toDouble() / sampleRate
-            val frac = i.toDouble() / numSamples
-            val sampleVal = (waveFn(t, frac) * 32767.0).toInt().coerceIn(-32768, 32767)
-            buffer.putShort(sampleVal.toShort())
-        }
-
-        return buffer.array()
+            soundBuffers[key] = pcmData
+        } catch (_: Throwable) {}
     }
 
-    private fun playSound(soundId: Int, volume: Float = 1.0f, rate: Float = 1.0f) {
-        if (!soundEnabled || soundId == 0) return
-        try {
-            soundPool?.play(soundId, volume, volume, 1, 0, rate)
-        } catch (_: Exception) {}
+    private fun play(key: String, volume: Float = 1.0f, pitchMultiplier: Float = 1.0f) {
+        if (!soundEnabled) return
+        val rawPcm = soundBuffers[key] ?: return
+
+        scope.launch(Dispatchers.Default) {
+            try {
+                val track = getOrCreateTrack() ?: return@launch
+                if (track.state != AudioTrack.STATE_INITIALIZED) return@launch
+
+                // Pitch scaling via linear interpolation if modified
+                val pitchedPcm = if (pitchMultiplier != 1.0f && pitchMultiplier > 0.1f) {
+                    val newLength = (rawPcm.size / pitchMultiplier).toInt().coerceAtLeast(1)
+                    val resampled = ShortArray(newLength)
+                    for (i in 0 until newLength) {
+                        val srcIdx = i * pitchMultiplier
+                        val i0 = srcIdx.toInt().coerceIn(0, rawPcm.size - 1)
+                        val i1 = (i0 + 1).coerceIn(0, rawPcm.size - 1)
+                        val frac = srcIdx - i0
+                        resampled[i] = ((1.0 - frac) * rawPcm[i0] + frac * rawPcm[i1]).toInt().toShort()
+                    }
+                    resampled
+                } else {
+                    rawPcm
+                }
+
+                // Volume scaling
+                val clampedVolume = volume.coerceIn(0f, 1f)
+                val finalPcm = if (clampedVolume < 0.98f) {
+                    ShortArray(pitchedPcm.size) { i ->
+                        (pitchedPcm[i] * clampedVolume).toInt().coerceIn(-32768, 32767).toShort()
+                    }
+                } else {
+                    pitchedPcm
+                }
+
+                // Write to streaming track non-blockingly
+                track.write(finalPcm, 0, finalPcm.size, AudioTrack.WRITE_NON_BLOCKING)
+            } catch (_: Throwable) {}
+        }
     }
 
     // --- Sound Effects Trigger Methods ---
 
     fun playBridgePlaced() {
-        playSound(soundBridgePlaceId, volume = 0.8f)
+        play("bridge_place", volume = 0.8f)
     }
 
     fun playBridgeLand() {
@@ -299,63 +290,70 @@ class SoundManager(private val context: Context) {
     }
 
     fun playStickmanLand() {
-        playSound(soundStickmanLandId, volume = 0.7f)
+        play("stickman_land", volume = 0.7f)
     }
 
     fun playGemCollect() {
-        playSound(soundGemCollectId, volume = 0.9f)
+        play("gem_collect", volume = 0.9f)
     }
 
     fun playGrowTick(pitchIndex: Int) {
         val rate = (1.0f + (pitchIndex % 15) * 0.04f).coerceIn(0.8f, 1.8f)
-        playSound(soundGrowTickId, volume = 0.4f, rate = rate)
+        play("grow_tick", volume = 0.4f, pitchMultiplier = rate)
     }
 
     fun playBridgeFall() {
-        playSound(soundBridgeFallId, volume = 0.6f)
+        play("bridge_fall", volume = 0.6f)
     }
 
     fun playWalkStep() {
-        playSound(soundWalkStepId, volume = 0.3f)
+        play("walk_step", volume = 0.3f)
     }
 
     fun playPerfectHit() {
-        playSound(soundPerfectHitId, volume = 0.95f)
+        play("perfect_hit", volume = 0.95f)
     }
 
     fun playFlip() {
-        playSound(soundFlipId, volume = 0.65f)
+        play("flip", volume = 0.65f)
     }
 
     fun playGameOver() {
-        playSound(soundGameOverId, volume = 0.9f)
+        play("game_over", volume = 0.9f)
     }
 
     fun playButton() {
-        playSound(soundButtonId, volume = 0.5f)
+        play("button_click", volume = 0.5f)
     }
 
     fun playVictoryMusic() {
-        playSound(soundVictoryMusicId, volume = 1.0f)
+        play("level_victory", volume = 1.0f)
     }
 
     fun playStickmanFall() {
-        playSound(soundStickmanFallId, volume = 0.95f)
+        play("stickman_fall", volume = 0.95f)
     }
 
     fun playBuyGemsSuccess() {
-        playSound(soundPurchaseSuccessId, volume = 1.0f)
+        play("purchase_success", volume = 1.0f)
     }
 
     fun playComboStreak() {
-        playSound(soundComboStreakId, volume = 0.9f)
+        play("combo_streak", volume = 0.9f)
     }
 
     fun release() {
         try {
-            soundPool?.release()
-            soundPool = null
-        } catch (_: Exception) {}
+            streamingTracks.forEach { track ->
+                try {
+                    track.stop()
+                    track.release()
+                } catch (_: Throwable) {}
+            }
+            streamingTracks.clear()
+            soundBuffers.clear()
+        } catch (_: Throwable) {}
     }
 }
+
 
