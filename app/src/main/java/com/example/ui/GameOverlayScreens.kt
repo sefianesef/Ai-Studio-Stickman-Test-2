@@ -706,6 +706,18 @@ fun GameOverDialog(
     val totalGems by viewModel.gems.collectAsState()
     val isNewHigh by viewModel.engine.isNewHighScore.collectAsState()
     val lastNearMiss by viewModel.engine.lastNearMiss.collectAsState()
+    val revivalsUsed by viewModel.engine.revivalsUsed.collectAsState()
+    val reviveCost = viewModel.engine.getReviveCost()
+    val canAffordRevive = totalGems >= reviveCost
+
+    // Urgency countdown timer for second chance loss aversion
+    var countdownSeconds by remember { mutableIntStateOf(7) }
+    LaunchedEffect(Unit) {
+        while (countdownSeconds > 0) {
+            kotlinx.coroutines.delay(1000L)
+            countdownSeconds--
+        }
+    }
 
     Box(
         modifier = modifier
@@ -855,24 +867,59 @@ fun GameOverDialog(
                     }
                 }
 
-                // Second Chance Revive Button (Loss Aversion)
-                if (score >= 2) {
-                    Button(
-                        onClick = { viewModel.revivePlayer() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .testTag("game_over_revive_button")
+                // Second Chance Revive Button (Psychological Loss Aversion & Urgent Escalation)
+                if (score >= 1 && countdownSeconds > 0) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = "✨", fontSize = 18.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
+                        if (canAffordRevive) {
+                            Button(
+                                onClick = { viewModel.revivePlayer() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .testTag("game_over_revive_button")
+                            ) {
+                                Text(text = "✨", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "REVIVE & SAVE SCORE ($reviveCost 💎) • ${countdownSeconds}s",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            Button(
+                                onClick = { viewModel.openShop(true) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF831843)),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFF43F5E)),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .testTag("game_over_revive_buy_gems_button")
+                            ) {
+                                Text(text = "💎", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "NEED ${reviveCost - totalGems} GEMS TO REVIVE • TOP UP",
+                                    color = Color(0xFFFDE047),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
                         Text(
-                            text = "REVIVE & CONTINUE (3 💎)",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
+                            text = if (revivalsUsed == 0) "First Revival in this run" else "Revivals used: $revivalsUsed (Cost scales: 5 → 15 → 35 → 75 💎)",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -2360,18 +2407,20 @@ fun DailyMissionsDialog(
                         }
                     }
 
-                    TextButton(
+                    Button(
                         onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(38.dp)
-                            .testTag("daily_missions_close_bottom_button")
+                            .height(44.dp)
+                            .testTag("daily_missions_play_button")
                     ) {
                         Text(
-                            text = "CLOSE",
-                            color = Color(0xFF64748B),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            text = "LET'S PLAY! 🥷",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
                         )
                     }
                 }

@@ -117,17 +117,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun revivePlayer(): Boolean {
-        // Costs 3 gems, or free if player has at least 3 gems or for second chance
-        val cost = 3
+        val cost = engine.getReviveCost()
         if (repository.spendGems(cost)) {
-            engine.reviveRun()
-            return true
-        } else if (repository.gems.value == 0) {
-            // Free emergency safety revival!
             engine.reviveRun()
             return true
         }
         return false
+    }
+
+    fun canAffordRevive(): Boolean {
+        return repository.gems.value >= engine.getReviveCost()
     }
 
     // Daily streak states

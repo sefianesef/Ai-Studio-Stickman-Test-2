@@ -58,6 +58,20 @@ class StickmanGameEngine(
     val gemsCollectedRun: StateFlow<Int> = gemStateManager.collectedInRun
     val gemCombo: StateFlow<Int> = gemStateManager.currentCombo
 
+    private val _revivalsUsed = MutableStateFlow(0)
+    val revivalsUsed: StateFlow<Int> = _revivalsUsed.asStateFlow()
+
+    fun getReviveCost(): Int {
+        return when (_revivalsUsed.value) {
+            0 -> 5
+            1 -> 15
+            2 -> 35
+            else -> 75
+        }
+    }
+
+    private var justLeveledUp = false
+
     // Physics & Layout coordinates (in DP/Canvas virtual pixels)
     var screenWidth = 1080f
     var screenHeight = 1920f
@@ -130,6 +144,8 @@ class StickmanGameEngine(
         _score.value = 0
         _currentLevel.value = 1
         _isNewHighScore.value = false
+        _revivalsUsed.value = 0
+        justLeveledUp = false
         _difficultyTier.value = DifficultyTier.NOVICE_TRAINING
         val equippedTheme = repository.selectedTheme.value
         _currentStage.value = StageThemes.getThemeForScore(0, equippedTheme)
@@ -176,6 +192,7 @@ class StickmanGameEngine(
     fun reviveRun() {
         soundManager.playPerfectHit()
         hapticManager?.perfectHit()
+        _revivalsUsed.value += 1
 
         // Reset bridge & stickman to start of current platform
         stickLength = 0f
@@ -208,9 +225,10 @@ class StickmanGameEngine(
         _difficultyTier.value = tier
 
         val level = computeLevelForScore(currentScore)
-        val gap = difficultyManager.generatePlatformGap(currentScore, level, screenW)
+        val gap = difficultyManager.generatePlatformGap(currentScore, level, screenW, isFirstBridgeOfLevel = justLeveledUp)
+        justLeveledUp = false
 
-        val width = difficultyManager.generatePlatformWidth(currentScore).coerceIn(36f, 185f)
+        val width = difficultyManager.generatePlatformWidth(currentScore).coerceIn(35f, 160f)
         val nextLeft = currentPlatform.leftX + currentPlatform.width + gap
 
         // Procedural Gem Placement via GemStateManager
@@ -484,11 +502,12 @@ class StickmanGameEngine(
                         // Victory Celebration & Level Progression with Music Fanfare
                         if (newLevel > previousLevel) {
                             _currentLevel.value = newLevel
+                            justLeveledUp = true
                             val isMajorMilestone = (newLevel == 5 || newLevel == 10 || newLevel == 15 || newLevel == 20)
                             val bonusGems = when {
-                                previousLevel == 10 -> 25
-                                previousLevel % 5 == 0 -> 15
-                                else -> 5
+                                previousLevel == 10 -> 20
+                                previousLevel % 5 == 0 -> 10
+                                else -> 2
                             }
                             repository.addGems(bonusGems)
                             val title = when (previousLevel) {

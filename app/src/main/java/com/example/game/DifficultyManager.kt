@@ -16,34 +16,34 @@ enum class DifficultyTier(
     val growthSpeedFactor: Float,
     val badgeColorHex: Long
 ) {
-    // Levels 1 to 2 (Scores 0-7): Friendly onboarding, wide platforms, forgiving bullseye
+    // Levels 1 to 2 (Scores 0-7): Friendly onboarding, comfortable platforms
     NOVICE_TRAINING(
         tierLevel = 1,
         title = "RECRUIT",
         minLevel = 1,
         minScore = 0,
-        minWidth = 135f,
-        maxWidth = 175f,
-        bullseyeTolerance = 24f,
-        gemSpawnRate = 0.85f,
-        doubleGemChance = 0.10f,
+        minWidth = 120f,
+        maxWidth = 155f,
+        bullseyeTolerance = 22f,
+        gemSpawnRate = 0.50f,
+        doubleGemChance = 0.05f,
         movingPlatformChance = 0.0f,
-        growthSpeedFactor = 0.85f,
+        growthSpeedFactor = 0.88f,
         badgeColorHex = 0xFF10B981 // Emerald Green
     ),
-    // Level 3 (Scores 8-11): Stepping into genuine challenge - platform widths shrink, gap dynamics begin, tighter tolerance
+    // Level 3 (Scores 8-11): Stepping into genuine challenge - platform widths shrink, gap dynamics begin
     APPRENTICE(
         tierLevel = 2,
         title = "CHALLENGER",
         minLevel = 3,
         minScore = 8,
-        minWidth = 100f,
-        maxWidth = 135f,
-        bullseyeTolerance = 18f,
-        gemSpawnRate = 0.65f,
-        doubleGemChance = 0.15f,
+        minWidth = 85f,
+        maxWidth = 115f,
+        bullseyeTolerance = 16f,
+        gemSpawnRate = 0.40f,
+        doubleGemChance = 0.10f,
         movingPlatformChance = 0.0f,
-        growthSpeedFactor = 0.95f,
+        growthSpeedFactor = 0.96f,
         badgeColorHex = 0xFF38BDF8 // Sky Blue
     ),
     // Level 4 (Scores 12-16): Dynamic bridge physics, high canyon gaps & narrow platforms
@@ -52,13 +52,13 @@ enum class DifficultyTier(
         title = "ADEPT",
         minLevel = 4,
         minScore = 12,
-        minWidth = 78f,
-        maxWidth = 110f,
-        bullseyeTolerance = 14f,
-        gemSpawnRate = 0.55f,
-        doubleGemChance = 0.20f,
+        minWidth = 70f,
+        maxWidth = 95f,
+        bullseyeTolerance = 13f,
+        gemSpawnRate = 0.35f,
+        doubleGemChance = 0.15f,
         movingPlatformChance = 0.08f,
-        growthSpeedFactor = 1.00f,
+        growthSpeedFactor = 1.02f,
         badgeColorHex = 0xFFA855F7 // Purple
     ),
     // Level 5 (Scores 17-21): Expert precision testing
@@ -67,13 +67,13 @@ enum class DifficultyTier(
         title = "EXPERT",
         minLevel = 5,
         minScore = 17,
-        minWidth = 65f,
-        maxWidth = 92f,
-        bullseyeTolerance = 11f,
-        gemSpawnRate = 0.45f,
-        doubleGemChance = 0.25f,
+        minWidth = 55f,
+        maxWidth = 78f,
+        bullseyeTolerance = 10f,
+        gemSpawnRate = 0.30f,
+        doubleGemChance = 0.20f,
         movingPlatformChance = 0.14f,
-        growthSpeedFactor = 1.05f,
+        growthSpeedFactor = 1.08f,
         badgeColorHex = 0xFFF59E0B // Amber
     ),
     // Level 6 to 9 (Scores 22-51): Master tier
@@ -82,13 +82,13 @@ enum class DifficultyTier(
         title = "MASTER",
         minLevel = 6,
         minScore = 22,
-        minWidth = 52f,
-        maxWidth = 78f,
-        bullseyeTolerance = 9f,
-        gemSpawnRate = 0.38f,
-        doubleGemChance = 0.30f,
+        minWidth = 44f,
+        maxWidth = 65f,
+        bullseyeTolerance = 8f,
+        gemSpawnRate = 0.26f,
+        doubleGemChance = 0.25f,
         movingPlatformChance = 0.20f,
-        growthSpeedFactor = 1.10f,
+        growthSpeedFactor = 1.14f,
         badgeColorHex = 0xFFEC4899 // Pink Neon
     ),
     // Level 10+ (Scores 52+): Legendary grandmaster tier
@@ -97,13 +97,13 @@ enum class DifficultyTier(
         title = "LEGEND",
         minLevel = 10,
         minScore = 52,
-        minWidth = 42f,
-        maxWidth = 64f,
-        bullseyeTolerance = 7f,
-        gemSpawnRate = 0.30f,
-        doubleGemChance = 0.35f,
+        minWidth = 35f,
+        maxWidth = 52f,
+        bullseyeTolerance = 6f,
+        gemSpawnRate = 0.22f,
+        doubleGemChance = 0.30f,
         movingPlatformChance = 0.28f,
-        growthSpeedFactor = 1.15f,
+        growthSpeedFactor = 1.20f,
         badgeColorHex = 0xFFEF4444 // Crimson Red
     );
 
@@ -134,17 +134,24 @@ class DifficultyManager {
 
     /**
      * Generates platform gap distance based on the user's level progression curve:
-     * - Levels 1-2: Easy, comfortable, predictable platform distances (105-145px) with wide platforms so beginners learn bridge timing.
-     * - Levels 3+: Dynamic bridge physics where distances vary dynamically (sometimes very small hops ~55-105px, 
-     *   sometimes medium bridges ~130-210px, sometimes long canyon stretches ~220-330px).
+     * - Levels 1-2: Comfortable, predictable platform distances (120-170px).
+     * - Levels 3+: Dynamic bridge physics with varied spans (Short: 120-165px, Medium: 175-245px, Canyon: 255-360px).
+     * - Guarantees platform gap is never awkwardly close (< 115px).
      */
-    fun generatePlatformGap(score: Int, level: Int, screenWidth: Float): Float {
-        val maxAvailableGap = (screenWidth * 0.52f).coerceAtLeast(290f)
+    fun generatePlatformGap(score: Int, level: Int, screenWidth: Float, isFirstBridgeOfLevel: Boolean = false): Float {
+        val maxAvailableGap = (screenWidth * 0.54f).coerceAtLeast(300f)
+
+        if (isFirstBridgeOfLevel) {
+            // First bridge after level-up: majestic, open canyon distance
+            val firstMin = 155f
+            val firstMax = 225f.coerceAtMost(maxAvailableGap)
+            return Random.nextFloat() * (firstMax - firstMin) + firstMin
+        }
 
         if (level <= 2) {
             // First 2 levels: steady, easy-to-judge comfortable distance
-            val minGap = 100f
-            val maxGap = 145f.coerceAtMost(maxAvailableGap)
+            val minGap = 120f
+            val maxGap = 165f.coerceAtMost(maxAvailableGap)
             return Random.nextFloat() * (maxGap - minGap) + minGap
         }
 
@@ -158,17 +165,17 @@ class DifficultyManager {
 
         val (minGap, maxGap) = when (gapCategory) {
             0 -> {
-                // Small distance: quick precision tap
-                Pair(55f, 105f)
+                // Short precision hop: clean, well-spaced (never cramped)
+                Pair(115f, 160f)
             }
             1 -> {
                 // Medium distance: standard bridge stretch
-                Pair(130f, 210f)
+                Pair(170f, 245f)
             }
             else -> {
-                // Bigger distance: thrilling canyon crossing with dynamic scaling
-                val maxCanyon = (230f + (level * 4f)).coerceIn(240f, maxAvailableGap)
-                Pair(220f, maxCanyon)
+                // Thrilling canyon crossing with dynamic scaling
+                val maxCanyon = (260f + (level * 5f)).coerceIn(270f, maxAvailableGap)
+                Pair(250f, maxCanyon)
             }
         }
 

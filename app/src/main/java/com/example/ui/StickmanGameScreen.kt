@@ -30,6 +30,11 @@ fun StickmanGameScreen(
     val isStart = gameState == GameState.START
     val isGameOver = gameState == GameState.GAMEOVER
 
+    // Auto-pop up Daily Missions dialog on initial game launch to maximize engagement
+    LaunchedEffect(Unit) {
+        viewModel.openDailyMissions(true)
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
