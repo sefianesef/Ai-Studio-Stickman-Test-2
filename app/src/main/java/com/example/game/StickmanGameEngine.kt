@@ -29,6 +29,9 @@ class StickmanGameEngine(
     private val _score = MutableStateFlow(0)
     val score: StateFlow<Int> = _score.asStateFlow()
 
+    private val _currentLevel = MutableStateFlow(1)
+    val currentLevel: StateFlow<Int> = _currentLevel.asStateFlow()
+
     private val _currentStage = MutableStateFlow(StageThemes.stages[0])
     val currentStage: StateFlow<StageTheme> = _currentStage.asStateFlow()
 
@@ -125,6 +128,7 @@ class StickmanGameEngine(
 
     fun resetGame(initial: Boolean = false) {
         _score.value = 0
+        _currentLevel.value = 1
         _isNewHighScore.value = false
         _difficultyTier.value = DifficultyTier.NOVICE_TRAINING
         val equippedTheme = repository.selectedTheme.value
@@ -281,24 +285,28 @@ class StickmanGameEngine(
         }
     }
 
+    /**
+     * Level Progression Curve:
+     * - Level 1 (Score 0-3): 4 introductory bridges (easy & wide platforms)
+     * - Level 2 (Score 4-7): 4 bridges (predictable comfortable distances)
+     * - Level 3 (Score 8-11): 4 bridges (solid mastery)
+     * - Level 4 (Score 12-16): 5 bridges (dynamic bridge physics & varying distances: small hops, medium bridges, long gaps)
+     * - Level 5 (Score 17-21): 5 bridges (rich bridge physics variations)
+     * - Level 6+ (Score 22+): Scaled progression with continuous endless arcade flow
+     */
     fun computeLevelForScore(score: Int): Int {
         return when {
-            score < 2 -> 1
-            score < 4 -> 2
-            score < 6 -> 3
-            score < 8 -> 4
-            score < 10 -> 5
-            score < 13 -> 6
-            score < 16 -> 7
-            score < 20 -> 8
-            score < 24 -> 9
-            score < 28 -> 10
-            score < 33 -> 11
-            score < 38 -> 12
-            score < 44 -> 13
-            score < 50 -> 14
-            score < 56 -> 15
-            else -> 15 + ((score - 56) / 5) + 1
+            score < 4 -> 1
+            score < 8 -> 2
+            score < 12 -> 3
+            score < 17 -> 4
+            score < 22 -> 5
+            score < 28 -> 6
+            score < 35 -> 7
+            score < 43 -> 8
+            score < 52 -> 9
+            score < 62 -> 10
+            else -> 10 + ((score - 62) / 10) + 1
         }
     }
 
@@ -475,6 +483,8 @@ class StickmanGameEngine(
 
                         // Victory Celebration & Level Progression with Music Fanfare
                         if (newLevel > previousLevel) {
+                            _currentLevel.value = newLevel
+                            val isMajorMilestone = (newLevel == 5 || newLevel == 10 || newLevel == 15 || newLevel == 20)
                             val bonusGems = when {
                                 previousLevel == 10 -> 25
                                 previousLevel % 5 == 0 -> 15
@@ -494,20 +504,25 @@ class StickmanGameEngine(
                                 10 -> "🏆 LEVEL 10 GRADUATE! 🏆"
                                 else -> "Level $previousLevel Master!"
                             }
-                            val celebrationText = "🎉 LEVEL $previousLevel VICTORY! 🎉\n+$bonusGems Bonus Gems! Advancing to Level $newLevel!"
-                            _levelVictoryCelebration.value = celebrationText
-                            _activeLevelVictory.value = LevelVictoryData(
-                                levelNumber = previousLevel,
-                                nextLevelNumber = newLevel,
-                                bonusGems = bonusGems,
-                                title = title,
-                                milestoneReward = if (previousLevel == 10) "Unlocks Legendary Title + 25 Gems" else "+$bonusGems Gems"
-                            )
+                            
+                            // Only pop up full modal dialog on major milestones so game pacing is never interrupted after standard levels
+                            if (isMajorMilestone) {
+                                val celebrationText = "🎉 LEVEL $previousLevel MILESTONE CLEARED! 🎉\n+$bonusGems Bonus Gems! Advancing to Level $newLevel!"
+                                _levelVictoryCelebration.value = celebrationText
+                                _activeLevelVictory.value = LevelVictoryData(
+                                    levelNumber = previousLevel,
+                                    nextLevelNumber = newLevel,
+                                    bonusGems = bonusGems,
+                                    title = title,
+                                    milestoneReward = if (previousLevel == 10) "Unlocks Legendary Title + 25 Gems" else "+$bonusGems Gems"
+                                )
+                            }
+                            
                             soundManager.playVictoryMusic()
                             hapticManager?.levelUp()
                             spawnConfetti(screenWidth / 2f, screenHeight * 0.35f, count = 55)
                             addFloatingText(
-                                "LEVEL $previousLevel CLEAR! +$bonusGems 💎",
+                                "LEVEL $newLevel REACHED! +$bonusGems 💎",
                                 screenWidth / 2f,
                                 screenHeight * 0.30f,
                                 Color(0xFFFFD700),

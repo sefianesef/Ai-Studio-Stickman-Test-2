@@ -133,13 +133,13 @@ class DifficultyManager {
     }
 
     /**
-     * Generates platform gap distance.
-     * - For Levels 1-3 (score < 6): Steady, predictable, comfortable gaps (~100-140px).
-     * - After Level 3 (level > 3 / score >= 6): Varies the distance between platforms dynamically
-     *   with rich rhythmic variation (Short Hops, Medium Bridges, and Long Canyons).
+     * Generates platform gap distance based on the user's level progression curve:
+     * - Levels 1-3: Easy, comfortable, predictable platform distances (105-145px) with wide platforms so beginners learn bridge timing.
+     * - Levels 4-5+: Rich "bridge physics" variation where distances vary dynamically (sometimes very small hops ~60-100px, 
+     *   sometimes medium bridges ~140-210px, sometimes long canyon stretches ~220-320px).
      */
     fun generatePlatformGap(score: Int, level: Int, screenWidth: Float): Float {
-        val maxAvailableGap = (screenWidth * 0.48f).coerceAtLeast(280f)
+        val maxAvailableGap = (screenWidth * 0.52f).coerceAtLeast(290f)
 
         if (level <= 3) {
             // First 3 levels: steady, easy-to-judge comfortable distance
@@ -148,27 +148,26 @@ class DifficultyManager {
             return Random.nextFloat() * (maxGap - minGap) + minGap
         }
 
-        // After Level 3: dynamically vary the distance between platforms
-        // Alternate across 3 distinct gap archetypes for dynamic cadence:
+        // Levels 4, 5 and beyond: dynamic bridge distance variations (small, medium, large swings)
         val gapCategory = when (Random.nextFloat()) {
-            in 0.0f..0.32f -> if (previousGapCategory == 0) 1 else 0
-            in 0.32f..0.72f -> if (previousGapCategory == 1) 2 else 1
+            in 0.0f..0.33f -> if (previousGapCategory == 0) 1 else 0
+            in 0.33f..0.67f -> if (previousGapCategory == 1) 2 else 1
             else -> if (previousGapCategory == 2) 0 else 2
         }
         previousGapCategory = gapCategory
 
         val (minGap, maxGap) = when (gapCategory) {
             0 -> {
-                // Short Hop: Quick precision tap
-                Pair(65f, 115f)
+                // Small distance: quick precision tap
+                Pair(55f, 105f)
             }
             1 -> {
-                // Medium Bridge: Balanced span
+                // Medium distance: standard bridge stretch
                 Pair(130f, 210f)
             }
             else -> {
-                // Long Canyon: Extended stretch (scales gently with level progression)
-                val maxCanyon = (230f + (level * 3f)).coerceIn(240f, maxAvailableGap)
+                // Bigger distance: thrilling canyon crossing with dynamic scaling
+                val maxCanyon = (230f + (level * 4f)).coerceIn(240f, maxAvailableGap)
                 Pair(220f, maxCanyon)
             }
         }

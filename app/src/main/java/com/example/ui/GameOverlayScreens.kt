@@ -55,6 +55,7 @@ fun GameHud(
     modifier: Modifier = Modifier
 ) {
     val score by viewModel.engine.score.collectAsState()
+    val currentLevel by viewModel.engine.currentLevel.collectAsState()
     val gems by viewModel.gems.collectAsState()
     val currentStage by viewModel.engine.currentStage.collectAsState()
     val tier by viewModel.engine.difficultyTier.collectAsState()
@@ -109,7 +110,7 @@ fun GameHud(
                 }
             }
 
-            // Stage & Difficulty Tier Pill
+            // Level, Stage & Difficulty Tier Pill
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -117,13 +118,14 @@ fun GameHud(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = Color(0x66000000),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x44FFFFFF)),
                     modifier = Modifier.testTag("stage_indicator")
                 ) {
                     Text(
-                        text = "Stage ${currentStage.stageNumber}: ${currentStage.name}",
-                        color = Color.White.copy(alpha = 0.85f),
+                        text = "Lv $currentLevel • ${currentStage.name}",
+                        color = Color.White.copy(alpha = 0.95f),
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
