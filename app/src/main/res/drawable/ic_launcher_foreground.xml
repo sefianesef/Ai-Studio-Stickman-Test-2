@@ -1,9 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="66dp"
-        android:height="66dp"
-        android:drawable="@drawable/ic_launcher_stickman_hero_1786962603207"
-        android:gravity="center" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Glowing Gem in background -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M54,22 L66,34 L54,46 L42,34 Z" />
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M54,26 L62,34 L54,42 L46,34 Z" />
+        
+    <!-- Golden Pillar Platform -->
+    <path
+        android:fillColor="#374151"
+        android:pathData="M24,70 L48,70 L48,108 L24,108 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M24,70 L48,70 L48,73 L24,73 Z" />
 
+    <!-- Second Pillar -->
+    <path
+        android:fillColor="#374151"
+        android:pathData="M68,70 L92,70 L92,108 L68,108 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M68,70 L92,70 L92,73 L68,73 Z" />
+        
+    <!-- Red Perfect Target Spot on Pillar 2 -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M78,70 L82,70 L82,73 L78,73 Z" />
+
+    <!-- Glowing Bridge -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M46,68 L72,68 L72,71 L46,71 Z" />
+
+    <!-- Stickman Head -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:pathData="M42,42 A6,6 0 1,1 42,30 A6,6 0 1,1 42,42" />
+
+    <!-- Hero Red Headband / Bandana -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M35,33 L49,33 L48,36 L36,36 Z" />
+    <!-- Bandana Tails flying -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M35,34 L26,31 L35,36 Z" />
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M35,35 L24,37 L35,37 Z" />
+
+    <!-- Stickman Body -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:pathData="M41,42 L43,42 L43,58 L41,58 Z" />
+
+    <!-- Stickman Legs (Walking Stance) -->
+    <path
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M42,57 L48,69" />
+    <path
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M42,57 L36,69" />
+
+    <!-- Stickman Arms (Balancing) -->
+    <path
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M42,47 L52,52" />
+    <path
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M42,47 L33,49" />
+</vector>

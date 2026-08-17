@@ -33,14 +33,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.R
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
 import com.example.model.GemPack
@@ -435,13 +433,7 @@ fun StartScreenOverlay(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_launcher_stickman),
-                            contentDescription = "Stickman Hero Logo",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(22.dp))
-                        )
+                        Text(text = "🥷", fontSize = 44.sp)
                     }
                 }
 
