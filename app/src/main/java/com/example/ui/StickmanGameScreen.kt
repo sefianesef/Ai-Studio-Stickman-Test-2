@@ -36,9 +36,13 @@ fun StickmanGameScreen(
     val isStart = gameState == GameState.START
     val isGameOver = gameState == GameState.GAMEOVER
 
-    // Auto-pop up Daily Missions dialog on initial game launch to maximize engagement
+    // Auto-pop up Daily Missions dialog after 3 seconds of startup to avoid interrupting the initial view
     LaunchedEffect(Unit) {
-        viewModel.openDailyMissions(true)
+        kotlinx.coroutines.delay(3000)
+        // Only open if the user hasn't started playing immediately or opened another menu
+        if (viewModel.engine.gameState.value == GameState.START && !viewModel.isShopOpen.value && !viewModel.isMainMenuOpen.value) {
+            viewModel.openDailyMissions(true)
+        }
     }
 
     Box(

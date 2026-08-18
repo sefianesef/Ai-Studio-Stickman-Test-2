@@ -73,154 +73,149 @@ fun GameHud(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
+        // TOP BAR: Left (Gems + Daily Mission) | Center (Level & Stage) | Right (Weekly Trial + Action Menu & Pause)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Gem Counter & Shop Button
+            // LEFT SIDE: Gem Counter & Colorful Daily Missions Action Button
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Gem Counter & Shop Button
+                Surface(
+                    onClick = { viewModel.openShop(true) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xCC0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x6638BDF8)),
+                    modifier = Modifier
+                        .shadow(4.dp, RoundedCornerShape(18.dp))
+                        .testTag("hud_gem_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(text = "💎", fontSize = 15.sp)
+                        Text(
+                            text = "$gems",
+                            color = Color(0xFF38BDF8),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                // 🎯 COLORFUL DAILY MISSIONS ICON (Left Side) with Claim Indicator Badge
+                Surface(
+                    onClick = { viewModel.openDailyMissions(true) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = if (uncompletedClaimableCount > 0) Color(0xFF047857) else Color(0xDD064E3B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.5.dp,
+                        if (uncompletedClaimableCount > 0) Color(0xFF34D399) else Color(0xFF10B981)
+                    ),
+                    modifier = Modifier
+                        .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF10B981))
+                        .testTag("hud_daily_missions_colorful_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "🎯", fontSize = 16.sp)
+                        Text(
+                            text = if (uncompletedClaimableCount > 0) "CLAIM" else "DAILY",
+                            color = if (uncompletedClaimableCount > 0) Color(0xFFFDE047) else Color(0xFF6EE7B7),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.5.sp
+                        )
+                        if (uncompletedClaimableCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFFEF4444), CircleShape)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // CENTER / COMPACT: Level & Stage Indicator Pill
             Surface(
-                onClick = { viewModel.openShop(true) },
-                shape = RoundedCornerShape(20.dp),
-                color = Color(0x990F172A),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x4438BDF8)),
+                shape = RoundedCornerShape(18.dp),
+                color = Color(0xEE0B1329),
+                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF38BDF8)),
                 modifier = Modifier
-                    .shadow(4.dp, RoundedCornerShape(20.dp))
-                    .testTag("hud_gem_button")
+                    .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF38BDF8))
+                    .testTag("stage_indicator")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(text = "💎", fontSize = 16.sp)
+                    Text(text = "🚩", fontSize = 13.sp)
                     Text(
-                        text = "$gems",
-                        color = Color(0xFF38BDF8),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ShoppingBag,
-                        contentDescription = "Shop",
-                        tint = Color(0xFFFBBF24),
-                        modifier = Modifier.size(16.dp)
+                        text = "LV $currentLevel",
+                        color = Color(0xFFF1F5F9),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
             }
 
-                // Level, Stage & Difficulty Tier Pill
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xCC0B1329),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
-                        modifier = Modifier
-                            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF38BDF8))
-                            .testTag("stage_indicator")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Text(text = "🚩", fontSize = 13.sp)
-                            Text(
-                                text = "LV $currentLevel • ${currentStage.name.uppercase()}",
-                                color = Color(0xFFE2E8F0),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                    }
-
-                    // Difficulty Rank Badge
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color(tier.badgeColorHex).copy(alpha = 0.35f),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(tier.badgeColorHex)),
-                        modifier = Modifier
-                            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(tier.badgeColorHex))
-                            .testTag("hud_difficulty_tier")
-                    ) {
-                        Text(
-                            text = tier.title.uppercase(),
-                            color = Color(tier.badgeColorHex),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-            // Action Buttons (Menu, Daily Missions, Weekly, Leaderboard, Spin, Sound & Pause)
+            // RIGHT SIDE: Colorful Weekly Trials + Leaderboard / Pause
             Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Persistent Daily Missions Button (with claimable red badge)
-                Box {
-                    IconButton(
-                        onClick = { viewModel.openDailyMissions(true) },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(if (uncompletedClaimableCount > 0) Color(0xCC065F46) else Color(0x770F172A), CircleShape)
-                            .testTag("hud_missions_button")
+                // ⚡ COLORFUL WEEKLY MISSION BUTTON (Right Side)
+                Surface(
+                    onClick = { viewModel.openWeeklyMissions(true) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xDD312E81),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF818CF8)),
+                    modifier = Modifier
+                        .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF818CF8))
+                        .testTag("hud_weekly_missions_colorful_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = "🎯", fontSize = 16.sp)
-                    }
-                    if (uncompletedClaimableCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .align(Alignment.TopEnd)
-                                .background(Color(0xFFEF4444), CircleShape)
+                        Text(text = "⚡", fontSize = 15.sp)
+                        Text(
+                            text = "WEEKLY",
+                            color = Color(0xFFA5B4FC),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.5.sp
                         )
                     }
-                }
-
-                // Weekly Trials Button
-                IconButton(
-                    onClick = { viewModel.openWeeklyMissions(true) },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0x770F172A), CircleShape)
-                        .testTag("hud_weekly_missions_button")
-                ) {
-                    Text(text = "⚡", fontSize = 16.sp)
-                }
-
-                // Leaderboard Button
-                IconButton(
-                    onClick = { viewModel.openLeaderboard(true) },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0x770F172A), CircleShape)
-                        .testTag("hud_leaderboard_button")
-                ) {
-                    Text(text = "🏆", fontSize = 16.sp)
                 }
 
                 // Master Game Menu Button
                 IconButton(
                     onClick = { viewModel.openMainMenu(true) },
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0x992563EB), CircleShape)
+                        .size(34.dp)
+                        .background(Color(0xCC1E293B), CircleShape)
                         .testTag("hud_main_menu_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = "Game Menu",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
@@ -228,21 +223,21 @@ fun GameHud(
                 IconButton(
                     onClick = { viewModel.openPauseMenu(true) },
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0x770F172A), CircleShape)
+                        .size(34.dp)
+                        .background(Color(0xCC1E293B), CircleShape)
                         .testTag("hud_pause_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Pause,
                         contentDescription = "Pause",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Large Score Display + Active Gem Combo Pill
         Column(
@@ -1602,11 +1597,11 @@ fun ShopDialog(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     val tabs = listOf(
-                        AccessoryType.BODY_SKIN to ("🦸 Outfits" to viewModel.availableAccessories.count { it.type == AccessoryType.BODY_SKIN }),
+                        AccessoryType.BODY_SKIN to ("🦸 Skins" to viewModel.availableAccessories.count { it.type == AccessoryType.BODY_SKIN }),
                         AccessoryType.STICK to ("🥢 Bridges" to viewModel.availableAccessories.count { it.type == AccessoryType.STICK }),
                         AccessoryType.HAT to ("👑 Hats" to viewModel.availableAccessories.count { it.type == AccessoryType.HAT }),
                         AccessoryType.SCARF to ("🧣 Capes" to viewModel.availableAccessories.count { it.type == AccessoryType.SCARF }),
-                        AccessoryType.THEME to ("🌌 Realms" to viewModel.availableAccessories.count { it.type == AccessoryType.THEME }),
+                        AccessoryType.THEME to ("🌌 Backgrounds" to viewModel.availableAccessories.count { it.type == AccessoryType.THEME }),
                         AccessoryType.GEM_VAULT to ("💎 Vault" to viewModel.availableGemPacks.size)
                     )
 
@@ -1637,7 +1632,7 @@ fun ShopDialog(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    text = if (type == AccessoryType.GEM_VAULT) "💎 Vault" else label.split(" ")[0],
+                                    text = if (type == AccessoryType.GEM_VAULT) "💎 Vault" else if (type == AccessoryType.THEME) "🌌 Bg" else label.split(" ")[0],
                                     color = if (isSelected) Color.White else Color(0xFF94A3B8),
                                     fontSize = 10.sp,
                                     fontWeight = if (isSelected) FontWeight.Black else FontWeight.SemiBold
