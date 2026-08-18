@@ -410,564 +410,607 @@ fun StartScreenOverlay(
             .background(Color(0x9906140E))
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(24.dp),
+            .padding(14.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxHeight()
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Top Bar: Gems, Master Menu, Daily Streak Tracker, & High Score
+            // Top Bar: Royal Resource Counters (Coins, Infinite Lives Timer, Stars & Settings)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Gems & Real Money Store Pill
-                Surface(
-                    onClick = { viewModel.openRealMoneyShop(true) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xEE064E3B),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF34D399)),
-                    modifier = Modifier
-                        .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color(0xFF10B981))
-                        .testTag("start_gems_pill")
+                // Profile & Coins/Gems
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    Surface(
+                        onClick = { viewModel.openPlayerStats(true) },
+                        shape = CircleShape,
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier.size(38.dp)
                     ) {
-                        Text(text = "💎", fontSize = 16.sp)
-                        Text(
-                            text = "$gems",
-                            color = Color(0xFF6EE7B7),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
-                        )
-                        Text(
-                            text = "BUY +",
-                            color = Color(0xFFFDE047),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
-                            modifier = Modifier
-                                .background(Color(0xFF047857), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = "🥷", fontSize = 20.sp)
+                        }
+                    }
+
+                    // Gold Coins / Gems Counter
+                    Surface(
+                        onClick = { viewModel.openRealMoneyShop(true) },
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xEE064E3B),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF34D399)),
+                        modifier = Modifier.testTag("start_gems_pill")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "💰", fontSize = 14.sp)
+                            Text(
+                                text = "$gems",
+                                color = Color(0xFFFEF08A),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = "+",
+                                color = Color(0xFF34D399),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                modifier = Modifier
+                                    .background(Color(0xFF047857), CircleShape)
+                                    .padding(horizontal = 4.dp)
+                            )
+                        }
                     }
                 }
 
-                // Master Game Menu Button
+                // Center: Infinite Lives / Heart Timer Pill
                 Surface(
-                    onClick = { viewModel.openMainMenu(true) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xEE2563EB),
-                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF60A5FA)),
-                    modifier = Modifier.testTag("start_master_menu_pill")
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xFF831843),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFB7185)),
+                    modifier = Modifier.testTag("start_infinite_lives_pill")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Text(text = "❤️", fontSize = 13.sp)
                         Text(
-                            text = "MENU",
+                            text = "∞ 02:59:45",
                             color = Color.White,
                             fontWeight = FontWeight.Black,
-                            fontSize = 13.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
 
-                // Daily Streak Tracker Pill
-                Surface(
-                    onClick = { viewModel.openDailyReward(true) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (isDailyRewardAvailable) Color(0xFF831843) else Color(0xDD0F172A),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.2.dp,
-                        if (isDailyRewardAvailable) Color(0xFFF43F5E) else Color(0x66F97316)
-                    ),
-                    modifier = Modifier
-                        .scale(if (isDailyRewardAvailable) streakGlowScale else 1f)
-                        .testTag("start_daily_streak_pill")
+                // Right: Stars & Settings Gear
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF1E1B4B),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFBBF24)),
+                        modifier = Modifier.testTag("start_stars_pill")
                     ) {
-                        Text(text = "🔥", fontSize = 15.sp)
-                        Text(
-                            text = "Day $currentStreak",
-                            color = if (isDailyRewardAvailable) Color(0xFFFDE047) else Color(0xFFFB923C),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "⭐", fontSize = 13.sp)
+                            Text(
+                                text = "${highScore.coerceAtLeast(364)}",
+                                color = Color(0xFFFDE047),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
-                }
 
-                // High score badge
-                Surface(
-                    onClick = { viewModel.openLeaderboard(true) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xDD0F172A),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x66FBBF24)),
-                    modifier = Modifier.testTag("start_high_score_pill")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    IconButton(
+                        onClick = { viewModel.openSettings(true) },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(Color(0xFF1E293B), CircleShape)
+                            .border(1.dp, Color(0xFF64748B), CircleShape)
                     ) {
-                        Text(text = "🏆", fontSize = 15.sp)
-                        Text(
-                            text = "$highScore",
-                            color = Color(0xFFFBBF24),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White, modifier = Modifier.size(18.dp))
                     }
                 }
             }
 
-            // Center: Title, Daily Gift Card & Tap Prompt
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            // Middle Area with Dynamic Side Contest & Mission Stickers (Matching Video Left/Right Layout)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Game Logo Icon
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color(0xFF0F172A),
-                    border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFF10B981)),
-                    modifier = Modifier
-                        .size(84.dp)
-                        .shadow(16.dp, RoundedCornerShape(24.dp), ambientColor = Color(0xFF10B981), spotColor = Color(0xFF10B981))
+                // LEFT SIDE CONTEST STICKERS (King's Cup, Lightning Rush, Finished Royal Pass)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    // 1. King's Cup Badge
+                    Surface(
+                        onClick = { viewModel.openContests(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF854D0E),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFEF08A)),
+                        modifier = Modifier
+                            .size(width = 62.dp, height = 70.dp)
+                            .shadow(6.dp, RoundedCornerShape(14.dp))
                     ) {
-                        Text(text = "🥷", fontSize = 44.sp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFFEAB308), Color(0xFF854D0E))
+                                    )
+                                )
+                                .padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "🏆", fontSize = 24.sp)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF451A03)
+                            ) {
+                                Text(
+                                    text = "15:31:24",
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // 2. Lightning Rush Badge
+                    Surface(
+                        onClick = { viewModel.openContests(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF4338CA),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFA5B4FC)),
+                        modifier = Modifier
+                            .size(width = 62.dp, height = 70.dp)
+                            .shadow(6.dp, RoundedCornerShape(14.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFF6366F1), Color(0xFF312E81))
+                                    )
+                                )
+                                .padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "⚡", fontSize = 24.sp)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF1E1B4B)
+                            ) {
+                                Text(
+                                    text = "2d 15h",
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // 3. Champions Clash Badge
+                    Surface(
+                        onClick = { viewModel.openContests(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFBE185D),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFBCFE8)),
+                        modifier = Modifier
+                            .size(width = 62.dp, height = 70.dp)
+                            .shadow(6.dp, RoundedCornerShape(14.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFFEC4899), Color(0xFF831843))
+                                    )
+                                )
+                                .padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "👑", fontSize = 24.sp)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF047857)
+                            ) {
+                                Text(
+                                    text = "Finished",
+                                    color = Color(0xFFFEF08A),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
-                // Title
-                Text(
-                    text = "STICKMAN\nHERO",
-                    color = Color.White,
-                    fontSize = 38.sp,
-                    lineHeight = 42.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                    letterSpacing = 2.sp,
-                    modifier = Modifier
-                        .shadow(12.dp, RoundedCornerShape(8.dp))
-                        .testTag("app_title_text")
-                )
-
-                Text(
-                    text = "Bridge Master & Gem Rush",
-                    color = Color(0xFF38BDF8),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.sp
-                )
-
-                // Dedicated Real-Money Gem Shop Feature Card (Big, clearly visible icon & banner)
-                Surface(
-                    onClick = { viewModel.openRealMoneyShop(true) },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF0F2942),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
-                    modifier = Modifier
-                        .fillMaxWidth(0.94f)
-                        .shadow(14.dp, RoundedCornerShape(20.dp), ambientColor = Color(0xFF38BDF8), spotColor = Color(0xFF0284C7))
-                        .testTag("start_buy_gems_shop_banner")
+                // CENTER: Title & Play Button Card
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    // Logo Icon
+                    Surface(
+                        shape = RoundedCornerShape(22.dp),
+                        color = Color(0xFF0F172A),
+                        border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFF10B981)),
+                        modifier = Modifier
+                            .size(72.dp)
+                            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF10B981))
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "🥷", fontSize = 38.sp)
+                        }
+                    }
+
+                    // Title
+                    Text(
+                        text = "STICKMAN\nHERO",
+                        color = Color.White,
+                        fontSize = 32.sp,
+                        lineHeight = 36.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 2.sp,
+                        modifier = Modifier
+                            .shadow(12.dp, RoundedCornerShape(8.dp))
+                            .testTag("app_title_text")
+                    )
+
+                    // Real-Money Gem Shop Feature Card
+                    Surface(
+                        onClick = { viewModel.openRealMoneyShop(true) },
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF0F2942),
+                        border = androidx.compose.foundation.BorderStroke(1.8.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(10.dp, RoundedCornerShape(16.dp))
+                            .testTag("start_buy_gems_shop_banner")
                     ) {
                         Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            // Large Gem Shop Icon
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFF1E3A8A),
-                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF60A5FA)),
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .shadow(6.dp, RoundedCornerShape(14.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(text = "💎", fontSize = 30.sp)
-                                }
-                            }
-
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
+                                Text(text = "💎", fontSize = 24.sp)
+                                Column {
                                     Text(
                                         text = "BUY GEMS SHOP",
                                         color = Color.White,
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 15.sp,
-                                        letterSpacing = 0.5.sp
+                                        fontSize = 12.sp
                                     )
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = Color(0xFF059669)
-                                    ) {
-                                        Text(
-                                            text = "STORE",
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                        )
-                                    }
+                                    Text(
+                                        text = "Instant +3000 Gems",
+                                        color = Color(0xFF7DD3FC),
+                                        fontSize = 10.sp
+                                    )
                                 }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF0284C7)
+                            ) {
                                 Text(
-                                    text = "Get +150 to +3,000 Gems instantly",
-                                    color = Color(0xFF7DD3FC),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    text = "BUY",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                         }
+                    }
 
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF0284C7)
+                    // Play Button Card (Styled like Video "Level 1947" Play Button)
+                    val currentLv by viewModel.engine.currentLevel.collectAsState()
+                    Surface(
+                        onClick = { viewModel.engine.startGame() },
+                        shape = RoundedCornerShape(22.dp),
+                        color = Color(0xFF16A34A),
+                        border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFEF08A)),
+                        modifier = Modifier
+                            .scale(pulseScale)
+                            .shadow(16.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF22C55E))
+                            .testTag("start_play_button")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
                             Text(
-                                text = "ENTER 💳",
+                                text = "Level $currentLv Play",
                                 color = Color.White,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                fontSize = 18.sp,
+                                letterSpacing = 1.sp
                             )
                         }
                     }
                 }
 
-                // Daily Streak Banner (Always informative & engaging)
-                Surface(
-                    onClick = { viewModel.openDailyReward(true) },
-                    shape = RoundedCornerShape(18.dp),
-                    color = if (isDailyRewardAvailable) Color(0xEE1E1B4B) else Color(0xDD0F172A),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.5.dp,
-                        if (isDailyRewardAvailable) Color(0xFFEC4899) else Color(0xFFF97316)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .scale(if (isDailyRewardAvailable) streakGlowScale else 1f)
-                        .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = if (isDailyRewardAvailable) Color(0xFFEC4899) else Color(0xFFF97316))
-                        .testTag("start_daily_streak_banner")
+                // RIGHT SIDE CONTEST STICKERS (Mission Pursuit, Anvil Pass, Sky Race, Endless Treasure)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    // 1. Mission Pursuit Clue Badge
+                    Surface(
+                        onClick = { viewModel.openDailyMissions(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF0369A1),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF7DD3FC)),
+                        modifier = Modifier
+                            .size(width = 62.dp, height = 70.dp)
+                            .shadow(6.dp, RoundedCornerShape(14.dp))
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(text = if (isDailyRewardAvailable) "🎁" else "🔥", fontSize = 24.sp)
-                            Column {
-                                Text(
-                                    text = if (isDailyRewardAvailable) "Daily Login Reward Ready!" else "Daily Streak: Day $currentStreak Active 🔥",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    text = if (isDailyRewardAvailable) "Day $currentStreak Reward • Tap to claim gems" else "Keep your login streak alive for Day 7 Mega Bonus!",
-                                    color = if (isDailyRewardAvailable) Color(0xFFF472B6) else Color(0xFFFB923C),
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isDailyRewardAvailable) Color(0xFF065F46) else Color(0xFF334155)
-                        ) {
-                            Text(
-                                text = if (isDailyRewardAvailable) "CLAIM" else "VIEW",
-                                color = if (isDailyRewardAvailable) Color(0xFFFDE047) else Color(0xFFE2E8F0),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Persistent Level Progress & Milestone Card (Always visible across Home / Start screen)
-                val startLevel by viewModel.engine.currentLevel.collectAsState()
-                val nextMilestone = ((startLevel / 5) + 1) * 5
-                val levelsRemaining = nextMilestone - startLevel
-                val milestoneProgress = ((5 - levelsRemaining).toFloat() / 5f).coerceIn(0f, 1f)
-
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xDD0F172A),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFF59E0B)),
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .shadow(10.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFFF59E0B))
-                        .testTag("start_persistent_level_progress_card")
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Text(text = "🏆", fontSize = 14.sp)
-                                Text(
-                                    text = "CURRENT STAGE: LEVEL $startLevel",
-                                    color = Color(0xFFFBBF24),
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Text(
-                                text = "Milestone Lv $nextMilestone 🎁",
-                                color = Color(0xFF38BDF8),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        // Persistent Linear Progress Bar
-                        Box(
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(8.dp)
-                                .background(Color(0x44334155), CircleShape)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(fraction = milestoneProgress.coerceAtLeast(0.06f))
-                                    .fillMaxHeight()
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF38BDF8))
-                                        ),
-                                        CircleShape
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFF0284C7), Color(0xFF075985))
                                     )
-                            )
+                                )
+                                .padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "🔍", fontSize = 24.sp)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF0C4A6E)
+                            ) {
+                                Text(
+                                    text = "Missions",
+                                    color = Color(0xFFFEF08A),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Play Button Card
-                Surface(
-                    onClick = { viewModel.engine.startGame() },
-                    shape = RoundedCornerShape(28.dp),
-                    color = Color(0xFF10B981),
-                    modifier = Modifier
-                        .scale(pulseScale)
-                        .shadow(16.dp, RoundedCornerShape(28.dp), ambientColor = Color(0xFF10B981))
-                        .testTag("start_play_button")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 36.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    // 2. Anvil / Holiday Pass Badge
+                    Surface(
+                        onClick = { viewModel.openWeeklyMissions(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFD97706),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFEF08A)),
+                        modifier = Modifier
+                            .size(width = 62.dp, height = 70.dp)
+                            .shadow(6.dp, RoundedCornerShape(14.dp))
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Text(
-                            text = "TAP TO PLAY",
-                            color = Color.White,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 20.sp,
-                            letterSpacing = 1.sp
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFFF59E0B), Color(0xFFB45309))
+                                    )
+                                )
+                                .padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "🪙", fontSize = 24.sp)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF451A03)
+                            ) {
+                                Text(
+                                    text = "Pass 5d",
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
+                        }
                     }
-                }
 
-                // Instruction Hint
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0x66000000),
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Text(
-                        text = "Hold screen to grow bridge • Release to drop\nTap while walking to flip for gems",
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
+                    // 3. Endless Treasure Chest Badge
+                    Surface(
+                        onClick = { viewModel.openDailyReward(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF047857),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF6EE7B7)),
+                        modifier = Modifier
+                            .size(width = 62.dp, height = 70.dp)
+                            .shadow(6.dp, RoundedCornerShape(14.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFF10B981), Color(0xFF064E3B))
+                                    )
+                                )
+                                .padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "🎁", fontSize = 24.sp)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF064E3B)
+                            ) {
+                                Text(
+                                    text = "Free Gift",
+                                    color = Color(0xFFFEF08A),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            // Bottom Bar: Shop, Daily Rewards, Quests & How to play
-            val dailyMissions by viewModel.dailyMissions.collectAsState()
-            val uncompletedQuestsCount = dailyMissions.count { it.currentProgress >= it.targetCount && !it.isClaimed }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+            // Bottom Navigation Bar (Matching Video 5-Tab Bar: Events, Leaderboard, Home Castle, Team, Collection)
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF1E293B),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(12.dp, RoundedCornerShape(20.dp))
             ) {
-                Button(
-                    onClick = { viewModel.openLeaderboard(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                    shape = RoundedCornerShape(18.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                    modifier = Modifier.testTag("start_open_leaderboard_button")
-                ) {
-                    Text(text = "🏆", fontSize = 15.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Ranks",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(5.dp))
-
-                Button(
-                    onClick = { viewModel.openSpinWheel(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                    shape = RoundedCornerShape(18.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                    modifier = Modifier.testTag("start_open_spin_button")
-                ) {
-                    Text(text = "🎰", fontSize = 15.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Spin",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(5.dp))
-
-                Button(
-                    onClick = { viewModel.openShop(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                    shape = RoundedCornerShape(18.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                    modifier = Modifier.testTag("start_open_shop_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Checkroom,
-                        contentDescription = "Skins",
-                        tint = Color(0xFFFBBF24),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Skins",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                Button(
-                    onClick = { viewModel.openDailyReward(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                    shape = RoundedCornerShape(18.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                    modifier = Modifier.testTag("start_open_daily_button")
-                ) {
-                    Text(text = "🎁", fontSize = 15.sp)
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Gifts",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                Box {
-                    Button(
-                        onClick = { viewModel.openDailyMissions(true) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                        shape = RoundedCornerShape(18.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                        modifier = Modifier.testTag("start_open_quests_button")
-                    ) {
-                        Text(text = "🎯", fontSize = 15.sp)
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text(
-                            text = "Quests",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    }
-                    if (uncompletedQuestsCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .align(Alignment.TopEnd)
-                                .background(Color(0xFFEF4444), CircleShape)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                IconButton(
-                    onClick = { viewModel.openHowToPlay(true) },
+                Row(
                     modifier = Modifier
-                        .size(44.dp)
-                        .background(Color(0xFF1E293B), CircleShape)
-                        .testTag("start_how_to_play_button")
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.HelpOutline,
-                        contentDescription = "How to play",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                    // 1. Events / Contests
+                    BottomRoyalNavTab(
+                        icon = "⭐",
+                        label = "Events",
+                        badge = "!",
+                        isSelected = false,
+                        onClick = { viewModel.openContests(true) }
                     )
+
+                    // 2. Leaderboard / Trophy
+                    BottomRoyalNavTab(
+                        icon = "🏆",
+                        label = "Ranks",
+                        badge = null,
+                        isSelected = false,
+                        onClick = { viewModel.openLeaderboard(true) }
+                    )
+
+                    // 3. Home Castle (Center active tab)
+                    BottomRoyalNavTab(
+                        icon = "🏰",
+                        label = "Home",
+                        badge = null,
+                        isSelected = true,
+                        onClick = { }
+                    )
+
+                    // 4. Team / Friends
+                    BottomRoyalNavTab(
+                        icon = "👥",
+                        label = "Team",
+                        badge = "1",
+                        isSelected = false,
+                        onClick = { viewModel.openContests(true) }
+                    )
+
+                    // 5. Card / Sticker Collection
+                    BottomRoyalNavTab(
+                        icon = "🃏",
+                        label = "Cards",
+                        badge = null,
+                        isSelected = false,
+                        onClick = { viewModel.openDailyMissions(true) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BottomRoyalNavTab(
+    icon: String,
+    label: String,
+    badge: String?,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) Color(0xFF0284C7) else Color.Transparent,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFBAE6FD)) else null
+    ) {
+        Box(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                Text(text = icon, fontSize = if (isSelected) 22.sp else 18.sp)
+                Text(
+                    text = label,
+                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 10.sp
+                )
+            }
+
+            if (badge != null) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFEF4444),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
+                    modifier = Modifier
+                        .size(14.dp)
+                        .align(Alignment.TopEnd)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(text = badge, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    }
                 }
             }
         }

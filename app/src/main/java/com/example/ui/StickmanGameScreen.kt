@@ -106,9 +106,9 @@ fun StickmanGameScreen(
             )
         }
 
-        // 9. Daily Missions Dialog
+        // 9. Daily Missions & Mission Pursuit Dialog (Inspired by Video)
         if (isDailyMissionsOpen) {
-            DailyMissionsDialog(
+            RoyalMissionPursuitDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.openDailyMissions(false) }
             )
@@ -122,9 +122,9 @@ fun StickmanGameScreen(
             )
         }
 
-        // 11. Contests & Tournaments Dialog
+        // 11. Contests & Tournaments Center Dialog (Inspired by Video)
         if (isContestsOpen) {
-            ContestsTournamentsDialog(
+            RoyalContestCenterDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.openContests(false) }
             )
