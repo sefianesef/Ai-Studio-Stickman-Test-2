@@ -782,6 +782,57 @@ fun StartScreenOverlay(
                             )
                         }
                     }
+
+                    // Wardrobe Shop Card (User-marked red block: Skins, Bridges, Hats, Capes, Backgrounds & Vault)
+                    Surface(
+                        onClick = { viewModel.openShop(true) },
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E1B4B),
+                        border = androidx.compose.foundation.BorderStroke(1.8.dp, Color(0xFFA855F7)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(10.dp, RoundedCornerShape(16.dp))
+                            .testTag("start_wardrobe_shop_banner")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(text = "🥋", fontSize = 22.sp)
+                                Column {
+                                    Text(
+                                        text = "WARDROBE SHOP",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        text = "Skins • Bridges • Hats • Capes • Bg",
+                                        color = Color(0xFFD8B4FE),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF9333EA)
+                            ) {
+                                Text(
+                                    text = "OPEN",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // RIGHT SIDE CONTEST STICKERS (Mission Pursuit, Anvil Pass, Sky Race, Endless Treasure)
