@@ -2,9 +2,9 @@ name: Build & Release Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "**" ]
   workflow_dispatch:
 
 concurrency:
@@ -21,55 +21,72 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - name: Set up Java JDK 17
+      - name: Set up Java JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
+          java-version: '21'
 
-      - name: Grant Execute Permission to Gradle Wrapper
-        run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x gradlew
-          fi
-
-      - name: Cache Gradle & Build Artifacts
-        uses: actions/cache@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          gradle-home-cache-cleanup: true
 
-      - name: Create Secrets Placeholder (.env)
+      - name: Create Secrets and Keystore
         run: |
-          touch .env
-          touch .env.example
-          echo "# Build environment" >> .env
-
-      - name: Generate Dummy Debug Keystore if Absent
-        run: |
-          if [ ! -f "debug.keystore" ]; then
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          echo "=== 1. Setting up Environment Secrets ==="
+          if [ ! -f ".env" ]; then
+            if [ -f ".env.example" ]; then
+              cp .env.example .env
+            else
+              touch .env
+            fi
           fi
+
+          echo "=== 2. Setting up Debug Keystore ==="
+          if [ -f "debug.keystore.base64" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
+          fi
+
+          if [ ! -f "debug.keystore" ] || [ ! -s "debug.keystore" ]; then
+            keytool -genkey -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          echo "=== 3. Setting Execution Permissions ==="
+          chmod +x gradlew || true
 
       - name: Build Debug APK
         run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace --no-daemon
-          else
-            gradle assembleDebug --stacktrace --no-daemon
-          fi
+          ./gradlew :app:assembleDebug \
+            --no-daemon \
+            --no-configuration-cache \
+            --stacktrace \
+            -Dksp.incremental=false \
+            -Dksp.use.ksp2=true \
+            -Dandroid.disallowKotlinSourceSets=false \
+            -Dorg.gradle.jvmargs="-Xmx4g -Dfile.encoding=UTF-8"
+
+      - name: Collect Output Artifacts
+        run: |
+          mkdir -p build_outputs
+          find app/build/outputs/apk/debug/ -type f -name "*.apk" -exec cp {} build_outputs/stickman-hero-debug.apk \;
+          echo "=== Generated Artifacts List ==="
+          ls -lh build_outputs/
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: stickman-hero-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: build_outputs/*.apk
           if-no-files-found: error
           retention-days: 14
