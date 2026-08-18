@@ -1234,34 +1234,44 @@ class GameRepository(
         return true
     }
 
+    private val _adEarnedSpins = MutableStateFlow(prefs.getInt("AD_EARNED_SPINS", 0))
+    val adEarnedSpins: StateFlow<Int> = _adEarnedSpins.asStateFlow()
+
     fun isDailyFreeSpinAvailable(): Boolean {
         val today = getTodayEpochDay()
         val lastDay = prefs.getLong("LAST_DAILY_FREE_SPIN", 0L)
         return lastDay != today
     }
 
-    fun getSpinCost(): Int = 20
+    fun getAdSpinsCount(): Int = _adEarnedSpins.value
 
-    fun canAffordSpin(): Boolean {
-        return isDailyFreeSpinAvailable() || _gems.value >= getSpinCost()
+    fun hasAvailableSpin(): Boolean {
+        return isDailyFreeSpinAvailable() || _adEarnedSpins.value > 0
+    }
+
+    fun grantAdRewardSpin() {
+        val current = _adEarnedSpins.value + 1
+        _adEarnedSpins.value = current
+        prefs.edit().putInt("AD_EARNED_SPINS", current).apply()
     }
 
     fun spinLuckyWheel(): Int {
         val today = getTodayEpochDay()
-        val isFree = isDailyFreeSpinAvailable()
-        if (isFree) {
+        if (isDailyFreeSpinAvailable()) {
             prefs.edit().putLong("LAST_DAILY_FREE_SPIN", today).apply()
-        } else {
-            spendGems(getSpinCost())
+        } else if (_adEarnedSpins.value > 0) {
+            val remaining = _adEarnedSpins.value - 1
+            _adEarnedSpins.value = remaining
+            prefs.edit().putInt("AD_EARNED_SPINS", remaining).apply()
         }
 
         // Competitive Balanced Rewards: 2, 4, 8, 15 gems (Rare high-reward jackpot)
         val roll = (1..100).random()
         val reward = when {
-            roll <= 50 -> 2
-            roll <= 80 -> 4
-            roll <= 95 -> 8
-            else -> 15 // Grand Lucky Prize
+            roll <= 45 -> 3
+            roll <= 75 -> 5
+            roll <= 92 -> 10
+            else -> 20 // Grand Lucky Prize
         }
         addGems(reward)
         return reward

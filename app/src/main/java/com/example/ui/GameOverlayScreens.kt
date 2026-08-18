@@ -424,13 +424,15 @@ fun StartScreenOverlay(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Gems
+                // Gems & Real Money Store Pill
                 Surface(
-                    onClick = { viewModel.openShop(true) },
+                    onClick = { viewModel.openRealMoneyShop(true) },
                     shape = RoundedCornerShape(20.dp),
-                    color = Color(0xDD0F172A),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x6638BDF8)),
-                    modifier = Modifier.testTag("start_gems_pill")
+                    color = Color(0xEE064E3B),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF34D399)),
+                    modifier = Modifier
+                        .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color(0xFF10B981))
+                        .testTag("start_gems_pill")
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -440,9 +442,18 @@ fun StartScreenOverlay(
                         Text(text = "💎", fontSize = 16.sp)
                         Text(
                             text = "$gems",
-                            color = Color(0xFF38BDF8),
-                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF6EE7B7),
+                            fontWeight = FontWeight.Black,
                             fontSize = 15.sp
+                        )
+                        Text(
+                            text = "BUY +",
+                            color = Color(0xFFFDE047),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            modifier = Modifier
+                                .background(Color(0xFF047857), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                     }
                 }
@@ -570,6 +581,89 @@ fun StartScreenOverlay(
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 1.sp
                 )
+
+                // Dedicated Real-Money Gem Shop Feature Card (Big, clearly visible icon & banner)
+                Surface(
+                    onClick = { viewModel.openRealMoneyShop(true) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF0F2942),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier
+                        .fillMaxWidth(0.94f)
+                        .shadow(14.dp, RoundedCornerShape(20.dp), ambientColor = Color(0xFF38BDF8), spotColor = Color(0xFF0284C7))
+                        .testTag("start_buy_gems_shop_banner")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Large Gem Shop Icon
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFF1E3A8A),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF60A5FA)),
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .shadow(6.dp, RoundedCornerShape(14.dp))
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(text = "💎", fontSize = 30.sp)
+                                }
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "BUY GEMS SHOP",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 15.sp,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFF059669)
+                                    ) {
+                                        Text(
+                                            text = "STORE",
+                                            color = Color.White,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "Get +150 to +3,000 Gems instantly",
+                                    color = Color(0xFF7DD3FC),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF0284C7)
+                        ) {
+                            Text(
+                                text = "ENTER 💳",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
 
                 // Daily Streak Banner (Always informative & engaging)
                 Surface(
@@ -798,13 +892,13 @@ fun StartScreenOverlay(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Checkroom,
-                        contentDescription = "Costumes",
+                        contentDescription = "Skins",
                         tint = Color(0xFFFBBF24),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Shop",
+                        text = "Skins",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
@@ -3541,12 +3635,18 @@ fun LuckySpinWheelDialog(
     modifier: Modifier = Modifier
 ) {
     var isSpinning by remember { mutableStateOf(false) }
+    var isWatchingAd by remember { mutableStateOf(false) }
     var wonAmount by remember { mutableStateOf<Int?>(null) }
+    var adNotice by remember { mutableStateOf<String?>(null) }
     val rotationAngle = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
 
+    val adEarnedSpins by viewModel.adEarnedSpins.collectAsState()
+    val isFreeDailyAvailable = remember { viewModel.isDailyFreeSpinAvailable() }
+    val hasSpin = isFreeDailyAvailable || adEarnedSpins > 0
+
     Dialog(
-        onDismissRequest = { if (!isSpinning) onDismiss() },
+        onDismissRequest = { if (!isSpinning && !isWatchingAd) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
@@ -3563,10 +3663,6 @@ fun LuckySpinWheelDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                val isFreeSpinAvailable = remember { viewModel.isDailyFreeSpinAvailable() }
-                val spinCost = viewModel.getSpinCost()
-                val canAfford = viewModel.canAffordSpin()
-
                 // Header
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -3582,27 +3678,50 @@ fun LuckySpinWheelDialog(
                     )
                 }
 
-                if (isFreeSpinAvailable) {
+                // Status Banner
+                if (isFreeDailyAvailable) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFF065F46),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399))
                     ) {
                         Text(
-                            text = "🎁 FREE DAILY SPIN READY!",
+                            text = "🎁 1 FREE DAILY SPIN READY!",
                             color = Color(0xFF6EE7B7),
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                         )
                     }
+                } else if (adEarnedSpins > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF1E3A8A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
+                    ) {
+                        Text(
+                            text = "🎟️ BONUS SPINS AVAILABLE: $adEarnedSpins",
+                            color = Color(0xFF93C5FD),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                    }
                 } else {
-                    Text(
-                        text = "Next Free Spin tomorrow • Spin now for 💎 $spinCost",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+                    ) {
+                        Text(
+                            text = "Free spin claimed today • Watch a short ad for extra spins!",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                    }
                 }
 
                 // Spinning Wheel Canvas
@@ -3685,51 +3804,114 @@ fun LuckySpinWheelDialog(
                     }
                 }
 
-                // Spin Action Button
+                // Ad Reward feedback notice
+                adNotice?.let { notice ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF1E3A8A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF60A5FA)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = notice,
+                            color = Color(0xFFBFDBFE),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+
+                // Spin Action Button (Enabled only if 1 free spin or ad earned spins exist)
+                if (hasSpin) {
+                    Button(
+                        onClick = {
+                            if (!isSpinning) {
+                                isSpinning = true
+                                wonAmount = null
+                                adNotice = null
+                                coroutineScope.launch {
+                                    val targetAngle = rotationAngle.value + 1440f + (0..360).random()
+                                    rotationAngle.animateTo(
+                                        targetValue = targetAngle,
+                                        animationSpec = tween(durationMillis = 2800, easing = FastOutSlowInEasing)
+                                    )
+                                    val prize = viewModel.spinLuckyWheel()
+                                    wonAmount = prize
+                                    isSpinning = false
+                                }
+                            }
+                        },
+                        enabled = !isSpinning && !isWatchingAd,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isFreeDailyAvailable) Color(0xFF10B981) else Color(0xFF3B82F6),
+                            disabledContainerColor = Color(0xFF475569)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("spin_wheel_action_btn")
+                    ) {
+                        Text(
+                            text = when {
+                                isSpinning -> "SPINNING..."
+                                isFreeDailyAvailable -> "CLAIM 1 FREE SPIN! 🎁"
+                                else -> "USE BONUS SPIN ($adEarnedSpins REMAINING) 🎲"
+                            },
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                // Watch Ad Button to get spin (Always accessible or when free spin is exhausted)
                 Button(
                     onClick = {
-                        if (!isSpinning && canAfford) {
-                            isSpinning = true
+                        if (!isSpinning && !isWatchingAd) {
+                            isWatchingAd = true
                             wonAmount = null
+                            adNotice = "📺 Watching sponsored video ad..."
                             coroutineScope.launch {
-                                val targetAngle = rotationAngle.value + 1440f + (0..360).random()
-                                rotationAngle.animateTo(
-                                    targetValue = targetAngle,
-                                    animationSpec = tween(durationMillis = 2800, easing = FastOutSlowInEasing)
-                                )
-                                val prize = viewModel.spinLuckyWheel()
-                                wonAmount = prize
-                                isSpinning = false
+                                kotlinx.coroutines.delay(1800) // Simulated high quality short video ad
+                                viewModel.watchAdForSpin {
+                                    adNotice = "🎟️ Ad completed! +1 Bonus Spin added!"
+                                }
+                                isWatchingAd = false
                             }
                         }
                     },
-                    enabled = !isSpinning && canAfford,
+                    enabled = !isSpinning && !isWatchingAd,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isFreeSpinAvailable) Color(0xFF10B981) else Color(0xFFF59E0B),
-                        disabledContainerColor = Color(0xFF475569)
+                        containerColor = if (!hasSpin) Color(0xFFF59E0B) else Color(0xFF1E293B),
+                        disabledContainerColor = Color(0xFF334155)
                     ),
+                    border = if (!hasSpin) androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFBBF24)) else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
-                        .testTag("spin_wheel_action_btn")
+                        .testTag("spin_wheel_watch_ad_btn")
                 ) {
-                    Text(
-                        text = when {
-                            isSpinning -> "SPINNING..."
-                            isFreeSpinAvailable -> "CLAIM FREE SPIN! 🎁"
-                            canAfford -> "SPIN FOR 💎 $spinCost"
-                            else -> "NEED 💎 $spinCost TO SPIN"
-                        },
-                        color = Color.Black,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 15.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "📺", fontSize = 16.sp)
+                        Text(
+                            text = if (isWatchingAd) "WATCHING AD..." else "WATCH AD TO GET +1 SPIN 🎬",
+                            color = if (!hasSpin) Color.Black else Color(0xFFFDE047),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
 
                 TextButton(
                     onClick = onDismiss,
-                    enabled = !isSpinning,
+                    enabled = !isSpinning && !isWatchingAd,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
@@ -4231,6 +4413,338 @@ fun OutOfGemsSpecialOfferDialog(
                 if (viewModel.canAffordRevive()) {
                     viewModel.revivePlayer()
                 }
+            },
+            onDismiss = { selectedPackForCheckout = null }
+        )
+    }
+}
+
+@Composable
+fun RealMoneyGemShopDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val gemPacks = viewModel.availableGemPacks
+    val currentGems by viewModel.gems.collectAsState()
+    val isDailyFreeAvailable = viewModel.isDailyFreeGemsAvailable()
+    var selectedPackForCheckout by remember { mutableStateOf<GemPack?>(null) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "gemGlow")
+    val gemShimmer by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "gemScale"
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xEE000000))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(26.dp),
+                color = Color(0xFF0B132B),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.92f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .shadow(32.dp, RoundedCornerShape(26.dp), ambientColor = Color(0xFF38BDF8), spotColor = Color(0xFF0284C7))
+                    .testTag("real_money_gem_shop_dialog")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Header Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF1E293B),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(text = "💎", fontSize = 24.sp, modifier = Modifier.scale(gemShimmer))
+                                }
+                            }
+
+                            Column {
+                                Text(
+                                    text = "GEM BANK & STORE",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                )
+                                Text(
+                                    text = "Official In-App Gem Packages",
+                                    color = Color(0xFF38BDF8),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        // Close button
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF1E293B), CircleShape)
+                                .testTag("real_money_shop_close_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Current Balance Card
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E293B).copy(alpha = 0.7f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(text = "👛", fontSize = 16.sp)
+                                Text(
+                                    text = "YOUR CURRENT BALANCE",
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "💎", fontSize = 16.sp)
+                                Text(
+                                    text = "$currentGems GEMS",
+                                    color = Color(0xFF38BDF8),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Packs Grid
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 145.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("real_money_gem_packs_grid")
+                    ) {
+                        items(gemPacks) { pack ->
+                            val isFreeCrate = pack.isDailyFree
+                            val isClaimable = !isFreeCrate || isDailyFreeAvailable
+                            val isPopular = pack.tag.isNotEmpty()
+
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = if (isPopular) Color(0xFF1E293B) else Color(0xFF0F172A),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (isPopular) 1.8.dp else 1.dp,
+                                    color = if (isPopular) Color(0xFFFBBF24) else Color(0xFF334155)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (isClaimable) {
+                                            if (isFreeCrate) {
+                                                viewModel.buyGemPack(pack)
+                                            } else {
+                                                selectedPackForCheckout = pack
+                                            }
+                                        }
+                                    }
+                                    .shadow(if (isPopular) 8.dp else 0.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFFFBBF24))
+                                    .testTag("real_money_pack_${pack.id}")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    if (pack.tag.isNotEmpty()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (isFreeCrate) Color(0xFF059669) else Color(0xFFD97706)
+                                        ) {
+                                            Text(
+                                                text = pack.tag,
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Text(text = pack.iconEmoji, fontSize = 34.sp)
+
+                                    Text(
+                                        text = pack.name,
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Black,
+                                        textAlign = TextAlign.Center
+                                    )
+
+                                    Text(
+                                        text = "+${pack.gemAmount + pack.bonusGems} Gems",
+                                        color = Color(0xFF38BDF8),
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+
+                                    Text(
+                                        text = if (pack.bonusGems > 0) "+${pack.bonusGems} BONUS EXTRA!" else pack.perks,
+                                        color = if (pack.bonusGems > 0) Color(0xFF34D399) else Color(0xFF94A3B8),
+                                        fontSize = 9.sp,
+                                        textAlign = TextAlign.Center,
+                                        fontWeight = if (pack.bonusGems > 0) FontWeight.Bold else FontWeight.Normal,
+                                        maxLines = 1
+                                    )
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    Button(
+                                        onClick = {
+                                            if (isFreeCrate) {
+                                                viewModel.buyGemPack(pack)
+                                            } else {
+                                                selectedPackForCheckout = pack
+                                            }
+                                        },
+                                        enabled = isClaimable,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isFreeCrate) Color(0xFF10B981) else Color(0xFFF59E0B),
+                                            disabledContainerColor = Color(0xFF334155)
+                                        ),
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(36.dp)
+                                            .testTag("buy_real_money_pack_${pack.id}")
+                                    ) {
+                                        Text(
+                                            text = when {
+                                                isFreeCrate && !isDailyFreeAvailable -> "CLAIMED"
+                                                isFreeCrate -> "FREE DAILY"
+                                                pack.priceUsd.isNotEmpty() -> pack.priceUsd
+                                                else -> "${pack.scoreCost} PTS"
+                                            },
+                                            color = if (isClaimable) Color.Black else Color(0xFF94A3B8),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Footer security info & Spin shortcut
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "🔒", fontSize = 12.sp)
+                            Text(
+                                text = "100% Guaranteed Delivery",
+                                color = Color(0xFF64748B),
+                                fontSize = 10.sp
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                onDismiss()
+                                viewModel.openSpinWheel(true)
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFA5B4FC)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("🎰 Spin Wheel Free", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Checkout Confirmation Dialog
+    selectedPackForCheckout?.let { pack ->
+        RealMoneyIapCheckoutDialog(
+            pack = pack,
+            onConfirmPurchase = {
+                viewModel.buyGemPackRealMoney(pack)
+                selectedPackForCheckout = null
             },
             onDismiss = { selectedPackForCheckout = null }
         )

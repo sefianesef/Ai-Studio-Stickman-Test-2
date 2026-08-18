@@ -29,6 +29,7 @@ fun StickmanGameScreen(
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
     val isLeaderboardOpen by viewModel.isLeaderboardOpen.collectAsState()
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
+    val isRealMoneyShopOpen by viewModel.isRealMoneyShopOpen.collectAsState()
     val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
     val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
 
@@ -36,11 +37,11 @@ fun StickmanGameScreen(
     val isStart = gameState == GameState.START
     val isGameOver = gameState == GameState.GAMEOVER
 
-    // Auto-pop up Daily Missions dialog after 3 seconds of startup to avoid interrupting the initial view
+    // Increased startup delay before Daily Missions dialog appears (7.5 seconds) to allow player ample time to explore the start screen
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(3000)
+        kotlinx.coroutines.delay(7500)
         // Only open if the user hasn't started playing immediately or opened another menu
-        if (viewModel.engine.gameState.value == GameState.START && !viewModel.isShopOpen.value && !viewModel.isMainMenuOpen.value) {
+        if (viewModel.engine.gameState.value == GameState.START && !viewModel.isShopOpen.value && !viewModel.isMainMenuOpen.value && !viewModel.isRealMoneyShopOpen.value) {
             viewModel.openDailyMissions(true)
         }
     }
@@ -169,7 +170,15 @@ fun StickmanGameScreen(
             )
         }
 
-        // 17. Out of Gems Real-Money Special Offer Pop-up Dialog
+        // 17. Dedicated Real-Money Gem Shop Dialog
+        if (isRealMoneyShopOpen) {
+            RealMoneyGemShopDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openRealMoneyShop(false) }
+            )
+        }
+
+        // 18. Out of Gems Real-Money Special Offer Pop-up Dialog
         if (isOutOfGemsOfferOpen) {
             OutOfGemsSpecialOfferDialog(
                 viewModel = viewModel,
@@ -177,7 +186,7 @@ fun StickmanGameScreen(
             )
         }
 
-        // 18. Level Victory Milestone Celebration Dialog
+        // 19. Level Victory Milestone Celebration Dialog
         levelVictoryCelebration?.let { celebrationText ->
             LevelVictoryCelebrationDialog(
                 celebrationText = celebrationText,

@@ -1,4 +1,4 @@
-name: Build Android APK Release & Debug
+name: Build Android APK (Release & Debug)
 
 on:
   push:
@@ -33,9 +33,9 @@ jobs:
         with:
           gradle-home-cache-cleanup: true
 
-      - name: Prepare Signing and Environment Configs
+      - name: Prepare Environment and Signing Configs
         run: |
-          echo "=== Configuring environment secrets ==="
+          echo "=== 1. Setting up Environment Secrets ==="
           if [ ! -f ".env" ]; then
             if [ -f ".env.example" ]; then
               cp .env.example .env
@@ -44,7 +44,7 @@ jobs:
             fi
           fi
 
-          echo "=== Configuring Debug Keystore ==="
+          echo "=== 2. Setting up Debug Keystore ==="
           if [ -f "debug.keystore.base64" ]; then
             base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
           fi
@@ -62,11 +62,12 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
+          echo "=== 3. Setting Execution Permissions ==="
           chmod +x gradlew || true
 
-      - name: Assemble Debug APK
+      - name: Compile and Assemble APK
         run: |
-          echo "=== Compiling APK with Gradle on GitHub Actions ==="
+          echo "=== Building Debug APK via Gradle ==="
           ./gradlew :app:assembleDebug \
             --no-daemon \
             --no-configuration-cache \
@@ -75,14 +76,14 @@ jobs:
             -Dksp.use.ksp2=true \
             -Dorg.gradle.jvmargs="-Xmx4g -Dfile.encoding=UTF-8"
 
-      - name: Prepare APK Outputs
+      - name: Collect Output Artifacts
         run: |
           mkdir -p build_outputs
           find app/build/outputs/apk/debug/ -type f -name "*.apk" -exec cp {} build_outputs/StickmanHero-Debug.apk \;
-          echo "=== Generated Artifacts ==="
+          echo "=== Generated Artifacts List ==="
           ls -lh build_outputs/
 
-      - name: Upload APK as GitHub Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: StickmanHero-Android-APK

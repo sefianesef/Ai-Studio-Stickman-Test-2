@@ -69,6 +69,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isSpinWheelOpen = MutableStateFlow(false)
     val isSpinWheelOpen: StateFlow<Boolean> = _isSpinWheelOpen.asStateFlow()
 
+    private val _isRealMoneyShopOpen = MutableStateFlow(false)
+    val isRealMoneyShopOpen: StateFlow<Boolean> = _isRealMoneyShopOpen.asStateFlow()
+
     private val _isOutOfGemsOfferOpen = MutableStateFlow(false)
     val isOutOfGemsOfferOpen: StateFlow<Boolean> = _isOutOfGemsOfferOpen.asStateFlow()
 
@@ -117,9 +120,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _isSpinWheelOpen.value = open
     }
 
+    val adEarnedSpins: StateFlow<Int> = repository.adEarnedSpins
+
     fun isDailyFreeSpinAvailable(): Boolean = repository.isDailyFreeSpinAvailable()
-    fun getSpinCost(): Int = repository.getSpinCost()
-    fun canAffordSpin(): Boolean = repository.canAffordSpin()
+    fun getAdSpinsCount(): Int = repository.getAdSpinsCount()
+    fun hasAvailableSpin(): Boolean = repository.hasAvailableSpin()
+
+    fun watchAdForSpin(onAdComplete: () -> Unit) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        repository.grantAdRewardSpin()
+        soundManager.playBuyGemsSuccess()
+        hapticManager.missionClaim()
+        onAdComplete()
+    }
 
     fun spinLuckyWheel(): Int {
         val reward = repository.spinLuckyWheel()
@@ -334,6 +348,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         soundManager.playButton()
         hapticManager.uiClick()
         _isOutOfGemsOfferOpen.value = open
+    }
+
+    fun openRealMoneyShop(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isRealMoneyShopOpen.value = open
     }
 
     fun openShop(open: Boolean = true) {
