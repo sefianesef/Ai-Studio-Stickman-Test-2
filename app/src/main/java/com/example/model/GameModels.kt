@@ -149,7 +149,9 @@ data class AccessoryItem(
     val iconSymbol: String = "",
     val rarity: ItemRarity = ItemRarity.COMMON,
     val currencyType: CurrencyType = CurrencyType.GEM,
-    val isContestExclusive: Boolean = false
+    val isContestExclusive: Boolean = false,
+    val realMoneyPriceUsd: String = "",
+    val isRealMoneyExclusive: Boolean = false
 )
 
 enum class GameState {

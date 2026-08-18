@@ -416,6 +416,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return success
     }
 
+    fun buyItemRealMoney(item: AccessoryItem): Boolean {
+        repository.unlockItem(item.id, item.type, 0)
+        repository.equip(item)
+        soundManager.playBuyGemsSuccess()
+        soundManager.playVictoryMusic()
+        hapticManager.levelUp()
+        return true
+    }
+
     fun isItemUnlocked(id: String): Boolean {
         return repository.isItemUnlocked(id)
     }

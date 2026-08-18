@@ -1978,48 +1978,109 @@ fun ShopDialog(
                                 Spacer(modifier = Modifier.height(2.dp))
 
                                 // Buy / Equip Action Button
-                                Button(
-                                    onClick = {
-                                        previewedItem = item
-                                        viewModel.buyOrEquip(item)
-                                    },
-                                    enabled = isUnlocked || canAfford,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = when {
-                                            isEquipped -> Color(0xFF38BDF8)
-                                            isUnlocked -> Color(0xFF10B981)
-                                            canAfford -> when (item.currencyType) {
-                                                CurrencyType.GEM -> Color(0xFFF59E0B)
-                                                CurrencyType.BLUE_GEM -> Color(0xFF0284C7)
-                                                CurrencyType.RED_GEM -> Color(0xFFE11D48)
-                                            }
-                                            else -> Color(0xFF334155)
+                                if (!isUnlocked && item.realMoneyPriceUsd.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        // Gem Buy Button
+                                        Button(
+                                            onClick = {
+                                                previewedItem = item
+                                                viewModel.buyOrEquip(item)
+                                            },
+                                            enabled = canAfford,
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = when (item.currencyType) {
+                                                    CurrencyType.GEM -> Color(0xFFF59E0B)
+                                                    CurrencyType.BLUE_GEM -> Color(0xFF0284C7)
+                                                    CurrencyType.RED_GEM -> Color(0xFFE11D48)
+                                                },
+                                                disabledContainerColor = Color(0xFF1E293B)
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(34.dp)
+                                                .testTag("shop_item_btn_${item.id}")
+                                        ) {
+                                            Text(
+                                                text = if (canAfford) "$curSymbol ${item.cost}" else "NEED $curSymbol",
+                                                color = if (canAfford) Color.White else Color(0xFF64748B),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 9.5.sp
+                                            )
+                                        }
+
+                                        // Real Money Instant Buy Button
+                                        Button(
+                                            onClick = {
+                                                previewedItem = item
+                                                viewModel.buyItemRealMoney(item)
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF16A34A)
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(34.dp)
+                                                .testTag("shop_item_real_money_btn_${item.id}")
+                                        ) {
+                                            Text(
+                                                text = item.realMoneyPriceUsd,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 10.5.sp
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            previewedItem = item
+                                            viewModel.buyOrEquip(item)
                                         },
-                                        disabledContainerColor = Color(0xFF1E293B)
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(34.dp)
-                                        .testTag("shop_item_btn_${item.id}")
-                                ) {
-                                    Text(
-                                        text = when {
-                                            isEquipped -> "✓ EQUIPPED"
-                                            isUnlocked -> "EQUIP"
-                                            canAfford -> "$curSymbol ${item.cost}"
-                                            else -> "NEED ${item.cost} $curSymbol"
-                                        },
-                                        color = when {
-                                            isEquipped -> Color.Black
-                                            isUnlocked -> Color.White
-                                            canAfford -> Color.White
-                                            else -> Color(0xFF64748B)
-                                        },
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.sp
-                                    )
+                                        enabled = isUnlocked || canAfford,
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = when {
+                                                isEquipped -> Color(0xFF38BDF8)
+                                                isUnlocked -> Color(0xFF10B981)
+                                                canAfford -> when (item.currencyType) {
+                                                    CurrencyType.GEM -> Color(0xFFF59E0B)
+                                                    CurrencyType.BLUE_GEM -> Color(0xFF0284C7)
+                                                    CurrencyType.RED_GEM -> Color(0xFFE11D48)
+                                                }
+                                                else -> Color(0xFF334155)
+                                            },
+                                            disabledContainerColor = Color(0xFF1E293B)
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(34.dp)
+                                            .testTag("shop_item_btn_${item.id}")
+                                    ) {
+                                        Text(
+                                            text = when {
+                                                isEquipped -> "✓ EQUIPPED"
+                                                isUnlocked -> "EQUIP"
+                                                canAfford -> "$curSymbol ${item.cost}"
+                                                else -> "NEED ${item.cost} $curSymbol"
+                                            },
+                                            color = when {
+                                                isEquipped -> Color.Black
+                                                isUnlocked -> Color.White
+                                                canAfford -> Color.White
+                                                else -> Color(0xFF64748B)
+                                            },
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 11.sp
+                                        )
+                                    }
                                 }
                             }
                         }

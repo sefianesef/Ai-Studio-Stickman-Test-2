@@ -385,7 +385,8 @@ class GameRepository(
             description = "Contest Exclusive: Pulsing freezing ice girder",
             iconSymbol = "❄️",
             rarity = ItemRarity.EPIC,
-            isContestExclusive = true
+            isContestExclusive = true,
+            realMoneyPriceUsd = "$2.99"
         ),
         AccessoryItem(
             id = "stick_dark_matter",
@@ -398,7 +399,8 @@ class GameRepository(
             description = "Tournament Exclusive: Supercharged ruby particle bridge",
             iconSymbol = "⚡",
             rarity = ItemRarity.MYTHIC,
-            isContestExclusive = true
+            isContestExclusive = true,
+            realMoneyPriceUsd = "$4.99"
         ),
 
         // Body Skins / Outfits
