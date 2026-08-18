@@ -111,42 +111,54 @@ fun GameHud(
                 }
             }
 
-            // Level, Stage & Difficulty Tier Pill
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0x66000000),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x44FFFFFF)),
-                    modifier = Modifier.testTag("stage_indicator")
+                // Level, Stage & Difficulty Tier Pill
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "Lv $currentLevel • ${currentStage.name}",
-                        color = Color.White.copy(alpha = 0.95f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xCC0B1329),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier
+                            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF38BDF8))
+                            .testTag("stage_indicator")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(text = "🚩", fontSize = 13.sp)
+                            Text(
+                                text = "LV $currentLevel • ${currentStage.name.uppercase()}",
+                                color = Color(0xFFE2E8F0),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                    }
 
-                // Difficulty Rank Badge
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(tier.badgeColorHex).copy(alpha = 0.25f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(tier.badgeColorHex)),
-                    modifier = Modifier.testTag("hud_difficulty_tier")
-                ) {
-                    Text(
-                        text = tier.title.uppercase(),
-                        color = Color(tier.badgeColorHex),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                    )
+                    // Difficulty Rank Badge
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(tier.badgeColorHex).copy(alpha = 0.35f),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(tier.badgeColorHex)),
+                        modifier = Modifier
+                            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(tier.badgeColorHex))
+                            .testTag("hud_difficulty_tier")
+                    ) {
+                        Text(
+                            text = tier.title.uppercase(),
+                            color = Color(tier.badgeColorHex),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
-            }
 
             // Action Buttons (Menu, Daily Missions, Weekly, Leaderboard, Spin, Sound & Pause)
             Row(
@@ -277,48 +289,82 @@ fun GameHud(
                 }
             }
 
-            // 🎁 Dynamic 5-Level Milestone Reward Tracker
+            // 🎁 Dynamic 5-Level Milestone & Challenge Reward Tracker (Enlarged & High Visibility)
             val nextMilestone = ((currentLevel / 5) + 1) * 5
             val levelsRemaining = nextMilestone - currentLevel
             val progress = ((5 - levelsRemaining).toFloat() / 5f).coerceIn(0f, 1f)
 
             Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xCC0F172A),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x88F59E0B)),
+                shape = RoundedCornerShape(18.dp),
+                color = Color(0xEE0B1329),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF59E0B)),
                 modifier = Modifier
-                    .padding(horizontal = 24.dp, vertical = 4.dp)
+                    .fillMaxWidth(0.94f)
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFFF59E0B), spotColor = Color(0xFFF59E0B))
                     .testTag("hud_level_reward_tracker")
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(text = "🎁", fontSize = 14.sp)
                         Text(
-                            text = if (levelsRemaining == 1) "⚡ 1 LEVEL AWAY FROM LEVEL $nextMilestone REWARD!" else "🎯 $levelsRemaining LEVELS TO LEVEL $nextMilestone REWARD (+25 💎)",
-                            color = Color(0xFFFBBF24),
+                            text = if (levelsRemaining == 1) "🔥" else "🏆",
+                            fontSize = 18.sp
+                        )
+                        Text(
+                            text = if (levelsRemaining == 1) {
+                                "⚡ YOU ARE JUST 1 LEVEL AWAY FROM THE BIG REWARD!"
+                            } else {
+                                "🎯 LEVEL $nextMilestone MILESTONE: $levelsRemaining BRIDGES TO GO!"
+                            },
+                            color = if (levelsRemaining == 1) Color(0xFFFDE047) else Color(0xFFFBBF24),
                             fontWeight = FontWeight.Black,
-                            fontSize = 11.sp
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
                         )
                     }
-                    // Animated Milestone Progress Bar
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.65f)
-                            .height(4.dp)
-                            .background(Color(0x55FFFFFF), CircleShape)
+
+                    // Large High-Visibility Milestone Progress Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Text(
+                            text = "Lv $currentLevel",
+                            color = Color(0xFF94A3B8),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp
+                        )
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(fraction = progress.coerceAtLeast(0.08f))
-                                .fillMaxHeight()
-                                .background(Color(0xFFF59E0B), CircleShape)
+                                .weight(1f)
+                                .height(10.dp)
+                                .background(Color(0x55334155), CircleShape)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction = progress.coerceAtLeast(0.08f))
+                                    .fillMaxHeight()
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF38BDF8))
+                                        ),
+                                        CircleShape
+                                    )
+                            )
+                        }
+                        Text(
+                            text = "Lv $nextMilestone 🎁",
+                            color = Color(0xFFFBBF24),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp
                         )
                     }
                 }
@@ -336,6 +382,11 @@ fun StartScreenOverlay(
     val gems by viewModel.gems.collectAsState()
     val currentStreak by viewModel.currentStreak.collectAsState()
     val isDailyRewardAvailable by viewModel.isDailyRewardAvailable.collectAsState()
+
+    // Play pleasant startup welcome melody when start screen first mounts
+    LaunchedEffect(Unit) {
+        viewModel.soundManager.playStartupMelody()
+    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -525,53 +576,128 @@ fun StartScreenOverlay(
                     letterSpacing = 1.sp
                 )
 
-                // Daily Reward Banner (if reward is ready)
-                if (isDailyRewardAvailable) {
-                    Surface(
-                        onClick = { viewModel.openDailyReward(true) },
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xEE1E1B4B),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFEC4899)),
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .shadow(8.dp, RoundedCornerShape(16.dp))
-                            .testTag("start_daily_reward_ready_banner")
+                // Daily Streak Banner (Always informative & engaging)
+                Surface(
+                    onClick = { viewModel.openDailyReward(true) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = if (isDailyRewardAvailable) Color(0xEE1E1B4B) else Color(0xDD0F172A),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.5.dp,
+                        if (isDailyRewardAvailable) Color(0xFFEC4899) else Color(0xFFF97316)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .scale(if (isDailyRewardAvailable) streakGlowScale else 1f)
+                        .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = if (isDailyRewardAvailable) Color(0xFFEC4899) else Color(0xFFF97316))
+                        .testTag("start_daily_streak_banner")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Text(text = "🎁", fontSize = 24.sp)
-                                Column {
-                                    Text(
-                                        text = "Daily Login Reward Ready!",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                    Text(
-                                        text = "Day $currentStreak Reward • Tap to claim",
-                                        color = Color(0xFFF472B6),
-                                        fontSize = 11.sp
-                                    )
-                                }
+                            Text(text = if (isDailyRewardAvailable) "🎁" else "🔥", fontSize = 24.sp)
+                            Column {
+                                Text(
+                                    text = if (isDailyRewardAvailable) "Daily Login Reward Ready!" else "Daily Streak: Day $currentStreak Active 🔥",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = if (isDailyRewardAvailable) "Day $currentStreak Reward • Tap to claim gems" else "Keep your login streak alive for Day 7 Mega Bonus!",
+                                    color = if (isDailyRewardAvailable) Color(0xFFF472B6) else Color(0xFFFB923C),
+                                    fontSize = 11.sp
+                                )
                             }
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDailyRewardAvailable) Color(0xFF065F46) else Color(0xFF334155)
+                        ) {
                             Text(
-                                text = "CLAIM",
-                                color = Color(0xFFFDE047),
+                                text = if (isDailyRewardAvailable) "CLAIM" else "VIEW",
+                                color = if (isDailyRewardAvailable) Color(0xFFFDE047) else Color(0xFFE2E8F0),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 13.sp
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                // Persistent Level Progress & Milestone Card (Always visible across Home / Start screen)
+                val startLevel by viewModel.engine.currentLevel.collectAsState()
+                val nextMilestone = ((startLevel / 5) + 1) * 5
+                val levelsRemaining = nextMilestone - startLevel
+                val milestoneProgress = ((5 - levelsRemaining).toFloat() / 5f).coerceIn(0f, 1f)
+
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xDD0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFF59E0B)),
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .shadow(10.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFFF59E0B))
+                        .testTag("start_persistent_level_progress_card")
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(text = "🏆", fontSize = 14.sp)
+                                Text(
+                                    text = "CURRENT STAGE: LEVEL $startLevel",
+                                    color = Color(0xFFFBBF24),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Text(
+                                text = "Milestone Lv $nextMilestone 🎁",
+                                color = Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        // Persistent Linear Progress Bar
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .background(Color(0x44334155), CircleShape)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction = milestoneProgress.coerceAtLeast(0.06f))
+                                    .fillMaxHeight()
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF38BDF8))
+                                        ),
+                                        CircleShape
+                                    )
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Play Button Card
                 Surface(
@@ -3442,21 +3568,47 @@ fun LuckySpinWheelDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Header
-                Text(
-                    text = "🎰 LUCKY GEM WHEEL 🎰",
-                    color = Color(0xFFFBBF24),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
-                )
+                val isFreeSpinAvailable = remember { viewModel.isDailyFreeSpinAvailable() }
+                val spinCost = viewModel.getSpinCost()
+                val canAfford = viewModel.canAffordSpin()
 
-                Text(
-                    text = "Test your fortune! Every spin is guaranteed gems!",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
+                // Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "🎰", fontSize = 22.sp)
+                    Text(
+                        text = "LUCKY GEM WHEEL",
+                        color = Color(0xFFFBBF24),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+                }
+
+                if (isFreeSpinAvailable) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF065F46),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399))
+                    ) {
+                        Text(
+                            text = "🎁 FREE DAILY SPIN READY!",
+                            color = Color(0xFF6EE7B7),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Next Free Spin tomorrow • Spin now for 💎 $spinCost",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
 
                 // Spinning Wheel Canvas
                 Box(
@@ -3541,7 +3693,7 @@ fun LuckySpinWheelDialog(
                 // Spin Action Button
                 Button(
                     onClick = {
-                        if (!isSpinning) {
+                        if (!isSpinning && canAfford) {
                             isSpinning = true
                             wonAmount = null
                             coroutineScope.launch {
@@ -3556,9 +3708,9 @@ fun LuckySpinWheelDialog(
                             }
                         }
                     },
-                    enabled = !isSpinning,
+                    enabled = !isSpinning && canAfford,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFF59E0B),
+                        containerColor = if (isFreeSpinAvailable) Color(0xFF10B981) else Color(0xFFF59E0B),
                         disabledContainerColor = Color(0xFF475569)
                     ),
                     shape = RoundedCornerShape(16.dp),
@@ -3568,7 +3720,12 @@ fun LuckySpinWheelDialog(
                         .testTag("spin_wheel_action_btn")
                 ) {
                     Text(
-                        text = if (isSpinning) "SPINNING..." else "SPIN FOR GEMS! 🎰",
+                        text = when {
+                            isSpinning -> "SPINNING..."
+                            isFreeSpinAvailable -> "CLAIM FREE SPIN! 🎁"
+                            canAfford -> "SPIN FOR 💎 $spinCost"
+                            else -> "NEED 💎 $spinCost TO SPIN"
+                        },
                         color = Color.Black,
                         fontWeight = FontWeight.Black,
                         fontSize = 15.sp
@@ -3614,13 +3771,13 @@ fun LevelVictoryCelebrationDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(32.dp),
             color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD700)),
+            border = androidx.compose.foundation.BorderStroke(3.dp, Brush.sweepGradient(listOf(Color(0xFFFFD700), Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF38BDF8), Color(0xFFFFD700)))),
             modifier = modifier
-                .fillMaxWidth(0.92f)
+                .fillMaxWidth(0.94f)
                 .scale(scaleAnim)
-                .shadow(24.dp, RoundedCornerShape(28.dp), ambientColor = Color(0xFFFFD700), spotColor = Color(0xFFFFD700))
+                .shadow(32.dp, RoundedCornerShape(32.dp), ambientColor = Color(0xFFFFD700), spotColor = Color(0xFFFFD700))
                 .testTag("level_victory_dialog")
         ) {
             Column(
@@ -3629,7 +3786,8 @@ fun LevelVictoryCelebrationDialog(
                         Brush.verticalGradient(
                             listOf(
                                 Color(0xFF1E1B4B),
-                                Color(0xFF0F172A)
+                                Color(0xFF0F172A),
+                                Color(0xFF020617)
                             )
                         )
                     )
@@ -3637,52 +3795,75 @@ fun LevelVictoryCelebrationDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Trophy Crown Icon
+                // Popping Crown & Sparkles Icon
                 Surface(
                     shape = CircleShape,
                     color = Color(0xFF312E81),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD700)),
-                    modifier = Modifier.size(72.dp)
+                    border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFFFFD700)),
+                    modifier = Modifier
+                        .size(80.dp)
+                        .shadow(16.dp, CircleShape, ambientColor = Color(0xFFFFD700))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(text = "👑", fontSize = 38.sp)
+                        Text(text = "👑", fontSize = 42.sp)
                     }
                 }
 
                 Text(
-                    text = "LEVEL COMPLETE!",
+                    text = "LEVEL COMPLETED! 🎉",
                     color = Color(0xFFFFD700),
-                    fontSize = 22.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.5.sp,
                     textAlign = TextAlign.Center
                 )
 
-                Text(
-                    text = celebrationText,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 22.sp
-                )
+                // High-Dopamine Motivation Banner
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "⚡ YOU ARE JUST A FEW BRIDGES AWAY FROM BIG REWARDS!",
+                            color = Color(0xFF38BDF8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center,
+                            letterSpacing = 0.5.sp
+                        )
+                        Text(
+                            text = celebrationText,
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
 
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = Color(0xFF065F46),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399)),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF34D399)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "🎁 +3 Bonus Gems Awarded! 💎",
+                            text = "🎁 +3 Bonus Gems Claimed! 💎",
                             color = Color(0xFF6EE7B7),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -3692,17 +3873,18 @@ fun LevelVictoryCelebrationDialog(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF10B981)
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(18.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(54.dp)
+                        .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF10B981))
                         .testTag("continue_next_level_button")
                 ) {
                     Text(
                         text = "CONTINUE TO NEXT LEVEL 🚀",
                         color = Color.White,
                         fontWeight = FontWeight.Black,
-                        fontSize = 14.sp
+                        fontSize = 15.sp
                     )
                 }
             }

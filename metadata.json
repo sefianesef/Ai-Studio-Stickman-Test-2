@@ -1,6 +1,6 @@
 {
   "name": "Stickman Hero",
-  "description": "An arcade stickman bridge-building game with physics, accessories shop, stage themes, and gem collection.",
+  "description": "Stickman Hero: Physics Bridge Master - The ultimate precision bridge-building ninja arcade runner featuring dynamic physics, multi-currency boutique shop, 5-level milestone rewards, daily quests, tournaments, and lucky spin rewards.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

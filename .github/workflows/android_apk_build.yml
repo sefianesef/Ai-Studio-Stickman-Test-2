@@ -1,0 +1,87 @@
+name: Build Android APK Release & Debug
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build & Package Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Signing and Environment Configs
+        run: |
+          echo "=== Configuring environment secrets ==="
+          if [ ! -f ".env" ]; then
+            if [ -f ".env.example" ]; then
+              cp .env.example .env
+            else
+              touch .env
+            fi
+          fi
+
+          echo "=== Configuring Debug Keystore ==="
+          if [ -f "debug.keystore.base64" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
+          fi
+
+          if [ ! -f "debug.keystore" ] || [ ! -s "debug.keystore" ]; then
+            echo "Generating fresh debug.keystore..."
+            keytool -genkey -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          chmod +x gradlew || true
+
+      - name: Assemble Debug APK
+        run: |
+          echo "=== Compiling APK with Gradle ==="
+          ./gradlew :app:assembleDebug \
+            --stacktrace \
+            -Dkotlin.compiler.execution.strategy=daemon \
+            -Dorg.gradle.jvmargs="-Xmx4g -Dfile.encoding=UTF-8"
+
+      - name: Prepare APK Outputs
+        run: |
+          mkdir -p build_outputs
+          find app/build/outputs/apk/debug/ -type f -name "*.apk" -exec cp {} build_outputs/StickmanHero-Debug.apk \;
+          echo "=== Generated Artifacts ==="
+          ls -lh build_outputs/
+
+      - name: Upload APK as GitHub Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StickmanHero-Android-APK
+          path: build_outputs/*.apk
+          if-no-files-found: error
+          retention-days: 30

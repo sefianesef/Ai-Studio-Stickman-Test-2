@@ -114,6 +114,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _isSpinWheelOpen.value = open
     }
 
+    fun isDailyFreeSpinAvailable(): Boolean = repository.isDailyFreeSpinAvailable()
+    fun getSpinCost(): Int = repository.getSpinCost()
+    fun canAffordSpin(): Boolean = repository.canAffordSpin()
+
     fun spinLuckyWheel(): Int {
         val reward = repository.spinLuckyWheel()
         soundManager.playGemCollect()

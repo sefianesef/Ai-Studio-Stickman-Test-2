@@ -38,6 +38,7 @@ class SoundManager(context: Context) {
     private val pcmButton by lazy { generateTone(freq = 520f, durationSec = 0.04f, decayRate = 50f) }
     private val pcmVictory by lazy { generateFanfare(durationSec = 0.45f) }
     private val pcmBuySuccess by lazy { generateChime(freq1 = 660f, freq2 = 880f, freq3 = 1320f, durationSec = 0.25f) }
+    private val pcmStartupMelody by lazy { generateStartupMelody() }
 
     @Volatile private var audioTrack: AudioTrack? = null
     private val isRunning = AtomicBoolean(true)
@@ -169,6 +170,7 @@ class SoundManager(context: Context) {
     fun playVictoryMusic() = enqueue(pcmVictory, volume = 0.95f)
     fun playBuyGemsSuccess() = enqueue(pcmBuySuccess, volume = 0.90f)
     fun playComboStreak() = enqueue(pcmPerfect, volume = 0.90f)
+    fun playStartupMelody() = enqueue(pcmStartupMelody, volume = 0.85f)
 
     fun release() {
         isRunning.set(false)
@@ -265,6 +267,39 @@ class SoundManager(context: Context) {
                         sin(2.0 * PI * 783.99 * t) * 0.25).toFloat()
                 val sampleValue = (wave * envelope * 28000).toInt().coerceIn(-32767, 32767)
                 samples[i] = sampleValue.toShort()
+            }
+            return samples
+        }
+
+        private fun generateStartupMelody(): ShortArray {
+            // Uplifting arcade arpeggio melody: C5 (523Hz) -> E5 (659Hz) -> G5 (784Hz) -> C6 (1046Hz) chord
+            val noteDuration = 0.14f
+            val finalNoteDuration = 0.45f
+            val totalSec = (noteDuration * 3) + finalNoteDuration
+            val totalSamples = (SAMPLE_RATE * totalSec).toInt()
+            val samples = ShortArray(totalSamples)
+
+            val notes = listOf(523.25f, 659.25f, 783.99f, 1046.50f)
+            for (noteIdx in notes.indices) {
+                val freq = notes[noteIdx]
+                val isFinal = noteIdx == notes.size - 1
+                val duration = if (isFinal) finalNoteDuration else noteDuration
+                val startSample = (noteIdx * noteDuration * SAMPLE_RATE).toInt()
+                val noteSampleCount = (duration * SAMPLE_RATE).toInt()
+
+                for (i in 0 until noteSampleCount) {
+                    val sampleIndex = startSample + i
+                    if (sampleIndex < totalSamples) {
+                        val t = i.toFloat() / SAMPLE_RATE
+                        val env = if (isFinal) exp(-4.5f * t) else exp(-8.0f * t)
+                        // Rich overtone synth
+                        val wave = (sin(2.0 * PI * freq * t) * 0.65 +
+                                sin(2.0 * PI * (freq * 2.0) * t) * 0.25 +
+                                sin(2.0 * PI * (freq * 3.0) * t) * 0.10).toFloat()
+                        val sampleVal = (wave * env * 26000).toInt().coerceIn(-32767, 32767)
+                        samples[sampleIndex] = sampleVal.toShort()
+                    }
+                }
             }
             return samples
         }

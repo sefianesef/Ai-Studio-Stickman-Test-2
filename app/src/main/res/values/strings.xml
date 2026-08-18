@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Stickman Hero</string>
+    <string name="app_description">Stickman Hero: Physics Bridge Master. The ultimate physics bridge-building runner game. Stretch sticks, perfect bullseye crossings, collect rare gems, and unlock legendary ninja skins.</string>
+    <string name="seo_category">Arcade Physics Runner</string>
+    <string name="seo_keywords">stickman, bridge hero, stick hero, physics puzzle, ninja stickman, arcade runner, endless bridge, precision timing</string>
 </resources>

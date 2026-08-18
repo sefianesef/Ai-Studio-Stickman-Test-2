@@ -1213,7 +1213,7 @@ class GameRepository(
         val lastDay = prefs.getLong(lastClaimKey, 0L)
         if (lastDay != today) {
             prefs.edit().putLong(lastClaimKey, today).apply()
-            addGems(30)
+            addGems(15) // Rebalanced competitive reward
             return true
         }
         return false
@@ -1229,20 +1229,39 @@ class GameRepository(
         if (pack.isDailyFree) {
             return claimDailyFreeGems()
         }
-        // Grant gems for in-game achievement / score tokens
         val totalAwarded = pack.gemAmount + pack.bonusGems
         addGems(totalAwarded)
         return true
     }
 
+    fun isDailyFreeSpinAvailable(): Boolean {
+        val today = getTodayEpochDay()
+        val lastDay = prefs.getLong("LAST_DAILY_FREE_SPIN", 0L)
+        return lastDay != today
+    }
+
+    fun getSpinCost(): Int = 20
+
+    fun canAffordSpin(): Boolean {
+        return isDailyFreeSpinAvailable() || _gems.value >= getSpinCost()
+    }
+
     fun spinLuckyWheel(): Int {
-        // Variable ratio reward schedule (Skinner Box): 15, 25, 50, 100 gems
+        val today = getTodayEpochDay()
+        val isFree = isDailyFreeSpinAvailable()
+        if (isFree) {
+            prefs.edit().putLong("LAST_DAILY_FREE_SPIN", today).apply()
+        } else {
+            spendGems(getSpinCost())
+        }
+
+        // Competitive Balanced Rewards: 2, 4, 8, 15 gems (Rare high-reward jackpot)
         val roll = (1..100).random()
         val reward = when {
-            roll <= 45 -> 15
-            roll <= 75 -> 30
-            roll <= 92 -> 60
-            else -> 120 // JACKPOT!
+            roll <= 50 -> 2
+            roll <= 80 -> 4
+            roll <= 95 -> 8
+            else -> 15 // Grand Lucky Prize
         }
         addGems(reward)
         return reward

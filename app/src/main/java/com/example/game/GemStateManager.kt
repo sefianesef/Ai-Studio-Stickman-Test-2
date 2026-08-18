@@ -89,10 +89,9 @@ class GemStateManager(
         val newCombo = if (isQuickChain) (_currentCombo.value + 1).coerceAtMost(5) else 1
         _currentCombo.value = newCombo
 
-        // Multiplier bonus: combo 1 = 1 gem, combo 2 = 2 gems, combo 3+ = 3 gems
+        // Multiplier bonus: combo 1 = 1 gem, combo 3+ = 2 gems (competitive high-skill ceiling)
         val gemReward = when {
-            newCombo >= 4 -> 3
-            newCombo >= 2 -> 2
+            newCombo >= 3 -> 2
             else -> 1
         }
 
