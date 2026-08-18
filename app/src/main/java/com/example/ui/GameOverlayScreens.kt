@@ -1085,7 +1085,7 @@ fun GameOverDialog(
                             }
                         } else {
                             Button(
-                                onClick = { viewModel.openShop(true) },
+                                onClick = { viewModel.openOutOfGemsOffer(true) },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF831843)),
                                 border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFF43F5E)),
                                 shape = RoundedCornerShape(20.dp),
@@ -1097,7 +1097,7 @@ fun GameOverDialog(
                                 Text(text = "💎", fontSize = 18.sp)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "NEED ${reviveCost - totalGems} GEMS TO REVIVE • TOP UP",
+                                    text = "NEED ${reviveCost - totalGems} GEMS TO REVIVE • GET GEMS ⚡",
                                     color = Color(0xFFFDE047),
                                     fontWeight = FontWeight.Black,
                                     fontSize = 13.sp
@@ -3891,4 +3891,355 @@ fun LevelVictoryCelebrationDialog(
         }
     }
 }
+
+@Composable
+fun OutOfGemsSpecialOfferDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val gems by viewModel.gems.collectAsState()
+    val reviveCost = viewModel.engine.getReviveCost()
+    val neededGems = (reviveCost - gems).coerceAtLeast(1)
+    val availablePacks = viewModel.availableGemPacks.filter { !it.isDailyFree }
+    var selectedPackForCheckout by remember { mutableStateOf<GemPack?>(null) }
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse_offer")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+    val badgeGlow by infiniteTransition.animateFloat(
+        initialValue = 0.75f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow_alpha"
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xDD020617))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(26.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF43F5E)),
+                modifier = Modifier
+                    .fillMaxWidth(0.96f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .shadow(32.dp, RoundedCornerShape(26.dp), ambientColor = Color(0xFFF43F5E))
+                    .testTag("out_of_gems_special_offer_dialog")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color(0xFF4C0519),
+                                    Color(0xFF1E1B4B),
+                                    Color(0xFF0F172A)
+                                )
+                            )
+                        )
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Top Bar with Close Button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFE11D48).copy(alpha = badgeGlow),
+                            modifier = Modifier.scale(pulseScale)
+                        ) {
+                            Text(
+                                text = "🔥 LIMITED TIME 80% OFF DEAL",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .testTag("out_of_gems_close_button")
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF94A3B8))
+                        }
+                    }
+
+                    // Urgency Header with Gems Icon
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFFF43F5E),
+                                        Color(0xFF881337),
+                                        Color(0xFF0F172A)
+                                    )
+                                )
+                            )
+                            .border(2.dp, Color(0xFFFDA4AF), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "💎", fontSize = 34.sp)
+                    }
+
+                    Text(
+                        text = "OUT OF GEMS!",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+
+                    Text(
+                        text = "You need $neededGems more Gems to revive & continue your high-score run! Grab an instant discounted booster bundle:",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+
+                    // Flash Sale Mega Value Pack (Hero Offer)
+                    val starterPack = availablePacks.firstOrNull() ?: GemPack(
+                        id = "starter_hero",
+                        name = "Instant Revival Chest",
+                        gemAmount = 50,
+                        bonusGems = 30,
+                        iconEmoji = "💎",
+                        tag = "80% OFF SPECIAL",
+                        priceUsd = "$0.99",
+                        perks = "Instantly revives stickman + 80 Total Gems!"
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFBBF24)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(12.dp, RoundedCornerShape(18.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color(0xFF78350F).copy(alpha = 0.5f),
+                                            Color(0xFF1E293B)
+                                        )
+                                    )
+                                )
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(text = starterPack.iconEmoji, fontSize = 28.sp)
+                                    Column {
+                                        Text(
+                                            text = starterPack.name,
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                        Text(
+                                            text = "+${starterPack.gemAmount + starterPack.bonusGems} Gems Total (+${starterPack.bonusGems} FREE Bonus)",
+                                            color = Color(0xFF38BDF8),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFD97706)
+                                ) {
+                                    Text(
+                                        text = "MOST POPULAR",
+                                        color = Color.White,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = { selectedPackForCheckout = starterPack },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp)
+                                    .testTag("out_of_gems_buy_hero_pack_btn")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = "⚡ GET ${starterPack.gemAmount + starterPack.bonusGems} GEMS FOR ${starterPack.priceUsd} ⚡",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Secondary Discount Packs Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availablePacks.drop(1).take(2).forEach { pack ->
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFF1E293B),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedPackForCheckout = pack }
+                                    .testTag("out_of_gems_secondary_pack_${pack.id}")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = pack.iconEmoji, fontSize = 20.sp)
+                                    Text(
+                                        text = "+${pack.gemAmount + pack.bonusGems} 💎",
+                                        color = Color(0xFF38BDF8),
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 12.sp
+                                    )
+                                    Button(
+                                        onClick = { selectedPackForCheckout = pack },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(28.dp)
+                                    ) {
+                                        Text(
+                                            text = pack.priceUsd,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Free Booster / Spin fallback
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                onDismiss()
+                                viewModel.openSpinWheel(true)
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFA5B4FC)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("out_of_gems_spin_fallback_btn")
+                        ) {
+                            Text("🎰 Spin Wheel", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                onDismiss()
+                                viewModel.openShop(true)
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("out_of_gems_view_shop_btn")
+                        ) {
+                            Text("🏬 Gem Vault", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Secondary Real-Money Checkout Modal Confirmation
+    selectedPackForCheckout?.let { pack ->
+        RealMoneyIapCheckoutDialog(
+            pack = pack,
+            onConfirmPurchase = {
+                viewModel.buyGemPackRealMoney(pack)
+                selectedPackForCheckout = null
+                onDismiss()
+                // Auto revive player if they now have enough gems
+                if (viewModel.canAffordRevive()) {
+                    viewModel.revivePlayer()
+                }
+            },
+            onDismiss = { selectedPackForCheckout = null }
+        )
+    }
+}
+
 

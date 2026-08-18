@@ -29,6 +29,7 @@ fun StickmanGameScreen(
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
     val isLeaderboardOpen by viewModel.isLeaderboardOpen.collectAsState()
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
+    val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
     val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
 
     val isPlaying = gameState != GameState.START && gameState != GameState.GAMEOVER
@@ -164,7 +165,15 @@ fun StickmanGameScreen(
             )
         }
 
-        // 17. Level Victory Milestone Celebration Dialog
+        // 17. Out of Gems Real-Money Special Offer Pop-up Dialog
+        if (isOutOfGemsOfferOpen) {
+            OutOfGemsSpecialOfferDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openOutOfGemsOffer(false) }
+            )
+        }
+
+        // 18. Level Victory Milestone Celebration Dialog
         levelVictoryCelebration?.let { celebrationText ->
             LevelVictoryCelebrationDialog(
                 celebrationText = celebrationText,

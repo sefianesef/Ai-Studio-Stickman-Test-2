@@ -272,36 +272,66 @@ class SoundManager(context: Context) {
         }
 
         private fun generateStartupMelody(): ShortArray {
-            // Uplifting arcade arpeggio melody: C5 (523Hz) -> E5 (659Hz) -> G5 (784Hz) -> C6 (1046Hz) chord
-            val noteDuration = 0.14f
-            val finalNoteDuration = 0.45f
-            val totalSec = (noteDuration * 3) + finalNoteDuration
-            val totalSamples = (SAMPLE_RATE * totalSec).toInt()
-            val samples = ShortArray(totalSamples)
+            // Warm, relaxing, organic marimba/bell acoustic melodic progression:
+            // Notes: E4 (329.6), G4 (392.0), A4 (440.0), B4 (493.8), D5 (587.3), E5 (659.2), G5 (784.0)
+            // Polyphonic note sequence with warm acoustic envelope (soft attack, bell body resonance, exponential natural decay)
+            data class MelodicNote(val freq: Float, val startSec: Float, val durationSec: Float, val gain: Float)
 
-            val notes = listOf(523.25f, 659.25f, 783.99f, 1046.50f)
-            for (noteIdx in notes.indices) {
-                val freq = notes[noteIdx]
-                val isFinal = noteIdx == notes.size - 1
-                val duration = if (isFinal) finalNoteDuration else noteDuration
-                val startSample = (noteIdx * noteDuration * SAMPLE_RATE).toInt()
-                val noteSampleCount = (duration * SAMPLE_RATE).toInt()
+            val melodyScore = listOf(
+                MelodicNote(freq = 392.00f, startSec = 0.00f, durationSec = 0.35f, gain = 0.70f), // G4
+                MelodicNote(freq = 440.00f, startSec = 0.18f, durationSec = 0.35f, gain = 0.75f), // A4
+                MelodicNote(freq = 523.25f, startSec = 0.36f, durationSec = 0.40f, gain = 0.80f), // C5
+                MelodicNote(freq = 587.33f, startSec = 0.54f, durationSec = 0.45f, gain = 0.85f), // D5
+                MelodicNote(freq = 659.25f, startSec = 0.72f, durationSec = 0.55f, gain = 0.90f), // E5
+                MelodicNote(freq = 783.99f, startSec = 0.90f, durationSec = 0.90f, gain = 1.00f), // G5 (sustained bell chime)
+                MelodicNote(freq = 1046.50f, startSec = 0.90f, durationSec = 0.90f, gain = 0.55f), // C6 harmonic shimmer
+                MelodicNote(freq = 261.63f, startSec = 0.00f, durationSec = 1.20f, gain = 0.40f), // Warm low C4 bass anchor
+                MelodicNote(freq = 329.63f, startSec = 0.54f, durationSec = 1.00f, gain = 0.35f)  // Warm low E4 chord base
+            )
 
-                for (i in 0 until noteSampleCount) {
-                    val sampleIndex = startSample + i
-                    if (sampleIndex < totalSamples) {
+            val totalDurationSec = 1.95f
+            val totalSamples = (SAMPLE_RATE * totalDurationSec).toInt()
+            val floatBuffer = FloatArray(totalSamples)
+
+            for (note in melodyScore) {
+                val startIdx = (note.startSec * SAMPLE_RATE).toInt()
+                val noteSamples = (note.durationSec * SAMPLE_RATE).toInt()
+                for (i in 0 until noteSamples) {
+                    val idx = startIdx + i
+                    if (idx < totalSamples) {
                         val t = i.toFloat() / SAMPLE_RATE
-                        val env = if (isFinal) exp(-4.5f * t) else exp(-8.0f * t)
-                        // Rich overtone synth
-                        val wave = (sin(2.0 * PI * freq * t) * 0.65 +
-                                sin(2.0 * PI * (freq * 2.0) * t) * 0.25 +
-                                sin(2.0 * PI * (freq * 3.0) * t) * 0.10).toFloat()
-                        val sampleVal = (wave * env * 26000).toInt().coerceIn(-32767, 32767)
-                        samples[sampleIndex] = sampleVal.toShort()
+                        // Soft 15ms acoustic attack envelope to eliminate any clicking/harsh beeps
+                        val attack = (t / 0.018f).coerceIn(0f, 1f)
+                        val decay = exp(-3.8f * t)
+                        val env = attack * decay
+
+                        // Acoustic instrument timbre (fundamental + sub + soft overtone harmonics)
+                        val f0 = note.freq
+                        val sample = (
+                            sin(2.0 * PI * f0 * t) * 0.72 +
+                            sin(2.0 * PI * (f0 * 2.0) * t) * 0.18 +
+                            sin(2.0 * PI * (f0 * 3.0) * t) * 0.07 +
+                            sin(2.0 * PI * (f0 * 4.0) * t) * 0.03
+                        ).toFloat()
+
+                        floatBuffer[idx] += sample * env * note.gain
                     }
                 }
             }
-            return samples
+
+            // Normalize and convert floatBuffer to PCM 16-bit
+            val pcmSamples = ShortArray(totalSamples)
+            var maxPeak = 0.001f
+            for (v in floatBuffer) {
+                val absV = kotlin.math.abs(v)
+                if (absV > maxPeak) maxPeak = absV
+            }
+            val scale = (27000f / maxPeak).coerceAtMost(28000f)
+
+            for (i in 0 until totalSamples) {
+                pcmSamples[i] = (floatBuffer[i] * scale).toInt().coerceIn(-32767, 32767).toShort()
+            }
+            return pcmSamples
         }
     }
 }

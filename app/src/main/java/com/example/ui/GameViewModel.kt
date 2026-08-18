@@ -69,6 +69,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isSpinWheelOpen = MutableStateFlow(false)
     val isSpinWheelOpen: StateFlow<Boolean> = _isSpinWheelOpen.asStateFlow()
 
+    private val _isOutOfGemsOfferOpen = MutableStateFlow(false)
+    val isOutOfGemsOfferOpen: StateFlow<Boolean> = _isOutOfGemsOfferOpen.asStateFlow()
+
     // Shop tab
     private val _selectedShopTab = MutableStateFlow(AccessoryType.HAT)
     val selectedShopTab: StateFlow<AccessoryType> = _selectedShopTab.asStateFlow()
@@ -325,6 +328,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getStreakDayReward(day: Int): Int {
         return repository.getStreakDayReward(day)
+    }
+
+    fun openOutOfGemsOffer(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isOutOfGemsOfferOpen.value = open
     }
 
     fun openShop(open: Boolean = true) {
