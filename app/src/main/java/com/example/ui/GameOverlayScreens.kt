@@ -276,6 +276,53 @@ fun GameHud(
                     }
                 }
             }
+
+            // 🎁 Dynamic 5-Level Milestone Reward Tracker
+            val nextMilestone = ((currentLevel / 5) + 1) * 5
+            val levelsRemaining = nextMilestone - currentLevel
+            val progress = ((5 - levelsRemaining).toFloat() / 5f).coerceIn(0f, 1f)
+
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xCC0F172A),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x88F59E0B)),
+                modifier = Modifier
+                    .padding(horizontal = 24.dp, vertical = 4.dp)
+                    .testTag("hud_level_reward_tracker")
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = "🎁", fontSize = 14.sp)
+                        Text(
+                            text = if (levelsRemaining == 1) "⚡ 1 LEVEL AWAY FROM LEVEL $nextMilestone REWARD!" else "🎯 $levelsRemaining LEVELS TO LEVEL $nextMilestone REWARD (+25 💎)",
+                            color = Color(0xFFFBBF24),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp
+                        )
+                    }
+                    // Animated Milestone Progress Bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.65f)
+                            .height(4.dp)
+                            .background(Color(0x55FFFFFF), CircleShape)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction = progress.coerceAtLeast(0.08f))
+                                .fillMaxHeight()
+                                .background(Color(0xFFF59E0B), CircleShape)
+                        )
+                    }
+                }
+            }
         }
     }
 }
