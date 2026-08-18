@@ -30,17 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-
-data class MissionPursuitItem(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val iconEmoji: String,
-    val current: Int,
-    val target: Int,
-    val magnifyingGlasses: Int,
-    val isClaimed: Boolean = false
-)
+import com.example.data.local.entity.DailyMissionEntity
 
 @Composable
 fun RoyalMissionPursuitDialog(
@@ -48,23 +38,25 @@ fun RoyalMissionPursuitDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedStage by remember { mutableIntStateOf(1) }
+    // Exact game missions from Room Database Flow in GameViewModel
+    val dailyMissions by viewModel.dailyMissions.collectAsState()
     val totalGems by viewModel.gems.collectAsState()
 
-    var stageProgress by remember { mutableIntStateOf(320) }
-    val maxStageGoal = 3000
+    val totalMissions = dailyMissions.size
+    val completedCount = dailyMissions.count { it.isClaimed }
+    val readyToClaimCount = dailyMissions.count { it.currentProgress >= it.targetCount && !it.isClaimed }
 
-    var missions by remember {
-        mutableStateOf(
-            listOf(
-                MissionPursuitItem("1", "Claim", "Complete 6 Steps!", "🎀", 6, 6, 20, false),
-                MissionPursuitItem("2", "Claim", "Earn 1000 Coins / Gems!", "💰", 1000, 1000, 30, false),
-                MissionPursuitItem("3", "Claim", "Collect 5 Cards / Stickers!", "🃏", 5, 5, 40, false),
-                MissionPursuitItem("4", "Find 8 Objects!", "Search throughout the area", "🔍", 6, 8, 50, false),
-                MissionPursuitItem("5", "Win 1 Super Hard Level!", "Overcome narrow bridges", "🌈", 1, 1, 70, false)
-            )
-        )
-    }
+    // Pulsing reward animation
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -84,7 +76,7 @@ fun RoyalMissionPursuitDialog(
                 .padding(12.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Royal blue framed dialog container
+            // Royal blue framed dialog container with curved edges & golden border
             Surface(
                 shape = RoundedCornerShape(26.dp),
                 color = Color(0xFF0F4C81),
@@ -115,20 +107,26 @@ fun RoyalMissionPursuitDialog(
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        IconButton(
-                            onClick = { },
-                            modifier = Modifier
-                                .size(34.dp)
-                                .align(Alignment.CenterStart)
-                                .background(Color(0xFF0369A1), CircleShape)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF0369A1),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                            modifier = Modifier.align(Alignment.CenterStart)
                         ) {
-                            Icon(Icons.Default.Info, contentDescription = "Info", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "💎", fontSize = 13.sp)
+                                Text(text = "$totalGems", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                            }
                         }
 
                         Text(
-                            text = "Mission Pursuit",
+                            text = "Daily Quests",
                             color = Color.White,
-                            fontSize = 24.sp,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 1.sp,
                             modifier = Modifier
@@ -150,7 +148,7 @@ fun RoyalMissionPursuitDialog(
                         }
                     }
 
-                    // 2. Detective King & Dog Investigation Banner
+                    // 2. Detective / Quests Banner Header
                     Surface(
                         shape = RoundedCornerShape(18.dp),
                         color = Color(0xFF1E1B4B),
@@ -158,7 +156,7 @@ fun RoyalMissionPursuitDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp)
-                            .height(115.dp)
+                            .height(105.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -172,7 +170,7 @@ fun RoyalMissionPursuitDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // King & Dog Emblems
+                            // Ninja / Game Hero Emblem
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -181,10 +179,10 @@ fun RoyalMissionPursuitDialog(
                                     shape = CircleShape,
                                     color = Color(0xFFFDE047),
                                     border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),
-                                    modifier = Modifier.size(54.dp)
+                                    modifier = Modifier.size(52.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text(text = "👑", fontSize = 30.sp)
+                                        Text(text = "🥷", fontSize = 28.sp)
                                     }
                                 }
 
@@ -192,15 +190,15 @@ fun RoyalMissionPursuitDialog(
                                     shape = CircleShape,
                                     color = Color(0xFFBAE6FD),
                                     border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),
-                                    modifier = Modifier.size(44.dp)
+                                    modifier = Modifier.size(42.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text(text = "🐶", fontSize = 24.sp)
+                                        Text(text = "🎯", fontSize = 22.sp)
                                     }
                                 }
                             }
 
-                            // Center Clue Board & Status
+                            // Center Clue Board Status
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -212,13 +210,13 @@ fun RoyalMissionPursuitDialog(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Text(text = "🗺️", fontSize = 16.sp)
+                                        Text(text = "📜", fontSize = 14.sp)
                                         Text(
-                                            text = "CLUE BOARD",
+                                            text = "ACTIVE QUESTS",
                                             color = Color(0xFFFEF08A),
                                             fontWeight = FontWeight.Black,
                                             fontSize = 11.sp
@@ -236,9 +234,9 @@ fun RoyalMissionPursuitDialog(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Text(text = "⏱️", fontSize = 12.sp)
+                                        Text(text = "⏱️", fontSize = 11.sp)
                                         Text(
-                                            text = "Active Event: 2d 15h",
+                                            text = "Resets Daily at Midnight",
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 10.sp
@@ -247,15 +245,17 @@ fun RoyalMissionPursuitDialog(
                                 }
                             }
 
-                            // Big Chest Vault
+                            // Prize Chest Vault
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = Color(0xFFD97706),
                                 border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFEF08A)),
-                                modifier = Modifier.size(54.dp)
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .scale(if (readyToClaimCount > 0) pulseScale else 1f)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(text = "🎁", fontSize = 30.sp)
+                                    Text(text = if (completedCount == totalMissions && totalMissions > 0) "👑" else "🎁", fontSize = 28.sp)
                                 }
                             }
                         }
@@ -263,7 +263,7 @@ fun RoyalMissionPursuitDialog(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 3. Chest Tier Milestones (500, 1500, 3000) & Magnifying Glass Progress Bar
+                    // 3. Progress Milestones Banner
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = Color(0xFF0369A1),
@@ -276,75 +276,93 @@ fun RoyalMissionPursuitDialog(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // Chest Milestones
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                ChestTierPill(points = 500, icon = "🪵", isReached = stageProgress >= 500)
-                                ChestTierPill(points = 1500, icon = "🥈", isReached = stageProgress >= 1500)
-                                ChestTierPill(points = 3000, icon = "👑", isReached = stageProgress >= 3000)
+                                Text(
+                                    text = "Daily Progression",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "$completedCount / $totalMissions Claimed",
+                                    color = if (completedCount == totalMissions && totalMissions > 0) Color(0xFF4ADE80) else Color(0xFFFEF08A),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp
+                                )
                             }
 
-                            // Progress Bar with Magnifying Glass Indicator
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            // Progress Bar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(14.dp)
+                                    .background(Color(0xFF082F49), CircleShape)
+                                    .border(1.dp, Color(0xFF38BDF8), CircleShape)
                             ) {
-                                Text(text = "🔍", fontSize = 16.sp)
+                                val progressFraction = if (totalMissions > 0) (completedCount.toFloat() / totalMissions.toFloat()).coerceIn(0f, 1f) else 0f
                                 Box(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .height(14.dp)
-                                        .background(Color(0xFF082F49), CircleShape)
-                                        .border(1.dp, Color(0xFF38BDF8), CircleShape)
-                                ) {
-                                    val progressFraction = (stageProgress.toFloat() / maxStageGoal.toFloat()).coerceIn(0f, 1f)
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(fraction = progressFraction.coerceAtLeast(0.06f))
-                                            .fillMaxHeight()
-                                            .background(
-                                                Brush.horizontalGradient(
-                                                    listOf(Color(0xFFFBBF24), Color(0xFF34D399), Color(0xFF38BDF8))
-                                                ),
-                                                CircleShape
-                                            )
-                                    )
-                                    Text(
-                                        text = "$stageProgress / $maxStageGoal",
-                                        color = Color.White,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.align(Alignment.Center)
-                                    )
-                                }
+                                        .fillMaxWidth(fraction = progressFraction.coerceAtLeast(0.06f))
+                                        .fillMaxHeight()
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                listOf(Color(0xFFFBBF24), Color(0xFF34D399), Color(0xFF38BDF8))
+                                            ),
+                                            CircleShape
+                                        )
+                                )
+                                Text(
+                                    text = "${(progressFraction * 100).toInt()}%",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 4. Missions List
+                    // 4. Exact Game Missions List with Video Layout & Animations
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(missions, key = { it.id }) { mission ->
-                            val canClaim = mission.current >= mission.target && !mission.isClaimed
+                        items(dailyMissions, key = { it.id }) { mission ->
+                            val isGoalMet = mission.currentProgress >= mission.targetCount
+                            val canClaim = isGoalMet && !mission.isClaimed
+                            val progressFrac = (mission.currentProgress.toFloat() / mission.targetCount.toFloat()).coerceIn(0f, 1f)
+
+                            val iconSymbol = when (mission.missionType) {
+                                "BUILD_BRIDGES" -> "🥢"
+                                "PERFECT_HITS" -> "🎯"
+                                "COLLECT_GEMS" -> "💎"
+                                "FLIP_WALK" -> "🤸"
+                                "REACH_SCORE" -> "🏆"
+                                else -> "⭐"
+                            }
 
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
                                 color = if (mission.isClaimed) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFF1E293B),
                                 border = androidx.compose.foundation.BorderStroke(
                                     width = if (canClaim) 2.dp else 1.dp,
-                                    color = if (canClaim) Color(0xFF22C55E) else Color(0xFF38BDF8).copy(alpha = 0.6f)
+                                    color = when {
+                                        mission.isClaimed -> Color(0xFF059669)
+                                        canClaim -> Color(0xFF22C55E)
+                                        else -> Color(0xFF38BDF8).copy(alpha = 0.6f)
+                                    }
                                 ),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("mission_item_${mission.id}")
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -361,7 +379,7 @@ fun RoyalMissionPursuitDialog(
                                         modifier = Modifier.size(42.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
-                                            Text(text = mission.iconEmoji, fontSize = 22.sp)
+                                            Text(text = iconSymbol, fontSize = 22.sp)
                                         }
                                     }
 
@@ -371,19 +389,16 @@ fun RoyalMissionPursuitDialog(
                                     if (canClaim) {
                                         Button(
                                             onClick = {
-                                                missions = missions.map {
-                                                    if (it.id == mission.id) it.copy(isClaimed = true) else it
-                                                }
-                                                stageProgress += mission.magnifyingGlasses * 10
-                                                viewModel.soundManager.playVictoryMusic()
+                                                viewModel.claimDailyMission(mission.id, mission.rewardGems)
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E)),
                                             shape = RoundedCornerShape(12.dp),
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .height(44.dp)
+                                                .scale(pulseScale)
                                                 .shadow(6.dp, RoundedCornerShape(12.dp))
-                                                .testTag("mission_pursuit_claim_btn_${mission.id}")
+                                                .testTag("mission_claim_btn_${mission.id}")
                                         ) {
                                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                                 Text(
@@ -393,7 +408,7 @@ fun RoyalMissionPursuitDialog(
                                                     fontWeight = FontWeight.Black
                                                 )
                                                 Text(
-                                                    text = mission.subtitle,
+                                                    text = mission.title,
                                                     color = Color(0xFFDCFCE7),
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold
@@ -412,10 +427,33 @@ fun RoyalMissionPursuitDialog(
                                                 fontSize = 13.sp
                                             )
                                             Text(
-                                                text = mission.subtitle,
+                                                text = mission.description,
                                                 color = Color(0xFF94A3B8),
                                                 fontSize = 11.sp
                                             )
+
+                                            // Progress bar
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            ) {
+                                                LinearProgressIndicator(
+                                                    progress = { progressFrac },
+                                                    color = if (isGoalMet) Color(0xFF34D399) else Color(0xFF38BDF8),
+                                                    trackColor = Color(0xFF334155),
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(6.dp)
+                                                        .clip(RoundedCornerShape(3.dp))
+                                                )
+                                                Text(
+                                                    text = "${mission.currentProgress}/${mission.targetCount}",
+                                                    color = Color(0xFF94A3B8),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
                                         }
                                     }
 
@@ -432,9 +470,9 @@ fun RoyalMissionPursuitDialog(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(3.dp)
                                         ) {
-                                            Text(text = if (mission.isClaimed) "✓" else "🔍", fontSize = 13.sp)
+                                            Text(text = if (mission.isClaimed) "✓" else "💎", fontSize = 13.sp)
                                             Text(
-                                                text = if (mission.isClaimed) "DONE" else "x${mission.magnifyingGlasses}",
+                                                text = if (mission.isClaimed) "DONE" else "+${mission.rewardGems}",
                                                 color = Color(0xFFFEF08A),
                                                 fontWeight = FontWeight.Black,
                                                 fontSize = 12.sp
@@ -446,7 +484,7 @@ fun RoyalMissionPursuitDialog(
                         }
                     }
 
-                    // 5. Bottom Stage Tabs (Stage 1 to Stage 5)
+                    // 5. Bottom Info Bar
                     Surface(
                         shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp),
                         color = Color(0xFF0B2545),
@@ -455,58 +493,21 @@ fun RoyalMissionPursuitDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            for (stage in 1..5) {
-                                val isSelected = selectedStage == stage
-                                Surface(
-                                    onClick = { selectedStage = stage },
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (isSelected) Color(0xFFFBBF24) else Color(0xFF1E293B),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        1.dp,
-                                        if (isSelected) Color(0xFFFEF08A) else Color(0xFF334155)
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "Stage $stage",
-                                        color = if (isSelected) Color.Black else Color(0xFF94A3B8),
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
+                            Text(
+                                text = "Complete in-game bridges, flips, and high scores to earn daily gems!",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ChestTierPill(points: Int, icon: String, isReached: Boolean) {
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = if (isReached) Color(0xFF15803D) else Color(0xFF0F172A),
-        border = androidx.compose.foundation.BorderStroke(1.2.dp, if (isReached) Color(0xFF4ADE80) else Color(0xFFFBBF24))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(text = icon, fontSize = 13.sp)
-            Text(
-                text = "$points",
-                color = if (isReached) Color(0xFFBBF7D0) else Color(0xFFFEF08A),
-                fontWeight = FontWeight.Black,
-                fontSize = 11.sp
-            )
         }
     }
 }

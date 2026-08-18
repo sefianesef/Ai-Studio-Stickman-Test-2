@@ -30,20 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-
-data class ContestTabItem(
-    val title: String,
-    val rankOrTier: String,
-    val stickerEmoji: String,
-    val bgColors: List<Color>,
-    val borderColor: Color,
-    val timeRemaining: String,
-    val progressCurrent: Int,
-    val progressMax: Int,
-    val prizeDesc: String,
-    val isClaimable: Boolean = false,
-    val isFinished: Boolean = false
-)
+import com.example.model.ContestTournament
 
 @Composable
 fun RoyalContestCenterDialog(
@@ -51,89 +38,31 @@ fun RoyalContestCenterDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedCategory by remember { mutableStateOf("CONTESTS") } // CONTESTS, TOURNAMENTS, LEAGUES
+    var selectedCategory by remember { mutableStateOf("CONTESTS") }
     val totalGems by viewModel.gems.collectAsState()
     val highScore by viewModel.highScore.collectAsState()
 
-    var activeContests by remember {
-        mutableStateOf(
-            listOf(
-                ContestTabItem(
-                    title = "King's Cup",
-                    rankOrTier = "Rank #1",
-                    stickerEmoji = "👑",
-                    bgColors = listOf(Color(0xFFEAB308), Color(0xFFCA8A04), Color(0xFF854D0E)),
-                    borderColor = Color(0xFFFEF08A),
-                    timeRemaining = "15:31:20",
-                    progressCurrent = 48,
-                    progressMax = 50,
-                    prizeDesc = "+500 💎 + Unlimited Lives",
-                    isClaimable = true
-                ),
-                ContestTabItem(
-                    title = "Sky Race",
-                    rankOrTier = "Rank #2",
-                    stickerEmoji = "✈️",
-                    bgColors = listOf(Color(0xFF38BDF8), Color(0xFF0284C7), Color(0xFF075985)),
-                    borderColor = Color(0xFFBAE6FD),
-                    timeRemaining = "2d 15h",
-                    progressCurrent = 14,
-                    progressMax = 15,
-                    prizeDesc = "+250 💎 + Magic Boosters",
-                    isClaimable = false
-                ),
-                ContestTabItem(
-                    title = "Champions Clash",
-                    rankOrTier = "Quarter Final",
-                    stickerEmoji = "🏆",
-                    bgColors = listOf(Color(0xFFEC4899), Color(0xFFBE185D), Color(0xFF831843)),
-                    borderColor = Color(0xFFFBCFE8),
-                    timeRemaining = "Finished",
-                    progressCurrent = 10,
-                    progressMax = 10,
-                    prizeDesc = "+1,000 💎 Grand Trophy",
-                    isClaimable = true,
-                    isFinished = true
-                ),
-                ContestTabItem(
-                    title = "Team Tournament",
-                    rankOrTier = "Star Trek #15",
-                    stickerEmoji = "🛡️",
-                    bgColors = listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9), Color(0xFF4C1D95)),
-                    borderColor = Color(0xFFDDD6FE),
-                    timeRemaining = "00:29:15",
-                    progressCurrent = 260,
-                    progressMax = 270,
-                    prizeDesc = "Chest Tier 4 Unlock",
-                    isClaimable = false
-                ),
-                ContestTabItem(
-                    title = "Lightning Rush",
-                    rankOrTier = "30 Min Race",
-                    stickerEmoji = "⚡",
-                    bgColors = listOf(Color(0xFFF97316), Color(0xFFC2410C), Color(0xFF7C2D12)),
-                    borderColor = Color(0xFFFED7AA),
-                    timeRemaining = "27:56",
-                    progressCurrent = 5,
-                    progressMax = 5,
-                    prizeDesc = "+150 💎 Instant Spark",
-                    isClaimable = true
-                ),
-                ContestTabItem(
-                    title = "Ancient Adventure",
-                    rankOrTier = "Stage 1 (0/5)",
-                    stickerEmoji = "🗿",
-                    bgColors = listOf(Color(0xFF10B981), Color(0xFF047857), Color(0xFF064E3B)),
-                    borderColor = Color(0xFFA7F3D0),
-                    timeRemaining = "15:29:10",
-                    progressCurrent = 2,
-                    progressMax = 5,
-                    prizeDesc = "Golden Relic Artifact",
-                    isClaimable = false
-                )
-            )
-        )
+    // Real game contests from GameViewModel
+    val contestsState = remember { mutableStateOf(viewModel.getContests()) }
+
+    fun refreshContests() {
+        contestsState.value = viewModel.getContests()
     }
+
+    // Dynamic gradient color maps for the game's actual contests
+    val bgGradients = mapOf(
+        "speed_builder" to listOf(Color(0xFFEAB308), Color(0xFFCA8A04), Color(0xFF854D0E)),
+        "gem_frenzy" to listOf(Color(0xFF38BDF8), Color(0xFF0284C7), Color(0xFF075985)),
+        "perfect_aim" to listOf(Color(0xFFEC4899), Color(0xFFBE185D), Color(0xFF831843)),
+        "endless_master" to listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9), Color(0xFF4C1D95))
+    )
+
+    val borderColors = mapOf(
+        "speed_builder" to Color(0xFFFEF08A),
+        "gem_frenzy" to Color(0xFFBAE6FD),
+        "perfect_aim" to Color(0xFFFBCFE8),
+        "endless_master" to Color(0xFFDDD6FE)
+    )
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -222,7 +151,7 @@ fun RoyalContestCenterDialog(
                         }
                     }
 
-                    // Top Navigation Tabs (Weekly, Friends, Players, Teams)
+                    // Top Navigation Tabs
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = Color(0xFF1E293B),
@@ -259,7 +188,7 @@ fun RoyalContestCenterDialog(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Top 3 Podium Highlights Banner (Inspired by video Contest screen)
+                    // Top 3 Podium Highlights Banner
                     Surface(
                         shape = RoundedCornerShape(18.dp),
                         color = Color(0xFF1E293B),
@@ -288,36 +217,37 @@ fun RoyalContestCenterDialog(
                                 letterSpacing = 1.sp
                             )
 
-                            // Podium 3-player layout (Rank 2, Rank 1, Rank 3)
+                            // Podium 3-player layout
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.Bottom
                             ) {
-                                // #2 Player
-                                PodiumPlayerColumn(rank = 2, name = "dhong", score = 111, avatar = "🥷", color = Color(0xFF38BDF8))
-                                // #1 Player (Center, elevated)
-                                PodiumPlayerColumn(rank = 1, name = "dane PRO", score = 166, avatar = "👑", color = Color(0xFFFBBF24), isLeader = true)
-                                // #3 Player
-                                PodiumPlayerColumn(rank = 3, name = "Sven", score = 69, avatar = "🦊", color = Color(0xFFF97316))
+                                PodiumPlayerColumn(rank = 2, name = "dhong", score = (highScore * 0.85).toInt().coerceAtLeast(111), avatar = "🥷", color = Color(0xFF38BDF8))
+                                PodiumPlayerColumn(rank = 1, name = "dane PRO", score = (highScore * 1.25).toInt().coerceAtLeast(166), avatar = "👑", color = Color(0xFFFBBF24), isLeader = true)
+                                PodiumPlayerColumn(rank = 3, name = "Sven", score = (highScore * 0.65).toInt().coerceAtLeast(69), avatar = "🦊", color = Color(0xFFF97316))
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Active Event Cards List with Vibrant Badges
+                    // Actual Contests List with video layout & animations
                     LazyColumn(
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(activeContests, key = { it.title }) { contest ->
+                        items(contestsState.value, key = { it.id }) { contest ->
+                            val gradientColors = bgGradients[contest.id] ?: listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8), Color(0xFF1E3A8A))
+                            val borderColor = borderColors[contest.id] ?: Color(0xFF93C5FD)
+                            val canClaim = contest.isCompleted && !contest.isClaimed
+
                             Surface(
                                 shape = RoundedCornerShape(18.dp),
                                 color = Color(0xFF1E293B),
-                                border = androidx.compose.foundation.BorderStroke(2.dp, contest.borderColor),
+                                border = androidx.compose.foundation.BorderStroke(2.dp, borderColor),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .shadow(8.dp, RoundedCornerShape(18.dp))
@@ -325,7 +255,7 @@ fun RoyalContestCenterDialog(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Brush.horizontalGradient(contest.bgColors))
+                                        .background(Brush.horizontalGradient(gradientColors))
                                         .padding(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
@@ -346,7 +276,7 @@ fun RoyalContestCenterDialog(
                                                 modifier = Modifier.size(46.dp)
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
-                                                    Text(text = contest.stickerEmoji, fontSize = 26.sp)
+                                                    Text(text = contest.iconEmoji, fontSize = 26.sp)
                                                 }
                                             }
 
@@ -355,13 +285,13 @@ fun RoyalContestCenterDialog(
                                                     text = contest.title,
                                                     color = Color.White,
                                                     fontWeight = FontWeight.Black,
-                                                    fontSize = 16.sp
+                                                    fontSize = 15.sp
                                                 )
                                                 Text(
-                                                    text = contest.rankOrTier,
+                                                    text = contest.subtitle,
                                                     color = Color(0xFFFEF08A),
                                                     fontWeight = FontWeight.Bold,
-                                                    fontSize = 12.sp
+                                                    fontSize = 11.sp
                                                 )
                                             }
                                         }
@@ -379,7 +309,7 @@ fun RoyalContestCenterDialog(
                                             ) {
                                                 Text(text = "⏱️", fontSize = 11.sp)
                                                 Text(
-                                                    text = contest.timeRemaining,
+                                                    text = contest.timeRemainingStr,
                                                     color = Color.White,
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 11.sp
@@ -400,7 +330,7 @@ fun RoyalContestCenterDialog(
                                                 .height(10.dp)
                                                 .background(Color.Black.copy(alpha = 0.4f), CircleShape)
                                         ) {
-                                            val frac = (contest.progressCurrent.toFloat() / contest.progressMax.toFloat()).coerceIn(0f, 1f)
+                                            val frac = (contest.currentProgress.toFloat() / contest.targetGoal.toFloat()).coerceIn(0f, 1f)
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth(fraction = frac.coerceAtLeast(0.08f))
@@ -415,7 +345,7 @@ fun RoyalContestCenterDialog(
                                         }
 
                                         Text(
-                                            text = "${contest.progressCurrent}/${contest.progressMax}",
+                                            text = "${contest.currentProgress}/${contest.targetGoal} ${contest.goalUnit}",
                                             color = Color.White,
                                             fontWeight = FontWeight.Black,
                                             fontSize = 11.sp
@@ -428,21 +358,24 @@ fun RoyalContestCenterDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        val prizeText = buildString {
+                                            append("+${contest.prizePoolGems} 💎")
+                                            if (contest.prizePoolBlueGems > 0) append(" +${contest.prizePoolBlueGems} 🔷")
+                                            if (contest.prizePoolRedGems > 0) append(" +${contest.prizePoolRedGems} 🔴")
+                                        }
+
                                         Text(
-                                            text = "Reward: ${contest.prizeDesc}",
+                                            text = "Reward: $prizeText",
                                             color = Color(0xFFFEF08A),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp
                                         )
 
-                                        if (contest.isClaimable) {
+                                        if (canClaim) {
                                             Button(
                                                 onClick = {
-                                                    activeContests = activeContests.map {
-                                                        if (it.title == contest.title) it.copy(isClaimable = false) else it
-                                                    }
-                                                    viewModel.claimContest(contest.title)
-                                                    viewModel.soundManager.playVictoryMusic()
+                                                    viewModel.claimContest(contest.id)
+                                                    refreshContests()
                                                 },
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E)),
                                                 shape = RoundedCornerShape(10.dp),
@@ -457,7 +390,7 @@ fun RoyalContestCenterDialog(
                                                 color = Color.Black.copy(alpha = 0.3f)
                                             ) {
                                                 Text(
-                                                    text = if (contest.isFinished) "FINISHED" else "PLAYING",
+                                                    text = if (contest.isClaimed) "CLAIMED ✓" else "PLAYING",
                                                     color = Color.White.copy(alpha = 0.8f),
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 10.sp,
