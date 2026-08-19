@@ -32,6 +32,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -543,11 +545,52 @@ fun StartScreenOverlay(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // LEFT SIDE CONTEST STICKERS (King's Cup, Lightning Rush, Finished Royal Pass)
+                // LEFT SIDE CONTEST & SPIN STICKERS
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // 0. Lucky Spin Badge (1 Free Spin per Day)
+                    val isDailySpinReady = remember { viewModel.isDailyFreeSpinAvailable() }
+                    val adSpinsCount by viewModel.adEarnedSpins.collectAsState()
+                    Surface(
+                        onClick = { viewModel.openSpinWheel(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF4C1D95),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, if (isDailySpinReady) Color(0xFFFFD700) else Color(0xFFA78BFA)),
+                        modifier = Modifier
+                            .size(width = 62.dp, height = 68.dp)
+                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0xFFA855F7))
+                            .testTag("start_lucky_spin_button")
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color(0xFF7C3AED), Color(0xFF4C1D95))
+                                    )
+                                )
+                                .padding(2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "🎰", fontSize = 22.sp)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isDailySpinReady) Color(0xFF047857) else Color(0xFF312E81)
+                            ) {
+                                Text(
+                                    text = if (isDailySpinReady) "FREE 1x" else if (adSpinsCount > 0) "+$adSpinsCount Spin" else "SPIN",
+                                    color = if (isDailySpinReady) Color(0xFFFEF08A) else Color.White,
+                                    fontSize = 7.5.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
                     // 1. King's Cup Badge
                     Surface(
                         onClick = { viewModel.openContests(true) },
@@ -555,7 +598,7 @@ fun StartScreenOverlay(
                         color = Color(0xFF854D0E),
                         border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFEF08A)),
                         modifier = Modifier
-                            .size(width = 62.dp, height = 70.dp)
+                            .size(width = 62.dp, height = 68.dp)
                             .shadow(6.dp, RoundedCornerShape(14.dp))
                     ) {
                         Column(
@@ -570,7 +613,7 @@ fun StartScreenOverlay(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "🏆", fontSize = 24.sp)
+                            Text(text = "🏆", fontSize = 22.sp)
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
                                 color = Color(0xFF451A03)
@@ -593,7 +636,7 @@ fun StartScreenOverlay(
                         color = Color(0xFF4338CA),
                         border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFA5B4FC)),
                         modifier = Modifier
-                            .size(width = 62.dp, height = 70.dp)
+                            .size(width = 62.dp, height = 68.dp)
                             .shadow(6.dp, RoundedCornerShape(14.dp))
                     ) {
                         Column(
@@ -608,7 +651,7 @@ fun StartScreenOverlay(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "⚡", fontSize = 24.sp)
+                            Text(text = "⚡", fontSize = 22.sp)
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
                                 color = Color(0xFF1E1B4B)
@@ -3905,6 +3948,7 @@ fun LuckySpinWheelDialog(
 
                         // Wheel Slices rotated by rotationAngle.value
                         val currentRotation = rotationAngle.value
+                        val gemValues = listOf(5, 10, 3, 20, 5, 15, 8, 25)
                         for (i in 0 until sliceCount) {
                             val startAngle = currentRotation + (i * sweepAngle)
                             drawArc(
@@ -3915,6 +3959,33 @@ fun LuckySpinWheelDialog(
                                 topLeft = Offset(8.dp.toPx(), 8.dp.toPx()),
                                 size = Size(size.width - 16.dp.toPx(), size.height - 16.dp.toPx())
                             )
+
+                            // Draw number label and gem icon on the segment
+                            val midAngleDeg = startAngle + sweepAngle / 2f
+                            val midAngleRad = Math.toRadians(midAngleDeg.toDouble())
+                            val textDistance = radius * 0.62f
+                            val textX = center.x + (textDistance * cos(midAngleRad)).toFloat()
+                            val textY = center.y + (textDistance * sin(midAngleRad)).toFloat()
+
+                            val gemAmount = gemValues[i % gemValues.size]
+                            val labelText = "$gemAmount💎"
+
+                            drawIntoCanvas { canvas ->
+                                val paint = android.graphics.Paint().apply {
+                                    color = android.graphics.Color.WHITE
+                                    textSize = 12.dp.toPx()
+                                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                                    textAlign = android.graphics.Paint.Align.CENTER
+                                    isAntiAlias = true
+                                    setShadowLayer(3.dp.toPx(), 0f, 1.dp.toPx(), android.graphics.Color.BLACK)
+                                }
+                                val fontMetrics = paint.fontMetrics
+                                val baselineOffset = (fontMetrics.descent + fontMetrics.ascent) / 2f
+                                canvas.nativeCanvas.save()
+                                canvas.nativeCanvas.rotate(midAngleDeg + 90f, textX, textY)
+                                canvas.nativeCanvas.drawText(labelText, textX, textY - baselineOffset, paint)
+                                canvas.nativeCanvas.restore()
+                            }
                         }
 
                         // Center Hub
@@ -4084,6 +4155,7 @@ fun LuckySpinWheelDialog(
 @Composable
 fun LevelVictoryCelebrationDialog(
     celebrationText: String,
+    levelNumber: Int? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -4097,6 +4169,12 @@ fun LevelVictoryCelebrationDialog(
         ),
         label = "victory_scale"
     )
+
+    val headingText = if (levelNumber != null && levelNumber > 0) {
+        "LEVEL $levelNumber COMPLETED! 🎉"
+    } else {
+        "LEVEL COMPLETED! 🎉"
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -4142,12 +4220,13 @@ fun LevelVictoryCelebrationDialog(
                 }
 
                 Text(
-                    text = "LEVEL COMPLETED! 🎉",
+                    text = headingText,
                     color = Color(0xFFFFD700),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.5.sp,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("level_completed_heading")
                 )
 
                 // High-Dopamine Motivation Banner
@@ -4192,7 +4271,7 @@ fun LevelVictoryCelebrationDialog(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "🎁 +3 Bonus Gems Claimed! 💎",
+                            text = "🎁 Bonus Level Gems Claimed! 💎",
                             color = Color(0xFF6EE7B7),
                             fontWeight = FontWeight.Black,
                             fontSize = 14.sp

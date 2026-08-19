@@ -31,6 +31,7 @@ fun StickmanGameScreen(
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
     val isRealMoneyShopOpen by viewModel.isRealMoneyShopOpen.collectAsState()
     val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
+    val activeLevelVictory by viewModel.activeLevelVictory.collectAsState()
     val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
 
     val isPlaying = gameState != GameState.START && gameState != GameState.GAMEOVER
@@ -190,6 +191,7 @@ fun StickmanGameScreen(
         levelVictoryCelebration?.let { celebrationText ->
             LevelVictoryCelebrationDialog(
                 celebrationText = celebrationText,
+                levelNumber = activeLevelVictory?.levelNumber,
                 onDismiss = { viewModel.engine.dismissVictoryCelebration() }
             )
         }
