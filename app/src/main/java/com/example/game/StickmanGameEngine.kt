@@ -213,6 +213,16 @@ class StickmanGameEngine(
         hapticManager?.uiClick()
         resetGame(initial = false)
         _gameState.value = GameState.IDLE
+
+        // ⚔️ Start of Game / Level 1 Provocative Challenge Prompt
+        _activeChallengeDialog.value = ChallengeDialogData(
+            levelNumber = 1,
+            title = "I CHALLENGE YOU: REACH LEVEL 5!",
+            message = "Think you have ninja precision? I challenge you: You can't even clear the first 5 levels!\nBuild bridges, balance your stickman, and prove your skills!",
+            type = ChallengeDialogType.PRE_LEVEL_TAUNT,
+            rewardGems = 15,
+            buttonText = "I ACCEPT THE CHALLENGE! ⚔️"
+        )
     }
 
     /**
@@ -684,18 +694,20 @@ class StickmanGameEngine(
                     val remainingLives = (currentLives - 1).coerceAtLeast(0)
                     _lives.value = remainingLives
 
-                    // Psychology: If player fails at or beyond a challenge level (e.g. Level 5, 10, 15), show provocative challenge failure dialog
+                    // Psychology: Provocative challenge failure dialog on fail
                     val lvl = _currentLevel.value
-                    if (lvl >= 5) {
-                        _activeChallengeDialog.value = ChallengeDialogData(
-                            levelNumber = lvl,
-                            title = "CHALLENGE FAILED: LEVEL $lvl",
-                            message = "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!",
-                            type = ChallengeDialogType.POST_LEVEL_FAIL,
-                            rewardGems = 0,
-                            buttonText = "TRY AGAIN & PROVE IT! 🔥"
-                        )
-                    }
+                    _activeChallengeDialog.value = ChallengeDialogData(
+                        levelNumber = lvl,
+                        title = if (lvl < 5) "CHALLENGE FAILED: YOU CAN'T CLEAR LEVEL 5!" else "CHALLENGE FAILED: LEVEL $lvl!",
+                        message = if (lvl < 5) {
+                            "I challenged you to clear Level 5 and you fell at Level $lvl! You can't clear it, better try again!"
+                        } else {
+                            "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!"
+                        },
+                        type = ChallengeDialogType.POST_LEVEL_FAIL,
+                        rewardGems = 0,
+                        buttonText = "TRY AGAIN & PROVE IT! 🔥"
+                    )
 
                     _gameState.value = GameState.GAMEOVER
                 }

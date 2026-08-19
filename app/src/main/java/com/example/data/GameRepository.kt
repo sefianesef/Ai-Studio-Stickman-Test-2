@@ -1239,10 +1239,19 @@ class GameRepository(
     private val _adEarnedSpins = MutableStateFlow(prefs.getInt("AD_EARNED_SPINS", 0))
     val adEarnedSpins: StateFlow<Int> = _adEarnedSpins.asStateFlow()
 
-    fun isDailyFreeSpinAvailable(): Boolean {
+    private val _isDailyFreeSpinAvailableFlow = MutableStateFlow(checkDailyFreeSpinAvailable())
+    val isDailyFreeSpinAvailableFlow: StateFlow<Boolean> = _isDailyFreeSpinAvailableFlow.asStateFlow()
+
+    private fun checkDailyFreeSpinAvailable(): Boolean {
         val today = getTodayEpochDay()
         val lastDay = prefs.getLong("LAST_DAILY_FREE_SPIN", 0L)
         return lastDay != today
+    }
+
+    fun isDailyFreeSpinAvailable(): Boolean {
+        val isAvail = checkDailyFreeSpinAvailable()
+        _isDailyFreeSpinAvailableFlow.value = isAvail
+        return isAvail
     }
 
     fun getAdSpinsCount(): Int = _adEarnedSpins.value
@@ -1251,23 +1260,36 @@ class GameRepository(
         return isDailyFreeSpinAvailable() || _adEarnedSpins.value > 0
     }
 
-    fun grantAdRewardSpin() {
-        val current = _adEarnedSpins.value + 1
+    fun grantAdRewardSpin(count: Int = 1) {
+        val current = _adEarnedSpins.value + count
         _adEarnedSpins.value = current
         prefs.edit().putInt("AD_EARNED_SPINS", current).apply()
     }
 
+    fun buySpinsWithGems(gemCost: Int, spinsCount: Int): Boolean {
+        if (spendGems(gemCost)) {
+            grantAdRewardSpin(spinsCount)
+            return true
+        }
+        return false
+    }
+
+    fun buySpinsRealMoney(spinsCount: Int) {
+        grantAdRewardSpin(spinsCount)
+    }
+
     fun spinLuckyWheel(): Int {
         val today = getTodayEpochDay()
-        if (isDailyFreeSpinAvailable()) {
+        if (checkDailyFreeSpinAvailable()) {
             prefs.edit().putLong("LAST_DAILY_FREE_SPIN", today).apply()
+            _isDailyFreeSpinAvailableFlow.value = false
         } else if (_adEarnedSpins.value > 0) {
             val remaining = _adEarnedSpins.value - 1
             _adEarnedSpins.value = remaining
             prefs.edit().putInt("AD_EARNED_SPINS", remaining).apply()
         }
 
-        // Competitive Balanced Rewards: 2, 4, 8, 15 gems (Rare high-reward jackpot)
+        // Competitive Balanced Rewards: 3, 5, 10, 20 gems
         val roll = (1..100).random()
         val reward = when {
             roll <= 45 -> 3

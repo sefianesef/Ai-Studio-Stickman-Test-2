@@ -327,9 +327,12 @@ fun GameHud(
             }
 
             // 🎁 Dynamic 5-Level Milestone & Challenge Reward Tracker (Enlarged & High Visibility)
-            val nextMilestone = ((currentLevel / 5) + 1) * 5
-            val levelsRemaining = nextMilestone - currentLevel
-            val progress = ((5 - levelsRemaining).toFloat() / 5f).coerceIn(0f, 1f)
+            val currentLevelNum = currentLevel.coerceAtLeast(1)
+            val nextMilestone = if (currentLevelNum % 5 == 0) currentLevelNum else (((currentLevelNum - 1) / 5) + 1) * 5
+            val currentBase = nextMilestone - 5
+            val levelsInStage = currentLevelNum - currentBase
+            val levelsRemaining = (nextMilestone - currentLevelNum).coerceAtLeast(0)
+            val progress = (levelsInStage.toFloat() / 5f).coerceIn(0.1f, 1f)
 
             Surface(
                 shape = RoundedCornerShape(18.dp),
@@ -351,16 +354,16 @@ fun GameHud(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = if (levelsRemaining == 1) "🔥" else "🏆",
+                            text = if (levelsRemaining <= 1) "🔥" else "🏆",
                             fontSize = 18.sp
                         )
                         Text(
-                            text = if (levelsRemaining == 1) {
-                                "⚡ YOU ARE JUST 1 LEVEL AWAY FROM THE BIG REWARD!"
-                            } else {
-                                "🎯 LEVEL $nextMilestone MILESTONE: $levelsRemaining BRIDGES TO GO!"
+                            text = when {
+                                levelsRemaining == 0 -> "👑 LEVEL $nextMilestone CHALLENGE REACHED! CONQUER IT!"
+                                levelsRemaining == 1 -> "⚡ YOU ARE JUST 1 LEVEL AWAY FROM LEVEL $nextMilestone!"
+                                else -> "🎯 LEVEL $nextMilestone CHALLENGE: $levelsRemaining BRIDGES TO GO!"
                             },
-                            color = if (levelsRemaining == 1) Color(0xFFFDE047) else Color(0xFFFBBF24),
+                            color = if (levelsRemaining <= 1) Color(0xFFFDE047) else Color(0xFFFBBF24),
                             fontWeight = FontWeight.Black,
                             fontSize = 13.sp,
                             textAlign = TextAlign.Center
@@ -374,7 +377,7 @@ fun GameHud(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Lv $currentLevel",
+                            text = "Lv $currentLevelNum",
                             color = Color(0xFF94A3B8),
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp
@@ -387,7 +390,7 @@ fun GameHud(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(fraction = progress.coerceAtLeast(0.08f))
+                                    .fillMaxWidth(fraction = progress)
                                     .fillMaxHeight()
                                     .background(
                                         Brush.horizontalGradient(
@@ -3907,12 +3910,14 @@ fun LuckySpinWheelDialog(
     var isWatchingAd by remember { mutableStateOf(false) }
     var wonAmount by remember { mutableStateOf<Int?>(null) }
     var adNotice by remember { mutableStateOf<String?>(null) }
+    var showCheckoutPack by remember { mutableStateOf<GemPack?>(null) }
     val rotationAngle = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
 
+    val gems by viewModel.gems.collectAsState()
     val adEarnedSpins by viewModel.adEarnedSpins.collectAsState()
-    val isFreeDailyAvailable = remember { viewModel.isDailyFreeSpinAvailable() }
-    val hasSpin = isFreeDailyAvailable || adEarnedSpins > 0
+    val isFreeDailyAvailable by viewModel.isDailyFreeSpinAvailableFlow.collectAsState()
+    val hasFreeOrBonusSpin = isFreeDailyAvailable || adEarnedSpins > 0
 
     Dialog(
         onDismissRequest = { if (!isSpinning && !isWatchingAd) onDismiss() },
@@ -3928,23 +3933,59 @@ fun LuckySpinWheelDialog(
                 .testTag("lucky_spin_dialog")
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Header
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(text = "🎰", fontSize = 22.sp)
-                    Text(
-                        text = "LUCKY GEM WHEEL",
-                        color = Color(0xFFFBBF24),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.sp
+                modifier = Modifier
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF1E1B4B),
+                                Color(0xFF0F172A),
+                                Color(0xFF020617)
+                            )
+                        )
                     )
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Header with current Gems indicator
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = "🎰", fontSize = 22.sp)
+                        Text(
+                            text = "LUCKY GEM WHEEL",
+                            color = Color(0xFFFBBF24),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "💎", fontSize = 12.sp)
+                            Text(
+                                text = "$gems",
+                                color = Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
 
                 // Status Banner
@@ -3955,7 +3996,7 @@ fun LuckySpinWheelDialog(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF34D399))
                     ) {
                         Text(
-                            text = "🎁 1 FREE DAILY SPIN READY!",
+                            text = "🎁 1 FREE DAILY CLAIM AVAILABLE!",
                             color = Color(0xFF6EE7B7),
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
@@ -3969,7 +4010,7 @@ fun LuckySpinWheelDialog(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
                     ) {
                         Text(
-                            text = "🎟️ BONUS SPINS AVAILABLE: $adEarnedSpins",
+                            text = "🎟️ SPINS AVAILABLE: $adEarnedSpins",
                             color = Color(0xFF93C5FD),
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
@@ -3979,16 +4020,16 @@ fun LuckySpinWheelDialog(
                 } else {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF1E293B),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+                        color = Color(0xFF334155),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF64748B))
                     ) {
                         Text(
-                            text = "Free spin claimed today • Watch a short ad for extra spins!",
-                            color = Color(0xFF94A3B8),
+                            text = "🔒 Free claim used! Buy spins with Gems, Money or Watch Ad",
+                            color = Color(0xFFCBD5E1),
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }
@@ -3997,8 +4038,8 @@ fun LuckySpinWheelDialog(
                 val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
                 Box(
                     modifier = Modifier
-                        .size(200.dp)
-                        .padding(8.dp),
+                        .size(190.dp)
+                        .padding(4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
@@ -4032,7 +4073,6 @@ fun LuckySpinWheelDialog(
                                 size = Size(size.width - 16.dp.toPx(), size.height - 16.dp.toPx())
                             )
 
-                            // Draw number label and gem icon on the segment using purely Compose DrawScope
                             val midAngleDeg = startAngle + sweepAngle / 2f
                             val midAngleRad = Math.toRadians(midAngleDeg.toDouble())
                             val textDistance = radius * 0.62f
@@ -4069,12 +4109,12 @@ fun LuckySpinWheelDialog(
                         // Center Hub
                         drawCircle(
                             color = Color(0xFF0F172A),
-                            radius = 24.dp.toPx(),
+                            radius = 22.dp.toPx(),
                             center = center
                         )
                         drawCircle(
                             color = Color(0xFFFBBF24),
-                            radius = 16.dp.toPx(),
+                            radius = 15.dp.toPx(),
                             center = center
                         )
                     }
@@ -4082,10 +4122,10 @@ fun LuckySpinWheelDialog(
                     // Indicator Pin
                     Text(
                         text = "🔻",
-                        fontSize = 26.sp,
+                        fontSize = 24.sp,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .offset(y = (-14).dp)
+                            .offset(y = (-12).dp)
                     )
                 }
 
@@ -4103,12 +4143,12 @@ fun LuckySpinWheelDialog(
                             fontWeight = FontWeight.Black,
                             fontSize = 15.sp,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(10.dp)
+                            modifier = Modifier.padding(8.dp)
                         )
                     }
                 }
 
-                // Ad Reward feedback notice
+                // Ad/Purchase Notice
                 adNotice?.let { notice ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -4122,13 +4162,13 @@ fun LuckySpinWheelDialog(
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier.padding(6.dp)
                         )
                     }
                 }
 
-                // Spin Action Button (Enabled only if 1 free spin or ad earned spins exist)
-                if (hasSpin) {
+                // 1. FREE SPIN (1x claim) OR AVAILABLE BONUS SPIN
+                if (hasFreeOrBonusSpin) {
                     Button(
                         onClick = {
                             if (!isSpinning) {
@@ -4139,7 +4179,7 @@ fun LuckySpinWheelDialog(
                                     val targetAngle = rotationAngle.value + 1440f + (0..360).random()
                                     rotationAngle.animateTo(
                                         targetValue = targetAngle,
-                                        animationSpec = tween(durationMillis = 2800, easing = FastOutSlowInEasing)
+                                        animationSpec = tween(durationMillis = 2600, easing = FastOutSlowInEasing)
                                     )
                                     val prize = viewModel.spinLuckyWheel()
                                     wonAmount = prize
@@ -4155,14 +4195,14 @@ fun LuckySpinWheelDialog(
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(46.dp)
                             .testTag("spin_wheel_action_btn")
                     ) {
                         Text(
                             text = when {
-                                isSpinning -> "SPINNING..."
-                                isFreeDailyAvailable -> "CLAIM 1 FREE SPIN! 🎁"
-                                else -> "USE BONUS SPIN ($adEarnedSpins REMAINING) 🎲"
+                                isSpinning -> "SPINNING WHEEL..."
+                                isFreeDailyAvailable -> "🎁 CLAIM 1 FREE SPIN!"
+                                else -> "🎲 SPIN ($adEarnedSpins AVAILABLE)"
                             },
                             color = Color.White,
                             fontWeight = FontWeight.Black,
@@ -4171,7 +4211,136 @@ fun LuckySpinWheelDialog(
                     }
                 }
 
-                // Watch Ad Button to get spin (Always accessible or when free spin is exhausted)
+                // 2. BUY SPINS SECTION (Gems & Real Money)
+                if (!hasFreeOrBonusSpin) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "⚡ GET MORE SPINS:",
+                            color = Color(0xFFFBBF24),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black
+                        )
+
+                        // Buy with Gems Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // 1 Spin for 15 Gems
+                            Button(
+                                onClick = {
+                                    if (viewModel.buySpinsWithGems(15, 1)) {
+                                        adNotice = "✨ Purchased 1 Spin for 15 Gems!"
+                                    } else {
+                                        adNotice = "❌ Not enough gems (Need 15 💎)!"
+                                    }
+                                },
+                                enabled = !isSpinning && !isWatchingAd,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .testTag("buy_1_spin_gems_btn")
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("1 Spin", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("15 💎", color = Color(0xFFFDE047), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                }
+                            }
+
+                            // 3 Spins for 35 Gems (Discounted)
+                            Button(
+                                onClick = {
+                                    if (viewModel.buySpinsWithGems(35, 3)) {
+                                        adNotice = "🔥 Purchased 3 Spins for 35 Gems!"
+                                    } else {
+                                        adNotice = "❌ Not enough gems (Need 35 💎)!"
+                                    }
+                                },
+                                enabled = !isSpinning && !isWatchingAd,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .testTag("buy_3_spins_gems_btn")
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("3 Spins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("35 💎", color = Color(0xFFFDE047), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        // Buy Real Money Spin Packs Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // $0.99 for 5 Spins + 50 Gems
+                            Button(
+                                onClick = {
+                                    showCheckoutPack = GemPack(
+                                        id = "spin_pack_5",
+                                        name = "5 Lucky Spins Pack",
+                                        gemAmount = 50,
+                                        bonusGems = 0,
+                                        iconEmoji = "🎰",
+                                        tag = "BEST VALUE",
+                                        priceUsd = "$0.99",
+                                        perks = "5 Lucky Wheel Spins + 50 Bonus Gems"
+                                    )
+                                },
+                                enabled = !isSpinning && !isWatchingAd,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .testTag("buy_spin_pack_real_money_btn")
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("5 Spins + 50💎", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text("$0.99 ⚡", color = Color(0xFF6EE7B7), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                }
+                            }
+
+                            // $1.99 for 15 Spins + 150 Gems
+                            Button(
+                                onClick = {
+                                    showCheckoutPack = GemPack(
+                                        id = "spin_pack_15",
+                                        name = "15 Lucky Spins Mega Pack",
+                                        gemAmount = 150,
+                                        bonusGems = 0,
+                                        iconEmoji = "👑",
+                                        tag = "MEGA DEAL",
+                                        priceUsd = "$1.99",
+                                        perks = "15 Lucky Wheel Spins + 150 Bonus Gems"
+                                    )
+                                },
+                                enabled = !isSpinning && !isWatchingAd,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .testTag("buy_spin_mega_pack_real_money_btn")
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("15 Spins + 150💎", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text("$1.99 👑", color = Color(0xFFFDE047), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Watch Video Ad for +1 Free Spin
                 Button(
                     onClick = {
                         if (!isSpinning && !isWatchingAd) {
@@ -4179,7 +4348,7 @@ fun LuckySpinWheelDialog(
                             wonAmount = null
                             adNotice = "📺 Watching sponsored video ad..."
                             coroutineScope.launch {
-                                kotlinx.coroutines.delay(1800) // Simulated high quality short video ad
+                                kotlinx.coroutines.delay(1800)
                                 viewModel.watchAdForSpin {
                                     adNotice = "🎟️ Ad completed! +1 Bonus Spin added!"
                                 }
@@ -4189,26 +4358,26 @@ fun LuckySpinWheelDialog(
                     },
                     enabled = !isSpinning && !isWatchingAd,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (!hasSpin) Color(0xFFF59E0B) else Color(0xFF1E293B),
+                        containerColor = if (!hasFreeOrBonusSpin) Color(0xFFF59E0B) else Color(0xFF1E293B),
                         disabledContainerColor = Color(0xFF334155)
                     ),
-                    border = if (!hasSpin) androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFBBF24)) else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
-                    shape = RoundedCornerShape(16.dp),
+                    border = if (!hasFreeOrBonusSpin) androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFBBF24)) else androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(42.dp)
                         .testTag("spin_wheel_watch_ad_btn")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(text = "📺", fontSize = 16.sp)
+                        Text(text = "📺", fontSize = 14.sp)
                         Text(
-                            text = if (isWatchingAd) "WATCHING AD..." else "WATCH AD TO GET +1 SPIN 🎬",
-                            color = if (!hasSpin) Color.Black else Color(0xFFFDE047),
+                            text = if (isWatchingAd) "WATCHING AD..." else "OR WATCH AD FOR +1 SPIN 🎬",
+                            color = if (!hasFreeOrBonusSpin) Color.Black else Color(0xFFFDE047),
                             fontWeight = FontWeight.Black,
-                            fontSize = 13.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
@@ -4216,17 +4385,32 @@ fun LuckySpinWheelDialog(
                 TextButton(
                     onClick = onDismiss,
                     enabled = !isSpinning && !isWatchingAd,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(36.dp)
                 ) {
                     Text(
                         text = "CLOSE",
                         color = Color(0xFF64748B),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        fontSize = 12.sp
                     )
                 }
             }
         }
+    }
+
+    // Real Money checkout confirmation modal if buying spin pack
+    showCheckoutPack?.let { pack ->
+        RealMoneyIapCheckoutDialog(
+            pack = pack,
+            onConfirmPurchase = {
+                val spinsToAdd = if (pack.id == "spin_pack_5") 5 else 15
+                viewModel.buySpinsRealMoney(spinsToAdd)
+                viewModel.repository.addGems(pack.gemAmount)
+                adNotice = "✅ Purchase successful! Added $spinsToAdd Spins and ${pack.gemAmount} 💎!"
+                showCheckoutPack = null
+            },
+            onDismiss = { showCheckoutPack = null }
+        )
     }
 }
 

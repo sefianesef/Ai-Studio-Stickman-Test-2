@@ -218,6 +218,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     val adEarnedSpins: StateFlow<Int> = repository.adEarnedSpins
+    val isDailyFreeSpinAvailableFlow: StateFlow<Boolean> = repository.isDailyFreeSpinAvailableFlow
 
     fun isDailyFreeSpinAvailable(): Boolean = repository.isDailyFreeSpinAvailable()
     fun getAdSpinsCount(): Int = repository.getAdSpinsCount()
@@ -230,6 +231,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         soundManager.playBuyGemsSuccess()
         hapticManager.missionClaim()
         onAdComplete()
+    }
+
+    fun buySpinsWithGems(gemCost: Int, spinsCount: Int): Boolean {
+        val success = repository.buySpinsWithGems(gemCost, spinsCount)
+        if (success) {
+            soundManager.playBuyGemsSuccess()
+            hapticManager.missionClaim()
+        }
+        return success
+    }
+
+    fun buySpinsRealMoney(spinsCount: Int) {
+        repository.buySpinsRealMoney(spinsCount)
+        soundManager.playBuyGemsSuccess()
+        hapticManager.levelUp()
     }
 
     fun spinLuckyWheel(): Int {
