@@ -33,8 +33,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -3923,6 +3925,7 @@ fun LuckySpinWheelDialog(
                 }
 
                 // Spinning Wheel Canvas
+                val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
                 Box(
                     modifier = Modifier
                         .size(200.dp)
@@ -3960,7 +3963,7 @@ fun LuckySpinWheelDialog(
                                 size = Size(size.width - 16.dp.toPx(), size.height - 16.dp.toPx())
                             )
 
-                            // Draw number label and gem icon on the segment
+                            // Draw number label and gem icon on the segment using purely Compose DrawScope
                             val midAngleDeg = startAngle + sweepAngle / 2f
                             val midAngleRad = Math.toRadians(midAngleDeg.toDouble())
                             val textDistance = radius * 0.62f
@@ -3970,21 +3973,27 @@ fun LuckySpinWheelDialog(
                             val gemAmount = gemValues[i % gemValues.size]
                             val labelText = "$gemAmount💎"
 
-                            drawIntoCanvas { canvas ->
-                                val paint = android.graphics.Paint().apply {
-                                    color = android.graphics.Color.WHITE
-                                    textSize = 12.dp.toPx()
-                                    typeface = android.graphics.Typeface.DEFAULT_BOLD
-                                    textAlign = android.graphics.Paint.Align.CENTER
-                                    isAntiAlias = true
-                                    setShadowLayer(3.dp.toPx(), 0f, 1.dp.toPx(), android.graphics.Color.BLACK)
-                                }
-                                val fontMetrics = paint.fontMetrics
-                                val baselineOffset = (fontMetrics.descent + fontMetrics.ascent) / 2f
-                                canvas.nativeCanvas.save()
-                                canvas.nativeCanvas.rotate(midAngleDeg + 90f, textX, textY)
-                                canvas.nativeCanvas.drawText(labelText, textX, textY - baselineOffset, paint)
-                                canvas.nativeCanvas.restore()
+                            val textLayoutResult = textMeasurer.measure(
+                                text = labelText,
+                                style = androidx.compose.ui.text.TextStyle(
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            )
+                            val textTopLeft = Offset(
+                                textX - textLayoutResult.size.width / 2f,
+                                textY - textLayoutResult.size.height / 2f
+                            )
+
+                            rotate(
+                                degrees = midAngleDeg + 90f,
+                                pivot = Offset(textX, textY)
+                            ) {
+                                drawText(
+                                    textLayoutResult = textLayoutResult,
+                                    topLeft = textTopLeft
+                                )
                             }
                         }
 
