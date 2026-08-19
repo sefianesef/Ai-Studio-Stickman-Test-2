@@ -2556,6 +2556,8 @@ fun DailyRewardDialog(
     val currentStreak by viewModel.currentStreak.collectAsState()
     val isDailyRewardAvailable by viewModel.isDailyRewardAvailable.collectAsState()
     var claimedNotice by remember { mutableStateOf<String?>(null) }
+    var isWatchingAdMultiplier by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse_reward")
     val rewardGlow by infiniteTransition.animateFloat(
@@ -2697,28 +2699,62 @@ fun DailyRewardDialog(
                 ) {
                     if (isDailyRewardAvailable) {
                         val rewardGems = viewModel.getStreakDayReward(currentStreak)
+
+                        // 2X AD CLAIM BUTTON
                         Button(
                             onClick = {
-                                val awarded = viewModel.claimDailyReward()
-                                claimedNotice = "🎉 Claimed +$awarded Gems! Streak is now $currentStreak days!"
+                                if (!isWatchingAdMultiplier) {
+                                    isWatchingAdMultiplier = true
+                                    coroutineScope.launch {
+                                        kotlinx.coroutines.delay(1800)
+                                        val awarded = viewModel.claimDailyReward(multiplier = 2)
+                                        claimedNotice = "🎉 2X REWARD! Claimed +$awarded Gems! Streak is now $currentStreak days!"
+                                        isWatchingAdMultiplier = false
+                                    }
+                                }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            enabled = !isWatchingAdMultiplier,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
                                 .scale(rewardGlow)
-                                .shadow(8.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFF10B981))
-                                .testTag("claim_daily_reward_button")
+                                .shadow(8.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFFF59E0B))
+                                .testTag("claim_daily_reward_2x_ad_button")
                         ) {
-                            Text(text = "🎁", fontSize = 18.sp)
+                            Text(text = "📺", fontSize = 18.sp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "CLAIM +$rewardGems GEMS",
-                                color = Color.White,
+                                text = if (isWatchingAdMultiplier) "WATCHING AD..." else "DOUBLE REWARD (+$(${rewardGems * 2}) 💎) 🎬",
+                                color = Color.Black,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 15.sp,
-                                letterSpacing = 1.sp
+                                fontSize = 14.sp,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        // Regular Claim Button
+                        OutlinedButton(
+                            onClick = {
+                                val awarded = viewModel.claimDailyReward(multiplier = 1)
+                                claimedNotice = "🎉 Claimed +$awarded Gems! Streak is now $currentStreak days!"
+                            },
+                            enabled = !isWatchingAdMultiplier,
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF10B981)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("claim_daily_reward_button")
+                        ) {
+                            Text(text = "🎁", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "CLAIM REGULAR (+$rewardGems 💎)",
+                                color = Color(0xFF34D399),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
                             )
                         }
                     } else {
@@ -2837,6 +2873,9 @@ fun DailyMissionsDialog(
     val dailyMissions by viewModel.dailyMissions.collectAsState()
     val totalMissions = dailyMissions.size
     val completedCount = dailyMissions.count { it.isClaimed }
+    var isWatchingAdMissionId by remember { mutableStateOf<String?>(null) }
+    var isWatchingAdClaimAll by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -3040,19 +3079,49 @@ fun DailyMissionsDialog(
                                             }
                                         }
                                         isGoalMet -> {
-                                            Button(
-                                                onClick = { viewModel.claimDailyMission(mission.id, mission.rewardGems) },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                                shape = RoundedCornerShape(10.dp),
-                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                                modifier = Modifier.testTag("claim_mission_${mission.id}")
-                                            ) {
-                                                Text(
-                                                    text = "CLAIM 💎+${mission.rewardGems}",
-                                                    color = Color.White,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Black
-                                                )
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                // 2X Ad Claim
+                                                Button(
+                                                    onClick = {
+                                                        if (isWatchingAdMissionId == null && !isWatchingAdClaimAll) {
+                                                            isWatchingAdMissionId = mission.id
+                                                            coroutineScope.launch {
+                                                                kotlinx.coroutines.delay(1800)
+                                                                viewModel.claimDailyMission(mission.id, mission.rewardGems, multiplier = 2)
+                                                                isWatchingAdMissionId = null
+                                                            }
+                                                        }
+                                                    },
+                                                    enabled = isWatchingAdMissionId == null && !isWatchingAdClaimAll,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                                    modifier = Modifier.testTag("claim_mission_2x_${mission.id}")
+                                                ) {
+                                                    Text(
+                                                        text = if (isWatchingAdMissionId == mission.id) "..." else "2X 🎬",
+                                                        color = Color.Black,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Black
+                                                    )
+                                                }
+
+                                                // 1X Claim
+                                                Button(
+                                                    onClick = { viewModel.claimDailyMission(mission.id, mission.rewardGems, multiplier = 1) },
+                                                    enabled = isWatchingAdMissionId == null && !isWatchingAdClaimAll,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                                    modifier = Modifier.testTag("claim_mission_${mission.id}")
+                                                ) {
+                                                    Text(
+                                                        text = "💎+${mission.rewardGems}",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Black
+                                                    )
+                                                }
                                             }
                                         }
                                         else -> {
@@ -3079,21 +3148,56 @@ fun DailyMissionsDialog(
                     val readyToClaimTotalGems = dailyMissions.filter { (it.currentProgress >= it.targetCount || it.isCompleted) && !it.isClaimed }.sumOf { it.rewardGems }
 
                     if (readyToClaimCount > 0) {
-                        Button(
-                            onClick = { viewModel.claimAllDailyMissions() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                                .testTag("claim_all_daily_missions_button")
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = "✨ CLAIM ALL ($readyToClaimCount QUESTS • +$readyToClaimTotalGems 💎)",
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.sp
-                            )
+                            // 2X Ad Double All
+                            Button(
+                                onClick = {
+                                    if (isWatchingAdMissionId == null && !isWatchingAdClaimAll) {
+                                        isWatchingAdClaimAll = true
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(1800)
+                                            viewModel.claimAllDailyMissions(multiplier = 2)
+                                            isWatchingAdClaimAll = false
+                                        }
+                                    }
+                                },
+                                enabled = isWatchingAdMissionId == null && !isWatchingAdClaimAll,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp)
+                                    .testTag("claim_all_daily_missions_2x_ad_button")
+                            ) {
+                                Text(
+                                    text = if (isWatchingAdClaimAll) "📺 WATCHING SPONSORED AD..." else "🎬 DOUBLE ALL CLAIM (+$(${readyToClaimTotalGems * 2}) 💎)",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            // Regular Claim All
+                            OutlinedButton(
+                                onClick = { viewModel.claimAllDailyMissions(multiplier = 1) },
+                                enabled = isWatchingAdMissionId == null && !isWatchingAdClaimAll,
+                                shape = RoundedCornerShape(14.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp)
+                                    .testTag("claim_all_daily_missions_button")
+                            ) {
+                                Text(
+                                    text = "✨ CLAIM ALL ($readyToClaimCount QUESTS • +$readyToClaimTotalGems 💎)",
+                                    color = Color(0xFF34D399),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
 

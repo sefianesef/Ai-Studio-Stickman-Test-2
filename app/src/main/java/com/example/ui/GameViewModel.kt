@@ -428,15 +428,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         hapticManager.gameOver()
     }
 
-    fun claimDailyMission(missionId: String, rewardGems: Int) {
-        repository.claimMissionReward(missionId, rewardGems)
+    fun claimDailyMission(missionId: String, rewardGems: Int, multiplier: Int = 1) {
+        repository.claimMissionReward(missionId, rewardGems * multiplier)
         soundManager.playGemCollect()
         soundManager.playPerfectHit()
         hapticManager.missionClaim()
     }
 
-    fun claimAllDailyMissions(): Int {
-        val totalGems = repository.claimAllCompletedMissions(dailyMissions.value)
+    fun claimAllDailyMissions(multiplier: Int = 1): Int {
+        val totalGems = repository.claimAllCompletedMissions(dailyMissions.value) * multiplier
+        if (multiplier > 1 && totalGems > 0) {
+            // grant the extra multiplier gems
+            val extraGems = totalGems - (totalGems / multiplier)
+            repository.addGems(extraGems)
+        }
         if (totalGems > 0) {
             soundManager.playVictoryMusic()
             soundManager.playGemCollect()
@@ -445,12 +450,28 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return totalGems
     }
 
-    fun claimDailyReward(): Int {
+    fun claimWeeklyMissionWithMultiplier(id: String, rewardGems: Int, rewardBlueGems: Int = 0, multiplier: Int = 1): Boolean {
+        val claimed = repository.claimWeeklyMission(id, rewardGems * multiplier, rewardBlueGems * multiplier)
+        if (claimed) {
+            soundManager.playVictoryMusic()
+            soundManager.playGemCollect()
+            soundManager.playPerfectHit()
+            hapticManager.missionClaim()
+        }
+        return claimed
+    }
+
+    fun claimDailyReward(multiplier: Int = 1): Int {
         val gemsAwarded = repository.claimDailyReward()
+        val totalAwarded = gemsAwarded * multiplier
+        if (multiplier > 1 && gemsAwarded > 0) {
+            val extra = totalAwarded - gemsAwarded
+            repository.addGems(extra)
+        }
         soundManager.playGemCollect()
         soundManager.playPerfectHit()
         hapticManager.missionClaim()
-        return gemsAwarded
+        return totalAwarded
     }
 
     fun getStreakDayReward(day: Int): Int {
