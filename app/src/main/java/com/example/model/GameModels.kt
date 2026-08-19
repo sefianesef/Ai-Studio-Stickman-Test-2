@@ -103,6 +103,32 @@ data class LevelVictoryData(
     val milestoneReward: String = ""
 )
 
+enum class ChallengeDialogType {
+    PRE_LEVEL_TAUNT,
+    POST_LEVEL_VICTORY,
+    POST_LEVEL_FAIL
+}
+
+data class ChallengeDialogData(
+    val levelNumber: Int,
+    val title: String,
+    val message: String,
+    val type: ChallengeDialogType = ChallengeDialogType.PRE_LEVEL_TAUNT,
+    val awardedTitle: String? = null,
+    val rewardGems: Int = 0,
+    val buttonText: String = "ACCEPT CHALLENGE ⚔️"
+)
+
+data class LifeShopPack(
+    val id: String,
+    val livesCount: Int,
+    val gemCost: Int = 0,
+    val realMoneyPrice: String = "",
+    val isAd: Boolean = false,
+    val tag: String = "",
+    val iconEmoji: String = "❤️"
+)
+
 data class GemPack(
     val id: String,
     val name: String,

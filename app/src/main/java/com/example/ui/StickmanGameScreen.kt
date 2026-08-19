@@ -31,6 +31,8 @@ fun StickmanGameScreen(
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
     val isRealMoneyShopOpen by viewModel.isRealMoneyShopOpen.collectAsState()
     val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
+    val isLifeShopOpen by viewModel.isLifeShopOpen.collectAsState()
+    val activeChallengeDialog by viewModel.activeChallengeDialog.collectAsState()
     val activeLevelVictory by viewModel.activeLevelVictory.collectAsState()
     val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
 
@@ -193,6 +195,22 @@ fun StickmanGameScreen(
                 celebrationText = celebrationText,
                 levelNumber = activeLevelVictory?.levelNumber,
                 onDismiss = { viewModel.engine.dismissVictoryCelebration() }
+            )
+        }
+
+        // 20. Life Recovery & Purchase Shop Dialog
+        if (isLifeShopOpen) {
+            LifeShopDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openLifeShop(false) }
+            )
+        }
+
+        // 21. Big Challenging Psychology Motivational Dialog (Every 5 Levels)
+        activeChallengeDialog?.let { challenge ->
+            ChallengePsychologyDialog(
+                challenge = challenge,
+                onAccept = { viewModel.dismissChallengeDialog() }
             )
         }
     }

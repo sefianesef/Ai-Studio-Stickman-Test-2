@@ -44,6 +44,16 @@ class StickmanGameEngine(
     private val _lastNearMiss = MutableStateFlow<NearMissInfo?>(null)
     val lastNearMiss: StateFlow<NearMissInfo?> = _lastNearMiss.asStateFlow()
 
+    // Lives System (5 lives max)
+    private val _lives = MutableStateFlow(5)
+    val lives: StateFlow<Int> = _lives.asStateFlow()
+
+    val maxLives: Int = 5
+
+    // Challenge Dialog State (Every 5 levels challenge popup: Level 5, 10, 15...)
+    private val _activeChallengeDialog = MutableStateFlow<ChallengeDialogData?>(null)
+    val activeChallengeDialog: StateFlow<ChallengeDialogData?> = _activeChallengeDialog.asStateFlow()
+
     // Level milestone & victory celebration state
     private val _levelVictoryCelebration = MutableStateFlow<String?>(null)
     val levelVictoryCelebration: StateFlow<String?> = _levelVictoryCelebration.asStateFlow()
@@ -53,6 +63,18 @@ class StickmanGameEngine(
 
     fun dismissLevelVictory() {
         _activeLevelVictory.value = null
+    }
+
+    fun dismissChallengeDialog() {
+        _activeChallengeDialog.value = null
+    }
+
+    fun addLives(count: Int) {
+        _lives.value = (_lives.value + count).coerceIn(0, 99)
+    }
+
+    fun refillMaxLives() {
+        _lives.value = maxLives
     }
 
     val gemsCollectedRun: StateFlow<Int> = gemStateManager.collectedInRun
@@ -146,6 +168,9 @@ class StickmanGameEngine(
         _isNewHighScore.value = false
         _revivalsUsed.value = 0
         justLeveledUp = false
+        if (initial && _lives.value <= 0) {
+            _lives.value = maxLives
+        }
         _difficultyTier.value = DifficultyTier.NOVICE_TRAINING
         val equippedTheme = repository.selectedTheme.value
         _currentStage.value = StageThemes.getThemeForScore(0, equippedTheme)
@@ -519,28 +544,43 @@ class StickmanGameEngine(
                             _currentLevel.value = newLevel
                             justLeveledUp = true
                             val isMajorMilestone = (newLevel == 5 || newLevel == 10 || newLevel == 15 || newLevel == 20)
+                            val isChallengeLevel = (previousLevel % 5 == 0) // Just cleared Level 5, 10, 15, etc.
                             val bonusGems = when {
-                                previousLevel == 10 -> 20
-                                previousLevel % 5 == 0 -> 10
+                                previousLevel == 10 -> 25
+                                previousLevel % 5 == 0 -> 20
                                 else -> 2
                             }
                             repository.addGems(bonusGems)
                             val title = when (previousLevel) {
-                                1 -> "Novice Step Complete!"
-                                2 -> "Bridge Explorer!"
-                                3 -> "Precision Walker!"
-                                4 -> "Acrobat Warrior!"
-                                5 -> "Level 5 Milestone Cleared!"
-                                6 -> "Shinobi Strider!"
-                                7 -> "Sky Hopper!"
-                                8 -> "Canyon Conqueror!"
-                                9 -> "Elite Trailblazer!"
-                                10 -> "🏆 LEVEL 10 GRADUATE! 🏆"
-                                else -> "Level $previousLevel Master!"
+                                1 -> "Novice Stickman"
+                                2 -> "Starter Stickman"
+                                3 -> "Precision Stickman"
+                                4 -> "Acrobat Stickman"
+                                5 -> "Rookie Stickman"
+                                6 -> "Shinobi Stickman"
+                                7 -> "Sky Hopper Stickman"
+                                8 -> "Canyon Stickman"
+                                9 -> "Elite Stickman"
+                                10 -> "Expert Stickman"
+                                15 -> "Master Stickman"
+                                20 -> "Champion Stickman"
+                                25 -> "Grandmaster Stickman"
+                                30 -> "Legendary Stickman"
+                                else -> "Level $previousLevel Stickman"
                             }
                             
-                            // Only pop up full modal dialog on major milestones so game pacing is never interrupted after standard levels
-                            if (isMajorMilestone) {
+                            // Pop up challenge motivational victory dialog when clearing level 5, 10, 15, etc.
+                            if (isChallengeLevel) {
+                                _activeChallengeDialog.value = ChallengeDialogData(
+                                    levelNumber = previousLevel,
+                                    title = "CONGRATULATIONS! YOU CLEARED LEVEL $previousLevel!",
+                                    message = "Incredible precision! You have proven your skills and earned the honorary rank of $title. Keep conquering higher heights!",
+                                    type = ChallengeDialogType.POST_LEVEL_VICTORY,
+                                    awardedTitle = title,
+                                    rewardGems = bonusGems,
+                                    buttonText = "CLAIM $title RANK! 👑"
+                                )
+                            } else if (isMajorMilestone) {
                                 val celebrationText = "🎉 LEVEL $previousLevel MILESTONE CLEARED! 🎉\n+$bonusGems Bonus Gems! Advancing to Level $newLevel!"
                                 _levelVictoryCelebration.value = celebrationText
                                 _activeLevelVictory.value = LevelVictoryData(
@@ -548,7 +588,19 @@ class StickmanGameEngine(
                                     nextLevelNumber = newLevel,
                                     bonusGems = bonusGems,
                                     title = title,
-                                    milestoneReward = if (previousLevel == 10) "Unlocks Legendary Title + 25 Gems" else "+$bonusGems Gems"
+                                    milestoneReward = "+$bonusGems Gems & Title: $title"
+                                )
+                            }
+                            
+                            // Trigger challenging provocation before entering Level 5, 10, 15, etc.
+                            if (newLevel % 5 == 0) {
+                                _activeChallengeDialog.value = ChallengeDialogData(
+                                    levelNumber = newLevel,
+                                    title = "STICKMAN BOSS CHALLENGE: LEVEL $newLevel",
+                                    message = "I challenge you: You cannot clear Level $newLevel!\nThe canyon winds are fierce and the bridges require supreme mastery. Prove me wrong!",
+                                    type = ChallengeDialogType.PRE_LEVEL_TAUNT,
+                                    rewardGems = bonusGems + 10,
+                                    buttonText = "I ACCEPT THE CHALLENGE! ⚔️"
                                 )
                             }
                             
@@ -627,6 +679,24 @@ class StickmanGameEngine(
                 stickmanRotation = fallState.rotation
 
                 if (stickmanY > screenHeight + 100f) {
+                    // Deduct 1 life when stickman falls
+                    val currentLives = _lives.value
+                    val remainingLives = (currentLives - 1).coerceAtLeast(0)
+                    _lives.value = remainingLives
+
+                    // Psychology: If player fails at or beyond a challenge level (e.g. Level 5, 10, 15), show provocative challenge failure dialog
+                    val lvl = _currentLevel.value
+                    if (lvl >= 5) {
+                        _activeChallengeDialog.value = ChallengeDialogData(
+                            levelNumber = lvl,
+                            title = "CHALLENGE FAILED: LEVEL $lvl",
+                            message = "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!",
+                            type = ChallengeDialogType.POST_LEVEL_FAIL,
+                            rewardGems = 0,
+                            buttonText = "TRY AGAIN & PROVE IT! 🔥"
+                        )
+                    }
+
                     _gameState.value = GameState.GAMEOVER
                 }
             }

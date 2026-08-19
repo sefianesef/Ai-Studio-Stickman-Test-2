@@ -75,6 +75,103 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isOutOfGemsOfferOpen = MutableStateFlow(false)
     val isOutOfGemsOfferOpen: StateFlow<Boolean> = _isOutOfGemsOfferOpen.asStateFlow()
 
+    private val _isLifeShopOpen = MutableStateFlow(false)
+    val isLifeShopOpen: StateFlow<Boolean> = _isLifeShopOpen.asStateFlow()
+
+    // Pass through engine lives and challenge states
+    val lives: StateFlow<Int> = engine.lives
+    val maxLives: Int = engine.maxLives
+    val activeChallengeDialog: StateFlow<com.example.model.ChallengeDialogData?> = engine.activeChallengeDialog
+
+    val lifeShopPacks: List<com.example.model.LifeShopPack> = listOf(
+        com.example.model.LifeShopPack(
+            id = "pack_life_3",
+            livesCount = 3,
+            gemCost = 30,
+            tag = "POPULAR",
+            iconEmoji = "❤️"
+        ),
+        com.example.model.LifeShopPack(
+            id = "pack_life_7",
+            livesCount = 7,
+            gemCost = 50,
+            tag = "BEST VALUE",
+            iconEmoji = "💖"
+        ),
+        com.example.model.LifeShopPack(
+            id = "pack_life_15",
+            livesCount = 15,
+            gemCost = 90,
+            tag = "MEGA PACK",
+            iconEmoji = "🔥"
+        ),
+        com.example.model.LifeShopPack(
+            id = "pack_life_ad",
+            livesCount = 2,
+            isAd = true,
+            tag = "FREE AD",
+            iconEmoji = "📺"
+        ),
+        com.example.model.LifeShopPack(
+            id = "pack_life_money_10",
+            livesCount = 10,
+            realMoneyPrice = "$0.99",
+            tag = "UNLIMITED PLAY",
+            iconEmoji = "💎"
+        ),
+        com.example.model.LifeShopPack(
+            id = "pack_life_money_25",
+            livesCount = 25,
+            realMoneyPrice = "$1.99",
+            tag = "CHAMPION PACK",
+            iconEmoji = "👑"
+        )
+    )
+
+    fun openLifeShop(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isLifeShopOpen.value = open
+    }
+
+    fun buyLifePack(pack: com.example.model.LifeShopPack): Boolean {
+        when {
+            pack.isAd -> {
+                engine.addLives(pack.livesCount)
+                soundManager.playBuyGemsSuccess()
+                soundManager.playVictoryMusic()
+                hapticManager.missionClaim()
+                return true
+            }
+            pack.realMoneyPrice.isNotEmpty() -> {
+                engine.addLives(pack.livesCount)
+                soundManager.playBuyGemsSuccess()
+                soundManager.playVictoryMusic()
+                hapticManager.levelUp()
+                return true
+            }
+            pack.gemCost > 0 -> {
+                if (repository.spendGems(pack.gemCost)) {
+                    engine.addLives(pack.livesCount)
+                    soundManager.playBuyGemsSuccess()
+                    soundManager.playGemCollect()
+                    hapticManager.gemCollect()
+                    return true
+                } else {
+                    soundManager.playButton()
+                    hapticManager.uiClick()
+                    // Prompt real money shop or out of gems
+                    return false
+                }
+            }
+            else -> return false
+        }
+    }
+
+    fun dismissChallengeDialog() {
+        engine.dismissChallengeDialog()
+    }
+
     // Shop tab
     private val _selectedShopTab = MutableStateFlow(AccessoryType.HAT)
     val selectedShopTab: StateFlow<AccessoryType> = _selectedShopTab.asStateFlow()

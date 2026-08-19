@@ -62,6 +62,8 @@ fun GameHud(
     val score by viewModel.engine.score.collectAsState()
     val currentLevel by viewModel.engine.currentLevel.collectAsState()
     val gems by viewModel.gems.collectAsState()
+    val lives by viewModel.lives.collectAsState()
+    val maxLives = viewModel.maxLives
     val currentStage by viewModel.engine.currentStage.collectAsState()
     val tier by viewModel.engine.difficultyTier.collectAsState()
     val gemCombo by viewModel.engine.gemCombo.collectAsState()
@@ -79,13 +81,13 @@ fun GameHud(
             .statusBarsPadding()
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        // TOP BAR: Left (Gems + Daily Mission) | Center (Level & Stage) | Right (Weekly Trial + Action Menu & Pause)
+        // TOP BAR: Left (Gems + Lives) | Center (Level & Stage) | Right (Daily/Weekly + Action Menu & Pause)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // LEFT SIDE: Gem Counter & Colorful Daily Missions Action Button
+            // LEFT SIDE: Gem Counter & Dynamic Lives Counter (clickable to open Life Shop)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -101,20 +103,56 @@ fun GameHud(
                         .testTag("hud_gem_button")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = "💎", fontSize = 15.sp)
+                        Text(text = "💎", fontSize = 14.sp)
                         Text(
                             text = "$gems",
                             color = Color(0xFF38BDF8),
                             fontWeight = FontWeight.Black,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     }
                 }
 
+                // ❤️ LIVES COUNTER PILL (Clickable to replenish / buy lives)
+                Surface(
+                    onClick = { viewModel.openLifeShop(true) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = if (lives <= 1) Color(0xFF7F1D1D) else Color(0xDD1E1B4B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.5.dp,
+                        if (lives <= 1) Color(0xFFEF4444) else Color(0xFFF43F5E)
+                    ),
+                    modifier = Modifier
+                        .shadow(4.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFFF43F5E))
+                        .testTag("hud_lives_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = if (lives > 0) "❤️" else "💔",
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = "$lives/$maxLives",
+                            color = if (lives <= 1) Color(0xFFFDA4AF) else Color(0xFFFECDD3),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "+",
+                            color = Color(0xFFFBBF24),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
                 // 🎯 COLORFUL DAILY MISSIONS ICON (Left Side) with Claim Indicator Badge
                 Surface(
                     onClick = { viewModel.openDailyMissions(true) },
@@ -1122,6 +1160,7 @@ fun GameOverDialog(
     val highScore by viewModel.highScore.collectAsState()
     val gemsRun by viewModel.engine.gemsCollectedRun.collectAsState()
     val totalGems by viewModel.gems.collectAsState()
+    val lives by viewModel.lives.collectAsState()
     val isNewHigh by viewModel.engine.isNewHighScore.collectAsState()
     val lastNearMiss by viewModel.engine.lastNearMiss.collectAsState()
     val revivalsUsed by viewModel.engine.revivalsUsed.collectAsState()
@@ -1342,23 +1381,53 @@ fun GameOverDialog(
                     }
                 }
 
-                // Play Again Button
-                Button(
-                    onClick = { viewModel.engine.resetGame() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("game_over_retry_button")
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Retry", tint = Color.White)
-                    Spacer(modifier = Modifier.width(8.dp))
+                // Play Again / Life Restock Button
+                if (lives > 0) {
+                    Button(
+                        onClick = { viewModel.engine.resetGame() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("game_over_retry_button")
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Retry", tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "TRY AGAIN ($lives ❤️ LEFT)",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp
+                        )
+                    }
+                } else {
+                    Button(
+                        onClick = { viewModel.openLifeShop(true) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48)),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFDA4AF)),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("game_over_out_of_lives_button")
+                    ) {
+                        Text(text = "💔", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "OUT OF LIVES • GET LIVES TO RETRY ⚡",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp
+                        )
+                    }
+
                     Text(
-                        "TRY AGAIN",
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 16.sp
+                        text = "5 Lives limit reached. Buy lives or restart from Level 1!",
+                        color = Color(0xFFFDA4AF),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
                     )
                 }
 
@@ -4993,5 +5062,572 @@ fun RealMoneyGemShopDialog(
         )
     }
 }
+
+/**
+ * 👑 Big Challenging & Motivational Human Psychology Dialog
+ * Displays professional psychological provocation every 5 levels ("I challenge you can't clear level 5"),
+ * and congratulatory motivational titles & rank celebrations on clear or failure.
+ */
+@Composable
+fun ChallengePsychologyDialog(
+    challenge: com.example.model.ChallengeDialogData,
+    onAccept: () -> Unit
+) {
+    val isTaunt = challenge.type == com.example.model.ChallengeDialogType.PRE_LEVEL_TAUNT
+    val isSuccess = challenge.type == com.example.model.ChallengeDialogType.POST_LEVEL_VICTORY
+    val isFail = challenge.type == com.example.model.ChallengeDialogType.POST_LEVEL_FAIL
+
+    val bgGradient = when {
+        isSuccess -> listOf(Color(0xFF065F46), Color(0xFF022C22), Color(0xFF0F172A))
+        isFail -> listOf(Color(0xFF881337), Color(0xFF4C0519), Color(0xFF0F172A))
+        else -> listOf(Color(0xFF312E81), Color(0xFF1E1B4B), Color(0xFF0F172A))
+    }
+
+    val primaryAccent = when {
+        isSuccess -> Color(0xFF10B981)
+        isFail -> Color(0xFFF43F5E)
+        else -> Color(0xFFF59E0B)
+    }
+
+    val borderStrokeColor = when {
+        isSuccess -> Color(0xFF34D399)
+        isFail -> Color(0xFFFB7185)
+        else -> Color(0xFFFBBF24)
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse_challenge")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    Dialog(
+        onDismissRequest = onAccept,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = false, usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xCC000000))
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = Color(0xFF0B1329),
+                border = androidx.compose.foundation.BorderStroke(2.5.dp, borderStrokeColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .shadow(30.dp, RoundedCornerShape(28.dp), ambientColor = primaryAccent, spotColor = primaryAccent)
+                    .testTag("challenge_psychology_dialog")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .background(Brush.verticalGradient(bgGradient))
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Badge Header
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = primaryAccent.copy(alpha = 0.2f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, borderStrokeColor)
+                    ) {
+                        Text(
+                            text = when {
+                                isSuccess -> "🏆 MILESTONE CLEARED"
+                                isFail -> "💀 CHALLENGE FAILED"
+                                else -> "🔥 STICKMAN BOSS CHALLENGE"
+                            },
+                            color = if (isFail) Color(0xFFFDA4AF) else Color(0xFFFDE047),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
+                        )
+                    }
+
+                    // Large Animated Emoji / Icon
+                    Box(
+                        modifier = Modifier
+                            .scale(pulseScale)
+                            .size(76.dp)
+                            .background(primaryAccent.copy(alpha = 0.15f), CircleShape)
+                            .border(2.dp, borderStrokeColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = when {
+                                isSuccess -> "👑"
+                                isFail -> "💥"
+                                else -> "⚡"
+                            },
+                            fontSize = 40.sp
+                        )
+                    }
+
+                    // Main Title
+                    Text(
+                        text = challenge.title,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 28.sp
+                    )
+
+                    // Message Body
+                    Text(
+                        text = challenge.message,
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 22.sp
+                    )
+
+                    // Awarded Stickman Title Badge if won
+                    challenge.awardedTitle?.let { title ->
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color(0xFF047857),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF6EE7B7)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "🎖️ NEW HONORARY TITLE UNLOCKED",
+                                    color = Color(0xFFBBF7D0),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = title,
+                                    color = Color(0xFFFEF08A),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                        }
+                    }
+
+                    // Reward Gems pill if available
+                    if (challenge.rewardGems > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xCC0F172A),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(text = "💎", fontSize = 18.sp)
+                                Text(
+                                    text = "+${challenge.rewardGems} GEMS REWARD EARNED!",
+                                    color = Color(0xFF38BDF8),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Primary Action Button
+                    Button(
+                        onClick = onAccept,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isFail) Color(0xFFE11D48) else if (isSuccess) Color(0xFF10B981) else Color(0xFFF59E0B)
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("challenge_accept_button")
+                    ) {
+                        Text(
+                            text = challenge.buttonText,
+                            color = if (isSuccess || isFail) Color.White else Color.Black,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ❤️ Life Shop Dialog
+ * Gives options to replenish lives using Gems (30 gems for 3 lives, 50 for 7 lives, etc.),
+ * or if out of gems, allows buying lives with real money or watching free advertisements!
+ */
+@Composable
+fun LifeShopDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit
+) {
+    val lives by viewModel.lives.collectAsState()
+    val gems by viewModel.gems.collectAsState()
+    val maxLives = viewModel.maxLives
+    val packs = viewModel.lifeShopPacks
+
+    var selectedPackForCheckout by remember { mutableStateOf<com.example.model.LifeShopPack?>(null) }
+    var showAdWatchingSimulator by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true, usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xCC000000))
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(26.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF43F5E)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp)
+                    .shadow(24.dp, RoundedCornerShape(26.dp))
+                    .testTag("life_shop_dialog")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF1E1B4B), Color(0xFF0F172A), Color(0xFF020617))
+                            )
+                        )
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Header Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "❤️", fontSize = 24.sp)
+                            Column {
+                                Text(
+                                    text = "LIFE RECOVERY SHOP",
+                                    color = Color.White,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    text = "Current: $lives/$maxLives Lives Available",
+                                    color = Color(0xFFFDA4AF),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(Color(0x33FFFFFF), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    // Gem Balance Pill
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0x661E293B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(text = "💎 Your Gems:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                            Text(
+                                text = "$gems",
+                                color = Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    // Life Packs List
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(packs) { pack ->
+                            val canAffordGem = pack.gemCost > 0 && gems >= pack.gemCost
+
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0xFF1E293B),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.2.dp,
+                                    when {
+                                        pack.isAd -> Color(0xFF10B981)
+                                        pack.realMoneyPrice.isNotEmpty() -> Color(0xFFF59E0B)
+                                        canAffordGem -> Color(0xFFF43F5E)
+                                        else -> Color(0xFF475569)
+                                    }
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("life_pack_${pack.id}")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Pack Info
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .background(Color(0xFF334155), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(text = pack.iconEmoji, fontSize = 22.sp)
+                                        }
+
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "+${pack.livesCount} Lives",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 15.sp
+                                                )
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = when {
+                                                        pack.isAd -> Color(0xFF047857)
+                                                        pack.realMoneyPrice.isNotEmpty() -> Color(0xFFB45309)
+                                                        else -> Color(0xFF9F1239)
+                                                    }
+                                                ) {
+                                                    Text(
+                                                        text = pack.tag,
+                                                        color = Color.White,
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            Text(
+                                                text = when {
+                                                    pack.isAd -> "Watch 1 quick ad"
+                                                    pack.realMoneyPrice.isNotEmpty() -> "Direct IAP Store"
+                                                    else -> "${pack.gemCost} Gems cost"
+                                                },
+                                                color = Color(0xFF94A3B8),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+
+                                    // Action Button
+                                    Button(
+                                        onClick = {
+                                            if (pack.isAd) {
+                                                showAdWatchingSimulator = true
+                                            } else if (pack.realMoneyPrice.isNotEmpty()) {
+                                                selectedPackForCheckout = pack
+                                            } else {
+                                                val bought = viewModel.buyLifePack(pack)
+                                                if (!bought) {
+                                                    // Prompt out of gems offer
+                                                    viewModel.openOutOfGemsOffer(true)
+                                                }
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = when {
+                                                pack.isAd -> Color(0xFF10B981)
+                                                pack.realMoneyPrice.isNotEmpty() -> Color(0xFFF59E0B)
+                                                canAffordGem -> Color(0xFFE11D48)
+                                                else -> Color(0xFF475569)
+                                            }
+                                        ),
+                                        shape = RoundedCornerShape(14.dp),
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = when {
+                                                pack.isAd -> "WATCH AD"
+                                                pack.realMoneyPrice.isNotEmpty() -> pack.realMoneyPrice
+                                                else -> "${pack.gemCost} 💎"
+                                            },
+                                            color = if (pack.realMoneyPrice.isNotEmpty()) Color.Black else Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Informative Footer
+                    Text(
+                        text = "💡 Lives allow you to retry without losing your stage milestone progress.",
+                        color = Color(0xFF64748B),
+                        fontSize = 10.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+
+    // Free Ad Watching Simulator Dialog
+    if (showAdWatchingSimulator) {
+        var adTimer by remember { mutableIntStateOf(3) }
+        LaunchedEffect(Unit) {
+            while (adTimer > 0) {
+                kotlinx.coroutines.delay(1000L)
+                adTimer--
+            }
+            val adPack = packs.firstOrNull { it.isAd } ?: com.example.model.LifeShopPack("ad", 2, isAd = true)
+            viewModel.buyLifePack(adPack)
+            showAdWatchingSimulator = false
+        }
+
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF10B981)),
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(text = "📺", fontSize = 36.sp)
+                    Text(
+                        text = "SPONSORED ADVERTISEMENT",
+                        color = Color(0xFF34D399),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "Rewarding you with +2 Free Lives in ${adTimer}s...",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    LinearProgressIndicator(
+                        progress = { (3 - adTimer) / 3f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(CircleShape),
+                        color = Color(0xFF10B981),
+                        trackColor = Color(0xFF334155)
+                    )
+                }
+            }
+        }
+    }
+
+    // Checkout Confirmation Dialog for Real Money Life Pack
+    selectedPackForCheckout?.let { pack ->
+        Dialog(
+            onDismissRequest = { selectedPackForCheckout = null },
+            properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF59E0B)),
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(text = "🛒 CONFIRM STORE PURCHASE", color = Color(0xFFFBBF24), fontWeight = FontWeight.Black, fontSize = 15.sp)
+                    Text(
+                        text = "Unlock +${pack.livesCount} Lives immediately for ${pack.realMoneyPrice}?",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { selectedPackForCheckout = null },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Cancel", color = Color(0xFF94A3B8))
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.buyLifePack(pack)
+                                selectedPackForCheckout = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("BUY NOW", fontWeight = FontWeight.Black, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 
