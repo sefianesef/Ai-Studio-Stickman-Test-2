@@ -34,6 +34,7 @@ class SoundManager(context: Context) {
     private val pcmPerfect by lazy { generateChime(freq1 = 880f, freq2 = 1320f, freq3 = 1760f, durationSec = 0.30f) }
     private val pcmFlip by lazy { generateSweep(startFreq = 300f, endFreq = 600f, durationSec = 0.06f) }
     private val pcmFall by lazy { generateSweep(startFreq = 400f, endFreq = 100f, durationSec = 0.25f) }
+    private val pcmFunnyFallingMusic by lazy { generateFunnyFallingMusic() }
     private val pcmGameOver by lazy { generateMinorChord(durationSec = 0.40f) }
     private val pcmButton by lazy { generateTone(freq = 520f, durationSec = 0.04f, decayRate = 50f) }
     private val pcmVictory by lazy { generateFanfare(durationSec = 0.45f) }
@@ -163,7 +164,8 @@ class SoundManager(context: Context) {
     fun playPerfectHit() = enqueue(pcmPerfect, volume = 0.95f)
     fun playFlip() = enqueue(pcmFlip, volume = 0.75f)
     fun playBridgeFall() = enqueue(pcmFall, volume = 0.80f)
-    fun playStickmanFall() = enqueue(pcmFall, volume = 0.85f)
+    fun playStickmanFall() = enqueue(pcmFunnyFallingMusic, volume = 0.95f)
+    fun playFunnyFallingMusic() = enqueue(pcmFunnyFallingMusic, volume = 0.95f)
     fun playGameOver() = enqueue(pcmGameOver, volume = 0.90f)
     fun playWalkStep() = enqueue(pcmTick1, volume = 0.25f)
     fun playButton() = enqueue(pcmButton, volume = 0.70f)
@@ -316,6 +318,147 @@ class SoundManager(context: Context) {
 
                         floatBuffer[idx] += sample * env * note.gain
                     }
+                }
+            }
+
+            // Normalize and convert floatBuffer to PCM 16-bit
+            val pcmSamples = ShortArray(totalSamples)
+            var maxPeak = 0.001f
+            for (v in floatBuffer) {
+                val absV = kotlin.math.abs(v)
+                if (absV > maxPeak) maxPeak = absV
+            }
+            val scale = (27000f / maxPeak).coerceAtMost(28000f)
+
+            for (i in 0 until totalSamples) {
+                pcmSamples[i] = (floatBuffer[i] * scale).toInt().coerceIn(-32767, 32767).toShort()
+            }
+            return pcmSamples
+        }
+
+        private fun generateFunnyFallingMusic(): ShortArray {
+            // Hilarious Cartoon Falling Audio:
+            // 1. Classic Goofy Slide-Whistle Scream & Wobble (0.00s - 0.65s) diving 1250 Hz -> 140 Hz with 8Hz wobble
+            // 2. Comical Cartoon Plunger Sad Trombone "Wah-Wah-Wah-Waaaaah" (0.60s - 2.10s) with brass harmonics
+            // 3. Goofy Cartoon Rubber Spring "Boing-Wobble" at the punchline (1.75s - 2.15s)
+            val totalDurationSec = 2.15f
+            val totalSamples = (SAMPLE_RATE * totalDurationSec).toInt()
+            val floatBuffer = FloatArray(totalSamples)
+
+            // --- LAYER 1: Cartoon Slide-Whistle Swoop & Wobble (0.00s to 0.65s) ---
+            val whistleDuration = 0.65f
+            val whistleSamples = (SAMPLE_RATE * whistleDuration).toInt()
+            var whistlePhase = 0.0
+            for (i in 0 until whistleSamples) {
+                val t = i.toFloat() / SAMPLE_RATE
+                val progress = t / whistleDuration
+                // Exponential drop from 1250Hz down to 140Hz
+                val baseFreq = (1250.0 * Math.pow(0.11, progress.toDouble())).toFloat()
+                // Comedic 8.5 Hz flutter vibrato simulating comical tumbling in mid-air
+                val flutter = sin(2.0 * PI * 8.5 * t).toFloat() * (baseFreq * 0.10f)
+                val currentFreq = (baseFreq + flutter).coerceAtLeast(80f)
+
+                // Advance continuous phase
+                whistlePhase += 2.0 * PI * currentFreq / SAMPLE_RATE
+
+                // Smooth attack and decay envelope
+                val attack = (t / 0.015f).coerceIn(0f, 1f)
+                val decay = (1.0f - progress).coerceIn(0f, 1f)
+                val tremolo = 0.85f + 0.15f * sin(2.0 * PI * 17.0 * t).toFloat()
+                val env = attack * decay * tremolo
+
+                // Whistle timbre: pure sine + 2nd harmonic
+                val sample = (
+                    sin(whistlePhase) * 0.78 +
+                    sin(whistlePhase * 2.0) * 0.18 +
+                    sin(whistlePhase * 3.0) * 0.04
+                ).toFloat()
+
+                floatBuffer[i] += sample * env * 0.90f
+            }
+
+            // --- LAYER 2: Classic Cartoon Sad Trombone ("Wah-Wah-Wah-Waaaaah") (0.60s to 2.10s) ---
+            data class TromboneNote(
+                val startSec: Float,
+                val durationSec: Float,
+                val startFreq: Float,
+                val targetFreq: Float,
+                val isDroop: Boolean = false
+            )
+
+            val notes = listOf(
+                TromboneNote(startSec = 0.60f, durationSec = 0.28f, startFreq = 285f, targetFreq = 311.13f), // Eb4
+                TromboneNote(startSec = 0.90f, durationSec = 0.28f, startFreq = 270f, targetFreq = 293.66f), // D4
+                TromboneNote(startSec = 1.20f, durationSec = 0.28f, startFreq = 255f, targetFreq = 277.18f), // Db4
+                TromboneNote(startSec = 1.50f, durationSec = 0.60f, startFreq = 261.63f, targetFreq = 228.0f, isDroop = true) // C4 -> B3 / Bb3 droop
+            )
+
+            for (note in notes) {
+                val startIdx = (note.startSec * SAMPLE_RATE).toInt()
+                val noteSamples = (note.durationSec * SAMPLE_RATE).toInt()
+                var notePhase = 0.0
+
+                for (i in 0 until noteSamples) {
+                    val idx = startIdx + i
+                    if (idx < totalSamples) {
+                        val t = i.toFloat() / SAMPLE_RATE
+                        val p = t / note.durationSec
+
+                        // Plunger Wah scoop or dramatic comic droop
+                        val currentFreq = if (note.isDroop) {
+                            val droop = note.startFreq + (note.targetFreq - note.startFreq) * (p * p)
+                            val vibrato = if (p > 0.25f) sin(2.0 * PI * 5.5 * t).toFloat() * 10f else 0f
+                            droop + vibrato
+                        } else {
+                            if (p < 0.25f) {
+                                val scoopP = p / 0.25f
+                                note.startFreq + (note.targetFreq - note.startFreq) * scoopP
+                            } else {
+                                note.targetFreq + sin(2.0 * PI * 6.0 * t).toFloat() * 4f
+                            }
+                        }
+
+                        notePhase += 2.0 * PI * currentFreq / SAMPLE_RATE
+
+                        // Brass plunger envelope (soft "wah" attack + rich resonance body)
+                        val attack = (t / 0.025f).coerceIn(0f, 1f)
+                        val decay = if (note.isDroop) exp(-2.2f * t) else exp(-3.5f * t)
+                        val env = attack * decay
+
+                        // Muted brass spectrum (odd and even harmonics for cartoon trumpet/trombone timbre)
+                        val sample = (
+                            sin(notePhase) * 0.45 +
+                            sin(notePhase * 2.0) * 0.28 +
+                            sin(notePhase * 3.0) * 0.16 +
+                            sin(notePhase * 4.0) * 0.07 +
+                            sin(notePhase * 5.0) * 0.04
+                        ).toFloat()
+
+                        floatBuffer[idx] += sample * env * 0.95f
+                    }
+                }
+            }
+
+            // --- LAYER 3: Comic Spring "Boing-Wobble" at Punchline (1.75s to 2.15s) ---
+            val boingStartSec = 1.75f
+            val boingDurationSec = 0.38f
+            val boingStartIdx = (boingStartSec * SAMPLE_RATE).toInt()
+            val boingSamples = (boingDurationSec * SAMPLE_RATE).toInt()
+            var boingPhase = 0.0
+
+            for (i in 0 until boingSamples) {
+                val idx = boingStartIdx + i
+                if (idx < totalSamples) {
+                    val t = i.toFloat() / SAMPLE_RATE
+                    val p = t / boingDurationSec
+                    // Rapid cartoon spring oscillation modulation
+                    val springMod = sin(2.0 * PI * 24.0 * t).toFloat() * 70f * (1f - p)
+                    val freq = 210f + springMod + (1f - p) * 60f
+
+                    boingPhase += 2.0 * PI * freq / SAMPLE_RATE
+                    val env = (t / 0.01f).coerceIn(0f, 1f) * exp(-9.0f * t)
+                    val sample = sin(boingPhase).toFloat()
+                    floatBuffer[idx] += sample * env * 0.65f
                 }
             }
 

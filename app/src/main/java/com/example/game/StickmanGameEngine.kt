@@ -44,11 +44,9 @@ class StickmanGameEngine(
     private val _lastNearMiss = MutableStateFlow<NearMissInfo?>(null)
     val lastNearMiss: StateFlow<NearMissInfo?> = _lastNearMiss.asStateFlow()
 
-    // Lives System (5 lives max)
-    private val _lives = MutableStateFlow(5)
-    val lives: StateFlow<Int> = _lives.asStateFlow()
-
-    val maxLives: Int = 5
+    // Lives System (5 lives max, regenerating 1 life every 20 minutes)
+    val lives: StateFlow<Int> = repository.lives
+    val maxLives: Int = GameRepository.MAX_LIVES
 
     // Challenge Dialog State (Every 5 levels challenge popup: Level 5, 10, 15...)
     private val _activeChallengeDialog = MutableStateFlow<ChallengeDialogData?>(null)
@@ -70,11 +68,11 @@ class StickmanGameEngine(
     }
 
     fun addLives(count: Int) {
-        _lives.value = (_lives.value + count).coerceIn(0, 99)
+        repository.addLives(count)
     }
 
     fun refillMaxLives() {
-        _lives.value = maxLives
+        repository.refillMaxLives()
     }
 
     val gemsCollectedRun: StateFlow<Int> = gemStateManager.collectedInRun
@@ -162,18 +160,17 @@ class StickmanGameEngine(
         }
     }
 
-    fun resetGame(initial: Boolean = false) {
-        _score.value = 0
-        _currentLevel.value = 1
+    fun resetGame(initial: Boolean = false, startLevel: Int = 1) {
+        val targetStartLevel = startLevel.coerceAtLeast(1)
+        val initialScore = ((targetStartLevel - 1) * 3).coerceAtLeast(0)
+        _score.value = initialScore
+        _currentLevel.value = targetStartLevel
         _isNewHighScore.value = false
         _revivalsUsed.value = 0
         justLeveledUp = false
-        if (initial && _lives.value <= 0) {
-            _lives.value = maxLives
-        }
-        _difficultyTier.value = DifficultyTier.NOVICE_TRAINING
+        _difficultyTier.value = difficultyManager.getTier(initialScore)
         val equippedTheme = repository.selectedTheme.value
-        _currentStage.value = StageThemes.getThemeForScore(0, equippedTheme)
+        _currentStage.value = StageThemes.getThemeForScore(initialScore, equippedTheme)
         _levelVictoryCelebration.value = null
         _activeLevelVictory.value = null
         gemStateManager.resetRun()
@@ -208,19 +205,24 @@ class StickmanGameEngine(
         _gameState.value = if (initial) GameState.START else GameState.IDLE
     }
 
-    fun startGame() {
+    fun startGame(startLevel: Int = 1) {
         soundManager.playButton()
         hapticManager?.uiClick()
-        resetGame(initial = false)
+        resetGame(initial = false, startLevel = startLevel)
         _gameState.value = GameState.IDLE
 
-        // ⚔️ Start of Game / Level 1 Provocative Challenge Prompt
+        // ⚔️ Start of Game / Checkpoint Provocative Challenge Prompt
+        val nextMilestone = if (startLevel % 5 == 0) startLevel + 5 else ((startLevel / 5) + 1) * 5
         _activeChallengeDialog.value = ChallengeDialogData(
-            levelNumber = 1,
-            title = "I CHALLENGE YOU: REACH LEVEL 5!",
-            message = "Think you have ninja precision? I challenge you: You can't even clear the first 5 levels!\nBuild bridges, balance your stickman, and prove your skills!",
+            levelNumber = startLevel,
+            title = if (startLevel == 1) "I CHALLENGE YOU: REACH LEVEL 5!" else "CHECKPOINT: LEVEL $startLevel!",
+            message = if (startLevel == 1) {
+                "Think you have ninja precision? I challenge you: You can't even clear the first 5 levels!\nBuild bridges, balance your stickman, and prove your skills!"
+            } else {
+                "Starting from Checkpoint Level $startLevel! Can you beat the odds and reach Level $nextMilestone?"
+            },
             type = ChallengeDialogType.PRE_LEVEL_TAUNT,
-            rewardGems = 15,
+            rewardGems = if (startLevel == 1) 15 else 20,
             buttonText = "I ACCEPT THE CHALLENGE! ⚔️"
         )
     }
@@ -518,10 +520,19 @@ class StickmanGameEngine(
                 // Obstacle wall collision check (only fails if bridge was NOT landed safely and stickman walked into obstacle or fell off bridge end)
                 if (!isSuccessfulLanding && physicsEngine.checkPlatformWallCollision(stickmanX, isUpsideDown, nextPlatform.leftX)) {
                     soundManager.playStickmanFall()
-                    soundManager.playGameOver()
                     hapticManager?.gameOver()
                     spawnDust(stickmanX, floorY + 30f, count = 14)
                     stickmanFallVel = 50f
+                    val funnyQuotes = listOf(
+                        "WHOOOPS! 🍌",
+                        "AALLL THE WAY DOWNNN! 😱",
+                        "WHEEEEEEE! 🪂",
+                        "GRAVITY: 1, STICKMAN: 0 💀",
+                        "MY ANKLES! 💥",
+                        "SEE YA! 🕳️",
+                        "I CAN'T FLY! 🦅"
+                    )
+                    addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.25f)
                     _gameState.value = GameState.DROPPING_FAIL
                     return
                 }
@@ -561,6 +572,7 @@ class StickmanGameEngine(
                                 else -> 2
                             }
                             repository.addGems(bonusGems)
+                            repository.saveProgressLevel(newLevel)
                             val title = when (previousLevel) {
                                 1 -> "Novice Stickman"
                                 2 -> "Starter Stickman"
@@ -665,8 +677,17 @@ class StickmanGameEngine(
                         bridgeAngularVel = 0f
                         stickmanFallVel = 0f
                         soundManager.playStickmanFall()
-                        soundManager.playGameOver()
                         hapticManager?.gameOver()
+                        val funnyQuotes = listOf(
+                            "WHOOOPS! 🍌",
+                            "AALLL THE WAY DOWNNN! 😱",
+                            "WHEEEEEEE! 🪂",
+                            "GRAVITY: 1, STICKMAN: 0 💀",
+                            "MY ANKLES! 💥",
+                            "SEE YA! 🕳️",
+                            "I CAN'T FLY! 🦅"
+                        )
+                        addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.25f)
                         _gameState.value = GameState.DROPPING_FAIL
                     }
                 }
@@ -689,10 +710,8 @@ class StickmanGameEngine(
                 stickmanRotation = fallState.rotation
 
                 if (stickmanY > screenHeight + 100f) {
-                    // Deduct 1 life when stickman falls
-                    val currentLives = _lives.value
-                    val remainingLives = (currentLives - 1).coerceAtLeast(0)
-                    _lives.value = remainingLives
+                    // Deduct 1 life when stickman falls via persistent repository
+                    repository.consumeLife()
 
                     // Psychology: Provocative challenge failure dialog on fail
                     val lvl = _currentLevel.value

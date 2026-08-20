@@ -66,6 +66,13 @@ class GameRepository(
         private const val KEY_WEEKLY_CLAIM_PREFIX = "WEEKLY_CLAIM_"
         private const val KEY_CONTEST_PREFIX = "CONTEST_PROG_"
         private const val KEY_CONTEST_CLAIM_PREFIX = "CONTEST_CLAIM_"
+        private const val KEY_SAVED_LEVEL = "SAVED_LEVEL"
+        private const val KEY_HIGHEST_UNLOCKED_LEVEL = "HIGHEST_UNLOCKED_LEVEL"
+        private const val KEY_LIVES_COUNT = "LIVES_COUNT"
+        private const val KEY_LAST_LIFE_REGEN_TIME = "LAST_LIFE_REGEN_TIME"
+
+        const val MAX_LIVES = 5
+        const val LIFE_REGEN_INTERVAL_MS = 20 * 60 * 1000L // 20 minutes in ms
 
         val DAILY_REWARD_AMOUNTS = listOf(3, 5, 8, 10, 15, 20, 35)
     }
@@ -687,6 +694,23 @@ class GameRepository(
     private val _highScore = MutableStateFlow(prefs.getInt(KEY_HIGH_SCORE, 0))
     val highScore: StateFlow<Int> = _highScore.asStateFlow()
 
+    // 🚩 Checkpoint & Level Progression
+    private val _savedLevel = MutableStateFlow(prefs.getInt(KEY_SAVED_LEVEL, 1))
+    val savedLevel: StateFlow<Int> = _savedLevel.asStateFlow()
+
+    private val _highestUnlockedLevel = MutableStateFlow(prefs.getInt(KEY_HIGHEST_UNLOCKED_LEVEL, 1))
+    val highestUnlockedLevel: StateFlow<Int> = _highestUnlockedLevel.asStateFlow()
+
+    // ❤️ 20-Minute Regenerating Lives System (Max 5 lives)
+    private val _lives = MutableStateFlow(prefs.getInt(KEY_LIVES_COUNT, MAX_LIVES))
+    val lives: StateFlow<Int> = _lives.asStateFlow()
+
+    private val _lastLifeRegenTime = MutableStateFlow(prefs.getLong(KEY_LAST_LIFE_REGEN_TIME, System.currentTimeMillis()))
+    val lastLifeRegenTime: StateFlow<Long> = _lastLifeRegenTime.asStateFlow()
+
+    private val _secondsUntilNextLife = MutableStateFlow(0L)
+    val secondsUntilNextLife: StateFlow<Long> = _secondsUntilNextLife.asStateFlow()
+
     private val _selectedHat = MutableStateFlow(prefs.getString(KEY_SELECTED_HAT, "hat_none") ?: "hat_none")
     val selectedHat: StateFlow<String> = _selectedHat.asStateFlow()
 
@@ -780,6 +804,139 @@ class GameRepository(
         }
 
         refreshDailyRewardState()
+        recalculateRegeneratingLives()
+        startLifeRegenTimer()
+    }
+
+    /**
+     * Recalculates lives based on elapsed timestamps (1 life per 20 minutes up to MAX_LIVES = 5).
+     */
+    fun recalculateRegeneratingLives() {
+        val currentLives = _lives.value
+        val now = System.currentTimeMillis()
+        if (currentLives >= MAX_LIVES) {
+            _lastLifeRegenTime.value = now
+            _secondsUntilNextLife.value = 0L
+            prefs.edit().putLong(KEY_LAST_LIFE_REGEN_TIME, now).apply()
+            return
+        }
+
+        val lastRegen = prefs.getLong(KEY_LAST_LIFE_REGEN_TIME, now)
+        val elapsedMs = (now - lastRegen).coerceAtLeast(0L)
+        val livesToAdd = (elapsedMs / LIFE_REGEN_INTERVAL_MS).toInt()
+
+        if (livesToAdd > 0) {
+            val newLives = (currentLives + livesToAdd).coerceAtMost(MAX_LIVES)
+            _lives.value = newLives
+            val remainingMs = elapsedMs % LIFE_REGEN_INTERVAL_MS
+            val updatedLastRegen = if (newLives >= MAX_LIVES) now else now - remainingMs
+            _lastLifeRegenTime.value = updatedLastRegen
+            prefs.edit()
+                .putInt(KEY_LIVES_COUNT, newLives)
+                .putLong(KEY_LAST_LIFE_REGEN_TIME, updatedLastRegen)
+                .apply()
+        }
+
+        if (_lives.value < MAX_LIVES) {
+            val updatedLast = _lastLifeRegenTime.value
+            val timePassedSinceLast = (now - updatedLast).coerceAtLeast(0L)
+            val timeRemainingMs = (LIFE_REGEN_INTERVAL_MS - timePassedSinceLast).coerceAtLeast(0L)
+            _secondsUntilNextLife.value = timeRemainingMs / 1000L
+        } else {
+            _secondsUntilNextLife.value = 0L
+        }
+    }
+
+    private fun startLifeRegenTimer() {
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(1000L)
+                val currentLives = _lives.value
+                if (currentLives < MAX_LIVES) {
+                    val now = System.currentTimeMillis()
+                    val lastRegen = _lastLifeRegenTime.value
+                    val elapsedMs = (now - lastRegen).coerceAtLeast(0L)
+                    if (elapsedMs >= LIFE_REGEN_INTERVAL_MS) {
+                        // Grant 1 regenerated life
+                        recalculateRegeneratingLives()
+                    } else {
+                        val remainingMs = (LIFE_REGEN_INTERVAL_MS - elapsedMs).coerceAtLeast(0L)
+                        _secondsUntilNextLife.value = remainingMs / 1000L
+                    }
+                } else {
+                    _secondsUntilNextLife.value = 0L
+                }
+            }
+        }
+    }
+
+    fun consumeLife(): Boolean {
+        val current = _lives.value
+        if (current > 0) {
+            val next = current - 1
+            _lives.value = next
+            if (current == MAX_LIVES) {
+                // Was previously at max, so start regeneration timer from now
+                val now = System.currentTimeMillis()
+                _lastLifeRegenTime.value = now
+                _secondsUntilNextLife.value = LIFE_REGEN_INTERVAL_MS / 1000L
+                prefs.edit()
+                    .putInt(KEY_LIVES_COUNT, next)
+                    .putLong(KEY_LAST_LIFE_REGEN_TIME, now)
+                    .apply()
+            } else {
+                prefs.edit().putInt(KEY_LIVES_COUNT, next).apply()
+            }
+            return true
+        }
+        return false
+    }
+
+    fun addLives(count: Int) {
+        val newLives = (_lives.value + count).coerceAtLeast(0)
+        _lives.value = newLives
+        if (newLives >= MAX_LIVES) {
+            _lastLifeRegenTime.value = System.currentTimeMillis()
+            _secondsUntilNextLife.value = 0L
+        }
+        prefs.edit()
+            .putInt(KEY_LIVES_COUNT, newLives)
+            .putLong(KEY_LAST_LIFE_REGEN_TIME, _lastLifeRegenTime.value)
+            .apply()
+    }
+
+    fun refillMaxLives() {
+        _lives.value = MAX_LIVES
+        _lastLifeRegenTime.value = System.currentTimeMillis()
+        _secondsUntilNextLife.value = 0L
+        prefs.edit()
+            .putInt(KEY_LIVES_COUNT, MAX_LIVES)
+            .putLong(KEY_LAST_LIFE_REGEN_TIME, _lastLifeRegenTime.value)
+            .apply()
+    }
+
+    // 🚩 Checkpoint & Level Progression API
+    fun saveProgressLevel(level: Int) {
+        if (level > 0) {
+            _savedLevel.value = level
+            val highest = _highestUnlockedLevel.value.coerceAtLeast(level)
+            _highestUnlockedLevel.value = highest
+            prefs.edit()
+                .putInt(KEY_SAVED_LEVEL, level)
+                .putInt(KEY_HIGHEST_UNLOCKED_LEVEL, highest)
+                .apply()
+        }
+    }
+
+    fun getUnlockedCheckpoints(): List<Int> {
+        val highest = _highestUnlockedLevel.value
+        val checkpoints = mutableListOf(1)
+        var nextCp = 5
+        while (nextCp <= highest) {
+            checkpoints.add(nextCp)
+            nextCp += 5
+        }
+        return checkpoints
     }
 
     private suspend fun initDailyMissions() {

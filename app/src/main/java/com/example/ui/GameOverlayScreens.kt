@@ -63,6 +63,7 @@ fun GameHud(
     val currentLevel by viewModel.engine.currentLevel.collectAsState()
     val gems by viewModel.gems.collectAsState()
     val lives by viewModel.lives.collectAsState()
+    val secondsUntilNextLife by viewModel.secondsUntilNextLife.collectAsState()
     val maxLives = viewModel.maxLives
     val currentStage by viewModel.engine.currentStage.collectAsState()
     val tier by viewModel.engine.difficultyTier.collectAsState()
@@ -118,6 +119,10 @@ fun GameHud(
                 }
 
                 // ❤️ LIVES COUNTER PILL (Clickable to replenish / buy lives)
+                val regenMins = secondsUntilNextLife / 60
+                val regenSecs = secondsUntilNextLife % 60
+                val formattedHudTimer = String.format(java.util.Locale.US, "%02d:%02d", regenMins, regenSecs)
+
                 Surface(
                     onClick = { viewModel.openLifeShop(true) },
                     shape = RoundedCornerShape(18.dp),
@@ -145,12 +150,21 @@ fun GameHud(
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp
                         )
-                        Text(
-                            text = "+",
-                            color = Color(0xFFFBBF24),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp
-                        )
+                        if (lives < maxLives) {
+                            Text(
+                                text = "⏱️ $formattedHudTimer",
+                                color = Color(0xFFFDE047),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        } else {
+                            Text(
+                                text = "+",
+                                color = Color(0xFFFBBF24),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
                 // 🎯 COLORFUL DAILY MISSIONS ICON (Left Side) with Claim Indicator Badge
@@ -420,6 +434,11 @@ fun StartScreenOverlay(
 ) {
     val highScore by viewModel.highScore.collectAsState()
     val gems by viewModel.gems.collectAsState()
+    val lives by viewModel.lives.collectAsState()
+    val maxLives = viewModel.maxLives
+    val secondsUntilNextLife by viewModel.secondsUntilNextLife.collectAsState()
+    val savedLevel by viewModel.savedLevel.collectAsState()
+    val highestUnlockedLevel by viewModel.highestUnlockedLevel.collectAsState()
     val currentStreak by viewModel.currentStreak.collectAsState()
     val isDailyRewardAvailable by viewModel.isDailyRewardAvailable.collectAsState()
 
@@ -519,25 +538,45 @@ fun StartScreenOverlay(
                     }
                 }
 
-                // Center: Infinite Lives / Heart Timer Pill
+                // Center: 20-Minute Regenerating Lives & Hearts Pill (Clickable to open Life Shop)
+                val regenMinutes = secondsUntilNextLife / 60
+                val regenSeconds = secondsUntilNextLife % 60
+                val formattedTimer = String.format(java.util.Locale.US, "%02d:%02d", regenMinutes, regenSeconds)
+
                 Surface(
+                    onClick = { viewModel.openLifeShop(true) },
                     shape = RoundedCornerShape(18.dp),
-                    color = Color(0xFF831843),
-                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFB7185)),
-                    modifier = Modifier.testTag("start_infinite_lives_pill")
+                    color = if (lives == 0) Color(0xFF881337) else Color(0xFF831843),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, if (lives == 0) Color(0xFFF43F5E) else Color(0xFFFB7185)),
+                    modifier = Modifier.testTag("start_lives_regen_pill")
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        Text(text = "❤️", fontSize = 13.sp)
+                        Text(text = if (lives > 0) "❤️" else "💔", fontSize = 13.sp)
                         Text(
-                            text = "∞ 02:59:45",
+                            text = "$lives/$maxLives",
                             color = Color.White,
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp
                         )
+                        if (lives < maxLives) {
+                            Text(
+                                text = "⏱️ $formattedTimer",
+                                color = Color(0xFFFDE047),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        } else {
+                            Text(
+                                text = "FULL",
+                                color = Color(0xFF6EE7B7),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
                 }
 
@@ -836,36 +875,93 @@ fun StartScreenOverlay(
                         }
                     }
 
-                    // Play Button Card (Styled like Video "Level 1947" Play Button)
-                    val currentLv by viewModel.engine.currentLevel.collectAsState()
-                    Surface(
-                        onClick = { viewModel.engine.startGame() },
-                        shape = RoundedCornerShape(22.dp),
-                        color = Color(0xFF16A34A),
-                        border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFEF08A)),
-                        modifier = Modifier
-                            .scale(pulseScale)
-                            .shadow(16.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF22C55E))
-                            .testTag("start_play_button")
+                    // Play & Checkpoint Continue Card
+                    val resumeLevel = savedLevel.coerceAtLeast(1)
+                    val checkpoints = remember(highestUnlockedLevel) { viewModel.getUnlockedCheckpoints() }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Surface(
+                            onClick = {
+                                if (lives > 0) {
+                                    viewModel.startGameFromCheckpoint(resumeLevel)
+                                } else {
+                                    viewModel.openLifeShop(true)
+                                }
+                            },
+                            shape = RoundedCornerShape(22.dp),
+                            color = if (lives > 0) Color(0xFF16A34A) else Color(0xFF7F1D1D),
+                            border = androidx.compose.foundation.BorderStroke(3.dp, if (lives > 0) Color(0xFFFEF08A) else Color(0xFFEF4444)),
+                            modifier = Modifier
+                                .scale(pulseScale)
+                                .shadow(16.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF22C55E))
+                                .testTag("start_play_button")
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "Level $currentLv Play",
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 18.sp,
-                                letterSpacing = 1.sp
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (lives > 0) Icons.Default.PlayArrow else Icons.Default.FavoriteBorder,
+                                    contentDescription = "Play",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Text(
+                                    text = if (lives > 0) {
+                                        if (resumeLevel > 1) "Resume Lv $resumeLevel ▶" else "Level 1 Play ▶"
+                                    } else {
+                                        "Out of Lives! (Refill ❤️)"
+                                    },
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 18.sp,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
+
+                        // 🚩 Checkpoint Quick Selector (If player unlocked higher checkpoints)
+                        if (checkpoints.size > 1) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "🚩 Checkpoints:",
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                checkpoints.takeLast(4).forEach { cp ->
+                                    Surface(
+                                        onClick = {
+                                            if (lives > 0) {
+                                                viewModel.startGameFromCheckpoint(cp)
+                                            } else {
+                                                viewModel.openLifeShop(true)
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (resumeLevel == cp) Color(0xFF2563EB) else Color(0xFF1E293B),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (resumeLevel == cp) Color(0xFF93C5FD) else Color(0xFF475569)
+                                        )
+                                    ) {
+                                        Text(
+                                            text = "Lv $cp",
+                                            color = if (resumeLevel == cp) Color.White else Color(0xFFCBD5E1),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -1164,6 +1260,7 @@ fun GameOverDialog(
     val gemsRun by viewModel.engine.gemsCollectedRun.collectAsState()
     val totalGems by viewModel.gems.collectAsState()
     val lives by viewModel.lives.collectAsState()
+    val savedLevel by viewModel.savedLevel.collectAsState()
     val isNewHigh by viewModel.engine.isNewHighScore.collectAsState()
     val lastNearMiss by viewModel.engine.lastNearMiss.collectAsState()
     val revivalsUsed by viewModel.engine.revivalsUsed.collectAsState()
@@ -1384,25 +1481,46 @@ fun GameOverDialog(
                     }
                 }
 
-                // Play Again / Life Restock Button
+                // Play Again / Checkpoint Retry / Life Restock Button
+                val checkpointLevel = savedLevel.coerceAtLeast(1)
                 if (lives > 0) {
-                    Button(
-                        onClick = { viewModel.engine.resetGame() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("game_over_retry_button")
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Retry", tint = Color.White)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "TRY AGAIN ($lives ❤️ LEFT)",
-                            color = Color.White,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
-                        )
+                        Button(
+                            onClick = { viewModel.startGameFromCheckpoint(checkpointLevel) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .testTag("game_over_retry_button")
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Retry", tint = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                if (checkpointLevel > 1) "CONTINUE LV $checkpointLevel ($lives ❤️ LEFT)" else "PLAY AGAIN ($lives ❤️ LEFT)",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        if (checkpointLevel > 1) {
+                            OutlinedButton(
+                                onClick = { viewModel.startGameFromCheckpoint(1) },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                                    .testTag("game_over_restart_level_1_button")
+                            ) {
+                                Text("Restart from Level 1", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 } else {
                     Button(
@@ -5573,6 +5691,7 @@ fun LifeShopDialog(
 ) {
     val lives by viewModel.lives.collectAsState()
     val gems by viewModel.gems.collectAsState()
+    val secondsUntilNextLife by viewModel.secondsUntilNextLife.collectAsState()
     val maxLives = viewModel.maxLives
     val packs = viewModel.lifeShopPacks
 
@@ -5648,24 +5767,56 @@ fun LifeShopDialog(
                         }
                     }
 
-                    // Gem Balance Pill
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color(0x661E293B),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
+                    // Gem Balance Pill & 20-Min Regen Timer Banner
+                    val regenMinutes = secondsUntilNextLife / 60
+                    val regenSeconds = secondsUntilNextLife % 60
+                    val formattedTimer = String.format(java.util.Locale.US, "%02d:%02d", regenMinutes, regenSeconds)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0x661E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Text(text = "💎 Your Gems:", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                            Text(
-                                text = "$gems",
-                                color = Color(0xFF38BDF8),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "💎 Gems:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                Text(
+                                    text = "$gems",
+                                    color = Color(0xFF38BDF8),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0x66831843),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFB7185)),
+                            modifier = Modifier.weight(1.3f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "⏱️ Regen:", color = Color(0xFFFDA4AF), fontSize = 11.sp)
+                                Text(
+                                    text = if (lives < maxLives) "+1 in $formattedTimer" else "Max Hearts Full",
+                                    color = if (lives < maxLives) Color(0xFFFDE047) else Color(0xFF6EE7B7),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
 

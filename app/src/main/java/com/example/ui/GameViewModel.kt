@@ -181,12 +181,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val blueGems: StateFlow<Int> = repository.blueGems
     val redGems: StateFlow<Int> = repository.redGems
     val highScore: StateFlow<Int> = repository.highScore
+    val savedLevel: StateFlow<Int> = repository.savedLevel
+    val highestUnlockedLevel: StateFlow<Int> = repository.highestUnlockedLevel
+    val secondsUntilNextLife: StateFlow<Long> = repository.secondsUntilNextLife
     val soundEnabled: StateFlow<Boolean> = repository.soundEnabled
     val hapticsEnabled: StateFlow<Boolean> = repository.hapticsEnabled
     val leftHandedMode: StateFlow<Boolean> = repository.leftHandedMode
     val highFrameRate: StateFlow<Boolean> = repository.highFrameRate
     val particleQualityUltra: StateFlow<Boolean> = repository.particleQualityUltra
     val screenShakeEnabled: StateFlow<Boolean> = repository.screenShakeEnabled
+
+    fun getUnlockedCheckpoints(): List<Int> = repository.getUnlockedCheckpoints()
+
+    fun startGameFromCheckpoint(level: Int) {
+        engine.startGame(startLevel = level)
+    }
 
     // Shop Currency Filter
     private val _shopCurrencyFilter = MutableStateFlow("ALL")

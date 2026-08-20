@@ -25,8 +25,8 @@ class ExampleUnitTest {
   @Test
   fun testDailyRewardAmounts() {
     assertEquals(7, GameRepository.DAILY_REWARD_AMOUNTS.size)
-    assertEquals(5, GameRepository.DAILY_REWARD_AMOUNTS[0])
-    assertEquals(50, GameRepository.DAILY_REWARD_AMOUNTS[6])
+    assertEquals(3, GameRepository.DAILY_REWARD_AMOUNTS[0])
+    assertEquals(35, GameRepository.DAILY_REWARD_AMOUNTS[6])
   }
 
   @Test
