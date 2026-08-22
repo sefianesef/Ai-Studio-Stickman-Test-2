@@ -530,6 +530,8 @@ class StickmanGameEngine(
                     spawnDust(stickmanX, floorY + 30f, count = 14)
                     stickmanFallVel = 50f
                     val funnyQuotes = listOf(
+                        "OH NO! OH NO! 😱",
+                        "OH NO NO NO NO! 🏃‍♂️💨",
                         "WHOOOPS! 🍌",
                         "AALLL THE WAY DOWNNN! 😱",
                         "WHEEEEEEE! 🪂",
@@ -538,7 +540,7 @@ class StickmanGameEngine(
                         "SEE YA! 🕳️",
                         "I CAN'T FLY! 🦅"
                     )
-                    addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.25f)
+                    addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.35f)
                     _gameState.value = GameState.DROPPING_FAIL
                     return
                 }
