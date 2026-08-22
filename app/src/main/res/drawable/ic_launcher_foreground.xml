@@ -1,87 +1,163 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- Glowing Gem in background -->
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M54,22 L66,34 L54,46 L42,34 Z" />
-    <path
-        android:fillColor="#34D399"
-        android:pathData="M54,26 L62,34 L54,42 L46,34 Z" />
-        
-    <!-- Golden Pillar Platform -->
-    <path
-        android:fillColor="#374151"
-        android:pathData="M24,70 L48,70 L48,108 L24,108 Z" />
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M24,70 L48,70 L48,73 L24,73 Z" />
 
-    <!-- Second Pillar -->
+    <!-- Speed Lines / Rush Streaks -->
     <path
-        android:fillColor="#374151"
-        android:pathData="M68,70 L92,70 L92,108 L68,108 Z" />
+        android:strokeColor="#10B981"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.4"
+        android:pathData="M20,38 L34,38" />
     <path
-        android:fillColor="#10B981"
-        android:pathData="M68,70 L92,70 L92,73 L68,73 Z" />
-        
-    <!-- Red Perfect Target Spot on Pillar 2 -->
+        android:strokeColor="#34D399"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.5"
+        android:pathData="M16,54 L30,54" />
     <path
-        android:fillColor="#EF4444"
-        android:pathData="M78,70 L82,70 L82,73 L78,73 Z" />
+        android:strokeColor="#10B981"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.4"
+        android:pathData="M22,70 L36,70" />
 
-    <!-- Glowing Bridge -->
+    <!-- Golden Arc Slash Outer Glow -->
     <path
-        android:fillColor="#F59E0B"
-        android:pathData="M46,68 L72,68 L72,71 L46,71 Z" />
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.35"
+        android:pathData="M60,40 C78,44 86,60 76,78" />
 
-    <!-- Stickman Head -->
+    <!-- Golden Arc Slash Mid Glow -->
     <path
-        android:fillColor="#F8FAFC"
-        android:pathData="M42,42 A6,6 0 1,1 42,30 A6,6 0 1,1 42,42" />
+        android:strokeColor="#FBBF24"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.8"
+        android:pathData="M61,41 C76,46 83,59 75,76" />
 
-    <!-- Hero Red Headband / Bandana -->
+    <!-- Golden Arc Slash Core Bright -->
     <path
-        android:fillColor="#EF4444"
-        android:pathData="M35,33 L49,33 L48,36 L36,36 Z" />
-    <!-- Bandana Tails flying -->
+        android:strokeColor="#FEF08A"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M62,42 C74,47 80,58 74,74" />
+
+    <!-- Magical Star Sparkles -->
     <path
-        android:fillColor="#EF4444"
-        android:pathData="M35,34 L26,31 L35,36 Z" />
+        android:fillColor="#FEF08A"
+        android:pathData="M81,46 L82.5,43 L84,46 L87,47.5 L84,49 L82.5,52 L81,49 L78,47.5 Z" />
+    <path
+        android:fillColor="#FDE047"
+        android:pathData="M85,62 L86,60 L87,62 L89,63 L87,64 L86,66 L85,64 L83,63 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M72,36 L73,34 L74,36 L76,37 L74,38 L73,40 L72,38 L70,37 Z" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M78,76 L79,74.5 L80,76 L81.5,77 L80,78 L79,79.5 L78,78 L76.5,77 Z" />
+
+    <!-- Hero Flowing Red Cape (Billowing Behind) -->
+    <path
+        android:fillColor="#B91C1C"
+        android:pathData="M48,50 C40,50 30,54 28,68 C34,68 38,62 44,66 C42,58 46,54 48,50 Z" />
     <path
         android:fillColor="#DC2626"
-        android:pathData="M35,35 L24,37 L35,37 Z" />
+        android:pathData="M48,49 C42,49 32,53 30,66 C36,65 40,60 46,63 C44,56 47,52 48,49 Z" />
+
+    <!-- Stickman Right Leg (Back Leg) & Boot -->
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="M48,64 L40,76" />
+    <!-- Back Boot -->
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M37,74 L42,75 L41,80 L35,80 C34,78 35,75 37,74 Z" />
+
+    <!-- Stickman Left Leg (Forward Dash Leg) & Boot -->
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:pathData="M48,64 L56,76" />
+    <!-- Front Boot -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M54,74 L59,75 L62,80 L54,80 C53,78 53,75 54,74 Z" />
 
     <!-- Stickman Body -->
     <path
-        android:fillColor="#F8FAFC"
-        android:pathData="M41,42 L43,42 L43,58 L41,58 Z" />
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M48,46 L48,64" />
 
-    <!-- Stickman Legs (Walking Stance) -->
+    <!-- Magic Wooden Staff / Blade -->
     <path
-        android:strokeColor="#F8FAFC"
+        android:strokeColor="#92400E"
         android:strokeWidth="2.5"
         android:strokeLineCap="round"
-        android:pathData="M42,57 L48,69" />
-    <path
-        android:strokeColor="#F8FAFC"
-        android:strokeWidth="2.5"
-        android:strokeLineCap="round"
-        android:pathData="M42,57 L36,69" />
+        android:pathData="M52,66 L70,42" />
 
-    <!-- Stickman Arms (Balancing) -->
+    <!-- Stickman Arms holding the staff -->
     <path
-        android:strokeColor="#F8FAFC"
-        android:strokeWidth="2.2"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.6"
         android:strokeLineCap="round"
-        android:pathData="M42,47 L52,52" />
+        android:pathData="M48,51 L56,58" />
     <path
-        android:strokeColor="#F8FAFC"
-        android:strokeWidth="2.2"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.6"
         android:strokeLineCap="round"
-        android:pathData="M42,47 L33,49" />
+        android:pathData="M48,51 L62,50" />
+
+    <!-- Stickman White Head -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,46 A7,7 0 1,1 48,32 A7,7 0 1,1 48,46" />
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="1.2"
+        android:pathData="M48,46 A7,7 0 1,1 48,32 A7,7 0 1,1 48,46" />
+
+    <!-- Happy Eyes & Smile -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M49,38 A0.9,0.9 0 1,1 49,36.2 A0.9,0.9 0 1,1 49,38" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M53,38 A0.9,0.9 0 1,1 53,36.2 A0.9,0.9 0 1,1 53,38" />
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:pathData="M49,41 Q51,43 53,41" />
+
+    <!-- Black Feather on Hat -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M54,32 C56,26 60,22 62,21 C61,24 59,28 56,32 Z" />
+
+    <!-- Hero Red Fedora Hat Crown -->
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M42,32 C43,26 53,25 56,31 Z" />
+    <!-- Hat Dark Ribbon -->
+    <path
+        android:fillColor="#7F1D1D"
+        android:pathData="M41,31 L57,30 L57,32.5 L41,33.5 Z" />
+    <!-- Hero Hat Brim -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M37,33 C42,30 58,29 63,33 C58,35 42,36 37,33 Z" />
+
 </vector>
+

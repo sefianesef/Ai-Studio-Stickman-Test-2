@@ -1,6 +1,6 @@
 {
-  "name": "Stickman Hero",
-  "description": "Stickman Hero: Physics Bridge Master - The ultimate precision bridge-building ninja arcade runner featuring dynamic physics, multi-currency boutique shop, 5-level milestone rewards, daily quests, tournaments, and lucky spin rewards.",
+  "name": "Stickman Rush",
+  "description": "Stickman Rush: Ultimate Physics Bridge Runner - Dash across perilous canyon chasms, time your extendable bridges, unlock legendary heroes with glowing power arcs, and conquer tournaments.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

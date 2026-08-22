@@ -66,28 +66,32 @@ fun ProfessionalMainMenuDialog(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFF1E293B),
-                            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+                            color = Color(0xFF0F2942),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF10B981)),
                             modifier = Modifier.size(48.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(text = "🥷", fontSize = 26.sp)
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.ic_launcher_foreground),
+                                    contentDescription = "Stickman Rush Logo",
+                                    modifier = Modifier.size(42.dp)
+                                )
                             }
                         }
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
-                                    text = "Stickman Hero",
+                                    text = "Stickman Rush",
                                     color = Color.White,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 16.sp
                                 )
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFF2563EB)
+                                    color = Color(0xFFE11D48)
                                 ) {
                                     Text(
-                                        text = "PRO",
+                                        text = "RUSH",
                                         color = Color.White,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Black,

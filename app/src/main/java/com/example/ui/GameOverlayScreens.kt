@@ -794,36 +794,62 @@ fun StartScreenOverlay(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                 ) {
-                    // Logo Icon
+                    // Logo Icon with Hero Stickman
                     Surface(
                         shape = RoundedCornerShape(22.dp),
-                        color = Color(0xFF0F172A),
-                        border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFF10B981)),
+                        color = Color(0xFF092B20),
+                        border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFF34D399)),
                         modifier = Modifier
-                            .size(72.dp)
-                            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF10B981))
+                            .size(76.dp)
+                            .shadow(16.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF10B981))
                     ) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "🥷", fontSize = 38.sp)
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.ic_launcher_foreground),
+                                contentDescription = "Stickman Rush Hero Icon",
+                                modifier = Modifier.size(68.dp)
+                            )
                         }
                     }
 
-                    // Title
-                    Text(
-                        text = "STICKMAN\nHERO",
-                        color = Color.White,
-                        fontSize = 32.sp,
-                        lineHeight = 36.sp,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center,
-                        letterSpacing = 2.sp,
-                        modifier = Modifier
-                            .shadow(12.dp, RoundedCornerShape(8.dp))
-                            .testTag("app_title_text")
-                    )
+                    // Title: STICKMAN RUSH
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.testTag("app_title_text")
+                    ) {
+                        Text(
+                            text = "STICKMAN",
+                            color = Color.White,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center,
+                            letterSpacing = 3.sp
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "⚡",
+                                fontSize = 20.sp
+                            )
+                            Text(
+                                text = "RUSH",
+                                color = Color(0xFFF43F5E),
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center,
+                                letterSpacing = 4.sp
+                            )
+                            Text(
+                                text = "⚡",
+                                fontSize = 20.sp
+                            )
+                        }
+                    }
 
                     // Real-Money Gem Shop Feature Card
                     Surface(

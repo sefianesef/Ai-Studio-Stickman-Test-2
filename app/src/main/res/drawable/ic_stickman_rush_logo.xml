@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="120dp"
+    android:viewportWidth="200"
+    android:viewportHeight="120">
+
+    <!-- Background Glow -->
+    <path
+        android:fillColor="#064E3B"
+        android:pathData="M10,20 Q100,5 190,20 Q195,60 190,100 Q100,115 10,100 Q5,60 10,20 Z" />
+
+    <!-- Golden Arc Slash -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.4"
+        android:pathData="M60,30 C95,35 110,65 95,95" />
+    <path
+        android:strokeColor="#FDE047"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M62,32 C92,37 106,64 93,92" />
+    <path
+        android:strokeColor="#FFFBEB"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M63,33 C89,38 102,63 91,89" />
+
+    <!-- Magic Star Sparkles -->
+    <path
+        android:fillColor="#FEF08A"
+        android:pathData="M105,42 L107,38 L109,42 L113,44 L109,46 L107,50 L105,46 L101,44 Z" />
+    <path
+        android:fillColor="#FDE047"
+        android:pathData="M108,68 L109.5,65 L111,68 L114,69.5 L111,71 L109.5,74 L108,71 L105,69.5 Z" />
+
+    <!-- Flowing Red Cape -->
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M44,48 C32,48 20,54 18,72 C26,70 32,64 40,68 C38,58 42,52 44,48 Z" />
+
+    <!-- Stickman Legs and Boots -->
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M46,68 L36,84" />
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M32,82 L38,83 L37,90 L30,90 C29,87 30,83 32,82 Z" />
+
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M46,68 L56,84" />
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M54,82 L60,83 L63,90 L54,90 C53,87 53,83 54,82 Z" />
+
+    <!-- Stickman Body -->
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M46,44 L46,68" />
+
+    <!-- Wooden Staff / Blade -->
+    <path
+        android:strokeColor="#92400E"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M52,72 L78,38" />
+
+    <!-- Stickman Arms -->
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M46,50 L58,60" />
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M46,50 L68,48" />
+
+    <!-- Stickman Head & Smile -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,44 A9,9 0 1,1 46,26 A9,9 0 1,1 46,44" />
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="1.5"
+        android:pathData="M46,44 A9,9 0 1,1 46,26 A9,9 0 1,1 46,44" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M47,34 A1.2,1.2 0 1,1 47,31.6 A1.2,1.2 0 1,1 47,34" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M52,34 A1.2,1.2 0 1,1 52,31.6 A1.2,1.2 0 1,1 52,34" />
+    <path
+        android:strokeColor="#0F172A"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M47,38 Q50,41 53,38" />
+
+    <!-- Feather & Red Fedora -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M54,26 C57,18 62,14 65,12 C64,16 61,21 57,26 Z" />
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M38,26 C40,18 53,17 57,25 Z" />
+    <path
+        android:fillColor="#7F1D1D"
+        android:pathData="M37,25 L58,24 L58,27.5 L37,28.5 Z" />
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M31,27 C38,23 60,22 66,27 C60,30 38,31 31,27 Z" />
+
+</vector>

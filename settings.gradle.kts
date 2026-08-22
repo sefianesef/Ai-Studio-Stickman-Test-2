@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Stickman Hero"
+rootProject.name = "Stickman Rush"
 
 include(":app")

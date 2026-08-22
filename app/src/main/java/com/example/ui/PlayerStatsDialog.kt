@@ -78,7 +78,7 @@ fun PlayerCareerStatsDialog(
                                 letterSpacing = 1.sp
                             )
                             Text(
-                                text = "Stickman Battle Records & Telemetry",
+                                text = "Stickman Rush Records & Telemetry",
                                 color = Color(0xFF94A3B8),
                                 fontSize = 11.sp
                             )
