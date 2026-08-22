@@ -110,6 +110,24 @@ class SoundManager(private val context: Context) {
                     }
                 }
 
+                val rawOhNoRes = try {
+                    context.resources.getIdentifier("oh_no", "raw", context.packageName)
+                } catch (_: Throwable) { 0 }
+
+                if (rawOhNoRes != 0) {
+                    try {
+                        val soundId = pool.load(context, rawOhNoRes, 1)
+                        soundIdMap["oh_no_voice"] = soundId
+                        soundIdMap["funny_voice_over"] = soundId
+                    } catch (_: Throwable) {
+                        registerSound("funny_voice_over", pcmOhNoVoice)
+                        registerSound("oh_no_voice", pcmOhNoVoice)
+                    }
+                } else {
+                    registerSound("funny_voice_over", pcmOhNoVoice)
+                    registerSound("oh_no_voice", pcmOhNoVoice)
+                }
+
                 registerSound("tick1", pcmTick1)
                 registerSound("tick2", pcmTick2)
                 registerSound("tick3", pcmTick3)
@@ -121,8 +139,6 @@ class SoundManager(private val context: Context) {
                 registerSound("flip", pcmFlip)
                 registerSound("fall", pcmFall)
                 registerSound("funny_fall", pcmFunnyFallingMusic)
-                registerSound("funny_voice_over", pcmOhNoVoice)
-                registerSound("oh_no_voice", pcmOhNoVoice)
                 registerSound("game_over", pcmGameOver)
                 registerSound("button", pcmButton)
                 registerSound("victory", pcmVictory)
@@ -223,9 +239,12 @@ class SoundManager(private val context: Context) {
     fun playPerfectHit() = play("perfect", pcmPerfect, volume = 1.00f)
     fun playFlip() = play("flip", pcmFlip, volume = 0.85f)
     fun playBridgeFall() = play("fall", pcmFall, volume = 0.90f)
-    fun playStickmanFall() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
+    fun playStickmanFall() {
+        play("oh_no_voice", pcmOhNoVoice, volume = 1.00f, priority = 10)
+        play("funny_fall", pcmFunnyFallingMusic, volume = 0.95f, priority = 9)
+    }
     fun playFunnyFallingMusic() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
-    fun playFunnyVoiceOver() = play("funny_voice_over", pcmOhNoVoice, volume = 1.00f, priority = 10)
+    fun playFunnyVoiceOver() = play("oh_no_voice", pcmOhNoVoice, volume = 1.00f, priority = 10)
     fun playOhNoVoice() = play("oh_no_voice", pcmOhNoVoice, volume = 1.00f, priority = 10)
     fun playGameOver() = play("game_over", pcmGameOver, volume = 0.95f)
     fun playWalkStep() = play("tick1", pcmTick1, volume = 0.35f)
