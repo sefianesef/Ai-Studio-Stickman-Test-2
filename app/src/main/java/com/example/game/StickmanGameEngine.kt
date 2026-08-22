@@ -687,6 +687,8 @@ class StickmanGameEngine(
                         soundManager.playStickmanFall()
                         hapticManager?.gameOver()
                         val funnyQuotes = listOf(
+                            "OH NO! OH NO! 😱",
+                            "OH NO NO NO NO! 🏃‍♂️💨",
                             "WHOOOPS! 🍌",
                             "AALLL THE WAY DOWNNN! 😱",
                             "GRAVITY: 1, STICKMAN: 0 💀",
@@ -695,7 +697,7 @@ class StickmanGameEngine(
                             "SEE YA! 🕳️",
                             "I CAN'T FLY! 🦅"
                         )
-                        addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.30f)
+                        addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.35f)
                         _gameState.value = GameState.DROPPING_FAIL
                     }
                 }
@@ -719,10 +721,11 @@ class StickmanGameEngine(
                 stickmanFallVel = fallState.velocityY
                 stickmanRotation = fallState.rotation
 
-                // Mid-air comedic floating reaction & panic dust at ~0.65s (slide whistle descending into trombone)
+                // Mid-air comedic floating reaction & panic dust at ~0.65s (voice-over crescendos into oh-no-no-no plunge)
                 if (fallElapsedTime >= 0.65f && !hasSpawnedMidFallReaction) {
                     hasSpawnedMidFallReaction = true
                     val midFallQuotes = listOf(
+                        "OH NO NO NO NO! 😱",
                         "AALLL THE WAY DOWNNN! 😱",
                         "GRAVITY: 1, STICKMAN: 0 💀",
                         "WHEEEEEEE! 🪂",
@@ -734,13 +737,13 @@ class StickmanGameEngine(
                         stickmanX,
                         (stickmanY - 30f).coerceAtMost(screenHeight - 140f),
                         Color(0xFFFBBF24),
-                        scale = 1.25f
+                        scale = 1.30f
                     )
                     spawnDust(stickmanX, stickmanY.coerceAtMost(screenHeight - 40f), count = 8)
                 }
 
-                // Allow the full cartoon sound sequence (slide whistle + sad trombone + spring boing) to play before game over
-                if (fallElapsedTime >= 2.10f && stickmanY > screenHeight + 50f) {
+                // Allow the full cartoon sound sequence (slide whistle + funny oh no voice + sad trombone + spring boing) to play before game over
+                if (fallElapsedTime >= 2.40f && stickmanY > screenHeight + 50f) {
                     // Deduct 1 life when stickman falls via persistent repository
                     repository.consumeLife()
 

@@ -48,6 +48,7 @@ class SoundManager(private val context: Context) {
     private val pcmFlip by lazy { generateSweep(startFreq = 320f, endFreq = 640f, durationSec = 0.08f) }
     private val pcmFall by lazy { generateSweep(startFreq = 420f, endFreq = 90f, durationSec = 0.28f) }
     private val pcmFunnyFallingMusic by lazy { generateFunnyFallingMusic() }
+    private val pcmOhNoVoice by lazy { generateOhNoVoiceOver() }
     private val pcmGameOver by lazy { generateMinorChord(durationSec = 0.45f) }
     private val pcmButton by lazy { generateTone(freq = 520f, durationSec = 0.05f, decayRate = 45f) }
     private val pcmVictory by lazy { generateFanfare(durationSec = 0.50f) }
@@ -120,6 +121,7 @@ class SoundManager(private val context: Context) {
                 registerSound("flip", pcmFlip)
                 registerSound("fall", pcmFall)
                 registerSound("funny_fall", pcmFunnyFallingMusic)
+                registerSound("oh_no_voice", pcmOhNoVoice)
                 registerSound("game_over", pcmGameOver)
                 registerSound("button", pcmButton)
                 registerSound("victory", pcmVictory)
@@ -222,6 +224,7 @@ class SoundManager(private val context: Context) {
     fun playBridgeFall() = play("fall", pcmFall, volume = 0.90f)
     fun playStickmanFall() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
     fun playFunnyFallingMusic() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
+    fun playOhNoVoice() = play("oh_no_voice", pcmOhNoVoice, volume = 1.00f, priority = 10)
     fun playGameOver() = play("game_over", pcmGameOver, volume = 0.95f)
     fun playWalkStep() = play("tick1", pcmTick1, volume = 0.35f)
     fun playButton() = play("button", pcmButton, volume = 0.80f)
@@ -420,11 +423,102 @@ class SoundManager(private val context: Context) {
             return pcmSamples
         }
 
-        private fun generateFunnyFallingMusic(): ShortArray {
-            val totalDurationSec = 2.15f
+        private fun generateOhNoVoiceOver(): ShortArray {
+            val totalDurationSec = 2.45f
             val totalSamples = (SAMPLE_RATE * totalDurationSec).toInt()
             val floatBuffer = FloatArray(totalSamples)
 
+            data class VocalSyllable(
+                val startSec: Float,
+                val durationSec: Float,
+                val startPitch: Float,
+                val endPitch: Float,
+                val isNasalStart: Boolean,
+                val tremoloRate: Float = 0f,
+                val tremoloDepth: Float = 0f,
+                val gain: Float = 1.0f
+            )
+
+            // High-pitched funny panic cartoon stickman voice: "Oh... No! Oh... No! Oh-No-No-No-Noooo!"
+            val syllables = listOf(
+                VocalSyllable(0.02f, 0.26f, 390f, 450f, isNasalStart = false, gain = 0.95f), // "OH"
+                VocalSyllable(0.28f, 0.32f, 490f, 380f, isNasalStart = true, gain = 1.00f),  // "NO!"
+                VocalSyllable(0.64f, 0.26f, 430f, 510f, isNasalStart = false, gain = 1.00f), // "OH"
+                VocalSyllable(0.92f, 0.32f, 550f, 420f, isNasalStart = true, gain = 1.05f),  // "NO!"
+                VocalSyllable(1.26f, 0.16f, 530f, 490f, isNasalStart = true, gain = 1.10f),  // "NO"
+                VocalSyllable(1.44f, 0.16f, 560f, 510f, isNasalStart = true, gain = 1.15f),  // "NO"
+                VocalSyllable(1.62f, 0.16f, 590f, 530f, isNasalStart = true, gain = 1.20f),  // "NO"
+                VocalSyllable(1.80f, 0.60f, 630f, 210f, isNasalStart = true, tremoloRate = 12f, tremoloDepth = 0.28f, gain = 1.25f) // "NOOOOOOO!" (screaming down)
+            )
+
+            for (syl in syllables) {
+                val startIdx = (syl.startSec * SAMPLE_RATE).toInt()
+                val sylSamples = (syl.durationSec * SAMPLE_RATE).toInt()
+                var phase = 0.0
+
+                for (i in 0 until sylSamples) {
+                    val idx = startIdx + i
+                    if (idx < totalSamples) {
+                        val t = i.toFloat() / SAMPLE_RATE
+                        val p = (t / syl.durationSec).coerceIn(0f, 1f)
+
+                        var currentF0 = syl.startPitch + (syl.endPitch - syl.startPitch) * (p * p)
+                        if (syl.tremoloRate > 0f) {
+                            currentF0 += sin(2.0 * PI * syl.tremoloRate * t).toFloat() * (currentF0 * 0.08f)
+                        }
+
+                        phase += 2.0 * PI * currentF0 / SAMPLE_RATE
+
+                        val isNasalPhase = syl.isNasalStart && (p < 0.20f)
+                        val f1 = if (isNasalPhase) 280f else 500f
+                        val f2 = if (isNasalPhase) 1600f else 950f
+                        val f3 = 2400f
+
+                        var voiceSample = 0f
+                        for (h in 1..10) {
+                            val hFreq = currentF0 * h
+                            if (hFreq < SAMPLE_RATE / 2) {
+                                val b1 = 90f
+                                val b2 = 120f
+                                val b3 = 220f
+                                val r1 = 1f / (1f + ((hFreq - f1) / b1).let { it * it })
+                                val r2 = 1f / (1f + ((hFreq - f2) / b2).let { it * it })
+                                val r3 = 1f / (1f + ((hFreq - f3) / b3).let { it * it })
+                                val formantWeight = (r1 * 0.70f + r2 * 0.45f + r3 * 0.20f) / (h * 0.6f + 0.4f)
+                                voiceSample += sin(phase * h).toFloat() * formantWeight
+                            }
+                        }
+
+                        val attack = (t / 0.03f).coerceIn(0f, 1f)
+                        val decay = ((1f - p) / 0.15f).coerceIn(0f, 1f)
+                        val tremoloEnv = 1f - syl.tremoloDepth * (1f + sin(2.0 * PI * 14.0 * t).toFloat()) * 0.5f
+                        val env = attack * decay * tremoloEnv * syl.gain
+
+                        floatBuffer[idx] += voiceSample * env * 0.85f
+                    }
+                }
+            }
+
+            val pcmSamples = ShortArray(totalSamples)
+            var maxPeak = 0.001f
+            for (v in floatBuffer) {
+                val absV = kotlin.math.abs(v)
+                if (absV > maxPeak) maxPeak = absV
+            }
+            val scale = (27000f / maxPeak).coerceAtMost(28000f)
+
+            for (i in 0 until totalSamples) {
+                pcmSamples[i] = (floatBuffer[i] * scale).toInt().coerceIn(-32767, 32767).toShort()
+            }
+            return pcmSamples
+        }
+
+        private fun generateFunnyFallingMusic(): ShortArray {
+            val totalDurationSec = 2.45f
+            val totalSamples = (SAMPLE_RATE * totalDurationSec).toInt()
+            val floatBuffer = FloatArray(totalSamples)
+
+            // 1. Cartoon Slide-Whistle Scream & Wobble (0.00s – 0.65s)
             val whistleDuration = 0.65f
             val whistleSamples = (SAMPLE_RATE * whistleDuration).toInt()
             var whistlePhase = 0.0
@@ -448,9 +542,16 @@ class SoundManager(private val context: Context) {
                     sin(whistlePhase * 3.0) * 0.04
                 ).toFloat()
 
-                floatBuffer[i] += sample * env * 0.90f
+                floatBuffer[i] += sample * env * 0.75f
             }
 
+            // 2. Funny Cartoon "Oh No! Oh No! Oh No No No No!" Voice-Over Layer (0.00s - 2.40s)
+            val voiceSamples = generateOhNoVoiceOver()
+            for (i in 0 until voiceSamples.size.coerceAtMost(totalSamples)) {
+                floatBuffer[i] += (voiceSamples[i] / 32768.0f) * 0.80f
+            }
+
+            // 3. Sad Trombone "Wah-Wah-Wah-Waaaaah" (0.60s – 2.10s)
             data class TromboneNote(
                 val startSec: Float,
                 val durationSec: Float,
@@ -504,13 +605,14 @@ class SoundManager(private val context: Context) {
                             sin(notePhase * 5.0) * 0.04
                         ).toFloat()
 
-                        floatBuffer[idx] += sample * env * 0.95f
+                        floatBuffer[idx] += sample * env * 0.85f
                     }
                 }
             }
 
-            val boingStartSec = 1.75f
-            val boingDurationSec = 0.38f
+            // 4. Cartoon Spring "Boing" & Splat (1.95s - 2.45s)
+            val boingStartSec = 1.95f
+            val boingDurationSec = 0.45f
             val boingStartIdx = (boingStartSec * SAMPLE_RATE).toInt()
             val boingSamples = (boingDurationSec * SAMPLE_RATE).toInt()
             var boingPhase = 0.0
@@ -524,9 +626,9 @@ class SoundManager(private val context: Context) {
                     val freq = 210f + springMod + (1f - p) * 60f
 
                     boingPhase += 2.0 * PI * freq / SAMPLE_RATE
-                    val env = (t / 0.01f).coerceIn(0f, 1f) * exp(-9.0f * t)
+                    val env = (t / 0.01f).coerceIn(0f, 1f) * exp(-8.0f * t)
                     val sample = sin(boingPhase).toFloat()
-                    floatBuffer[idx] += sample * env * 0.65f
+                    floatBuffer[idx] += sample * env * 0.70f
                 }
             }
 
