@@ -132,7 +132,7 @@ class SoundManager(private val context: Context) {
         }
     }
 
-    private fun play(key: String, fallbackSamples: ShortArray, volume: Float = 0.95f, rate: Float = 1.0f) {
+    private fun play(key: String, fallbackSamples: ShortArray, volume: Float = 0.95f, priority: Int = 1, rate: Float = 1.0f) {
         if (!soundEnabled) return
 
         initAudioEngines()
@@ -142,8 +142,8 @@ class SoundManager(private val context: Context) {
 
         if (pool != null && soundId != null && (isLoadedMap[soundId] == true)) {
             try {
-                pool.play(soundId, volume, volume, 1, 0, rate)
-                return
+                val streamId = pool.play(soundId, volume, volume, priority, 0, rate)
+                if (streamId != 0) return
             } catch (t: Throwable) {
                 Log.w("SoundManager", "SoundPool play error for $key", t)
             }
@@ -220,8 +220,8 @@ class SoundManager(private val context: Context) {
     fun playPerfectHit() = play("perfect", pcmPerfect, volume = 1.00f)
     fun playFlip() = play("flip", pcmFlip, volume = 0.85f)
     fun playBridgeFall() = play("fall", pcmFall, volume = 0.90f)
-    fun playStickmanFall() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f)
-    fun playFunnyFallingMusic() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f)
+    fun playStickmanFall() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
+    fun playFunnyFallingMusic() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
     fun playGameOver() = play("game_over", pcmGameOver, volume = 0.95f)
     fun playWalkStep() = play("tick1", pcmTick1, volume = 0.35f)
     fun playButton() = play("button", pcmButton, volume = 0.80f)

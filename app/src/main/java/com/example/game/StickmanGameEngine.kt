@@ -130,6 +130,8 @@ class StickmanGameEngine(
     private var isSuccessfulLanding = false
     private var isPerfectHit = false
     private var targetStickmanWalkX = 0f
+    private var fallElapsedTime = 0f
+    private var hasSpawnedMidFallReaction = false
 
     // Visual effects
     val particles = mutableListOf<Particle>()
@@ -191,6 +193,8 @@ class StickmanGameEngine(
         stickmanY = floorY
         stickmanFallVel = 0f
         stickmanRotation = 0f
+        fallElapsedTime = 0f
+        hasSpawnedMidFallReaction = false
         isUpsideDown = false
         walkPhase = 0f
         parallaxOffset = 0f
@@ -519,6 +523,8 @@ class StickmanGameEngine(
 
                 // Obstacle wall collision check (only fails if bridge was NOT landed safely and stickman walked into obstacle or fell off bridge end)
                 if (!isSuccessfulLanding && physicsEngine.checkPlatformWallCollision(stickmanX, isUpsideDown, nextPlatform.leftX)) {
+                    fallElapsedTime = 0f
+                    hasSpawnedMidFallReaction = false
                     soundManager.playStickmanFall()
                     hapticManager?.gameOver()
                     spawnDust(stickmanX, floorY + 30f, count = 14)
@@ -676,24 +682,28 @@ class StickmanGameEngine(
                         stickmanX = targetStickmanWalkX
                         bridgeAngularVel = 0f
                         stickmanFallVel = 0f
+                        fallElapsedTime = 0f
+                        hasSpawnedMidFallReaction = false
                         soundManager.playStickmanFall()
                         hapticManager?.gameOver()
                         val funnyQuotes = listOf(
                             "WHOOOPS! 🍌",
                             "AALLL THE WAY DOWNNN! 😱",
-                            "WHEEEEEEE! 🪂",
                             "GRAVITY: 1, STICKMAN: 0 💀",
+                            "WHEEEEEEE! 🪂",
                             "MY ANKLES! 💥",
                             "SEE YA! 🕳️",
                             "I CAN'T FLY! 🦅"
                         )
-                        addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.25f)
+                        addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.30f)
                         _gameState.value = GameState.DROPPING_FAIL
                     }
                 }
             }
 
             GameState.DROPPING_FAIL -> {
+                fallElapsedTime += clampedDt
+
                 if (bridgeAngle < PhysicsEngine.FAIL_DROP_ANGLE) {
                     bridgeAngle += 360f * clampedDt
                     if (bridgeAngle > PhysicsEngine.FAIL_DROP_ANGLE) bridgeAngle = PhysicsEngine.FAIL_DROP_ANGLE
@@ -709,7 +719,28 @@ class StickmanGameEngine(
                 stickmanFallVel = fallState.velocityY
                 stickmanRotation = fallState.rotation
 
-                if (stickmanY > screenHeight + 100f) {
+                // Mid-air comedic floating reaction & panic dust at ~0.65s (slide whistle descending into trombone)
+                if (fallElapsedTime >= 0.65f && !hasSpawnedMidFallReaction) {
+                    hasSpawnedMidFallReaction = true
+                    val midFallQuotes = listOf(
+                        "AALLL THE WAY DOWNNN! 😱",
+                        "GRAVITY: 1, STICKMAN: 0 💀",
+                        "WHEEEEEEE! 🪂",
+                        "WHOOOPS! 🍌",
+                        "NOT AGAIN! 😭"
+                    )
+                    addFloatingText(
+                        midFallQuotes.random(),
+                        stickmanX,
+                        (stickmanY - 30f).coerceAtMost(screenHeight - 140f),
+                        Color(0xFFFBBF24),
+                        scale = 1.25f
+                    )
+                    spawnDust(stickmanX, stickmanY.coerceAtMost(screenHeight - 40f), count = 8)
+                }
+
+                // Allow the full cartoon sound sequence (slide whistle + sad trombone + spring boing) to play before game over
+                if (fallElapsedTime >= 2.10f && stickmanY > screenHeight + 50f) {
                     // Deduct 1 life when stickman falls via persistent repository
                     repository.consumeLife()
 
