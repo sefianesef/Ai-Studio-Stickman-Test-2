@@ -25,6 +25,14 @@ class HapticManager(private val context: Context) {
         null
     }
 
+    private val hasHardwareVibrator: Boolean by lazy {
+        try {
+            vibrator != null && vibrator.hasVibrator()
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     var isEnabled: Boolean = true
 
     /**
@@ -32,7 +40,7 @@ class HapticManager(private val context: Context) {
      * with the difficulty tier and level tension!
      */
     fun tick(tierLevel: Int = 1) {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val duration = (5 + tierLevel * 2).toLong().coerceIn(6L, 18L)
@@ -56,7 +64,7 @@ class HapticManager(private val context: Context) {
      * Solid progressive impact when the bridge lands onto a platform
      */
     fun bridgePlaced(tierLevel: Int = 1) {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val duration = (18 + tierLevel * 4).toLong().coerceIn(18L, 42L)
@@ -73,7 +81,7 @@ class HapticManager(private val context: Context) {
      * Progressive celebratory rhythmic pulse for a precision center red-dot bullseye!
      */
     fun perfectHit(tierLevel: Int = 1) {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val baseAmp = (180 + tierLevel * 15).coerceIn(180, 255)
@@ -91,7 +99,7 @@ class HapticManager(private val context: Context) {
      * Subtle pulse warning when aligning timing on dynamic moving pillars
      */
     fun movingPillarWarning() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator.vibrate(VibrationEffect.createOneShot(10, 90))
@@ -106,7 +114,7 @@ class HapticManager(private val context: Context) {
      * Crisp light pop when collecting a gem
      */
     fun gemCollect() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
@@ -123,7 +131,7 @@ class HapticManager(private val context: Context) {
      * Quick flutter pulse when flipping upside down / upright
      */
     fun flip() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator.vibrate(VibrationEffect.createOneShot(12, 100))
@@ -138,7 +146,7 @@ class HapticManager(private val context: Context) {
      * Heavy rumble vibration on game over fall or wall crash
      */
     fun gameOver() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val timings = longArrayOf(0, 70, 50, 110)
@@ -155,7 +163,7 @@ class HapticManager(private val context: Context) {
      * Light UI interaction click
      */
     fun uiClick() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
@@ -172,7 +180,7 @@ class HapticManager(private val context: Context) {
      * Subtle pulse on near-miss close call
      */
     fun nearMiss() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val timings = longArrayOf(0, 20, 30, 60)
@@ -189,7 +197,7 @@ class HapticManager(private val context: Context) {
      * Exciting celebratory burst on leveling up and milestone reached
      */
     fun levelUp() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val timings = longArrayOf(0, 35, 45, 45, 45, 75)
@@ -206,7 +214,7 @@ class HapticManager(private val context: Context) {
      * Fanfare buzz when a daily mission is completed or claimed
      */
     fun missionClaim() {
-        if (!isEnabled || vibrator?.hasVibrator() != true) return
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val timings = longArrayOf(0, 40, 50, 40, 50, 80)

@@ -40,8 +40,9 @@ fun StickmanGameScreen(
     val isStart = gameState == GameState.START
     val isGameOver = gameState == GameState.GAMEOVER
 
-    // Increased startup delay before Daily Missions dialog appears (7.5 seconds) to allow player ample time to explore the start screen
+    // Play startup welcome melody and delay missions dialog
     LaunchedEffect(Unit) {
+        viewModel.soundManager.playStartupMelody()
         kotlinx.coroutines.delay(7500)
         // Only open if the user hasn't started playing immediately or opened another menu
         if (viewModel.engine.gameState.value == GameState.START && !viewModel.isShopOpen.value && !viewModel.isMainMenuOpen.value && !viewModel.isRealMoneyShopOpen.value) {
