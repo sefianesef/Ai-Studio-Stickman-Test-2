@@ -33,10 +33,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val purchaseVerifier = PurchaseVerificationService(application)
 
     val billingManager = BillingManager(application, viewModelScope).apply {
-        setOnPurchaseSuccessListener { productId ->
-            val verification = purchaseVerifier.verifyPurchase(productId, null)
+        setOnPurchaseSuccessListener { purchaseData ->
+            val verification = purchaseVerifier.verifyPurchase(
+                productId = purchaseData.productId,
+                purchaseToken = purchaseData.purchaseToken,
+                signature = purchaseData.signature,
+                signedData = purchaseData.originalJson
+            )
             if (verification.isValid) {
-                when (productId) {
+                when (purchaseData.productId) {
                     BillingManager.SKU_GEMS_TIER1 -> {
                         repository.addGems(100, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
                         soundManager.playBuyGemsSuccess()
@@ -72,6 +77,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         hapticManager.levelUp()
                     }
                 }
+            } else {
+                android.util.Log.e("GameViewModel", "REJECTED IAP: Verification failed for ${purchaseData.productId}: ${verification.message}")
             }
         }
     }
@@ -335,42 +342,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             1000, 1200 -> BillingManager.SKU_GEMS_TIER3
             else -> BillingManager.SKU_GEMS_TIER4
         }
-        val verification = purchaseVerifier.verifyPurchase(sku, null)
-        val token = verification.verificationToken
-        if (activity != null) {
-            billingManager.launchBillingFlow(activity, sku) {
-                val totalAwarded = pack.gemAmount + pack.bonusGems
-                repository.addGems(totalAwarded, CurrencySource.IN_APP_PURCHASE, token)
-                soundManager.playBuyGemsSuccess()
-                soundManager.playVictoryMusic()
-                hapticManager.levelUp()
-            }
-        } else {
-            val totalAwarded = pack.gemAmount + pack.bonusGems
-            repository.addGems(totalAwarded, CurrencySource.IN_APP_PURCHASE, token)
-            soundManager.playBuyGemsSuccess()
-            soundManager.playVictoryMusic()
-            hapticManager.levelUp()
+        if (activity == null) {
+            android.util.Log.e("GameViewModel", "Cannot launch Play Billing flow for $sku without foreground Activity.")
+            return false
         }
-        return true
+        soundManager.playButton()
+        hapticManager.uiClick()
+        return billingManager.launchBillingFlow(activity, sku)
     }
 
     fun buyLifePackRealMoney(pack: com.example.model.LifeShopPack, activity: Activity? = null): Boolean {
         val sku = BillingManager.SKU_LIFE_PACK_10
-        if (activity != null) {
-            billingManager.launchBillingFlow(activity, sku) {
-                engine.addLives(pack.livesCount)
-                soundManager.playBuyGemsSuccess()
-                soundManager.playVictoryMusic()
-                hapticManager.levelUp()
-            }
-        } else {
-            engine.addLives(pack.livesCount)
-            soundManager.playBuyGemsSuccess()
-            soundManager.playVictoryMusic()
-            hapticManager.levelUp()
+        if (activity == null) {
+            android.util.Log.e("GameViewModel", "Cannot launch Play Billing flow for $sku without foreground Activity.")
+            return false
         }
-        return true
+        soundManager.playButton()
+        hapticManager.uiClick()
+        return billingManager.launchBillingFlow(activity, sku)
     }
 
     val activeLevelVictory: StateFlow<com.example.model.LevelVictoryData?> = engine.activeLevelVictory

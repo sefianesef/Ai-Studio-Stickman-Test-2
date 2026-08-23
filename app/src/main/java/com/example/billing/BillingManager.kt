@@ -59,6 +59,14 @@ class BillingManager(
         )
     }
 
+    data class VerifiedPurchaseData(
+        val productId: String,
+        val purchaseToken: String,
+        val signature: String,
+        val originalJson: String,
+        val orderId: String?
+    )
+
     sealed class PurchaseEvent {
         data class Success(val productId: String, val purchaseToken: String) : PurchaseEvent()
         data class Failed(val errorCode: Int, val message: String) : PurchaseEvent()
@@ -76,13 +84,13 @@ class BillingManager(
     private val _purchaseEvents = MutableSharedFlow<PurchaseEvent>(extraBufferCapacity = 64)
     val purchaseEvents: SharedFlow<PurchaseEvent> = _purchaseEvents.asSharedFlow()
 
-    private var onPurchaseSuccessCallback: ((productId: String) -> Unit)? = null
+    private var onPurchaseSuccessCallback: ((purchaseData: VerifiedPurchaseData) -> Unit)? = null
 
     init {
         initializeBillingClient()
     }
 
-    fun setOnPurchaseSuccessListener(listener: (productId: String) -> Unit) {
+    fun setOnPurchaseSuccessListener(listener: (purchaseData: VerifiedPurchaseData) -> Unit) {
         onPurchaseSuccessCallback = listener
     }
 
@@ -175,9 +183,15 @@ class BillingManager(
     }
 
     /**
-     * Launch the Google Play Billing purchase sheet for a given product ID
+     * Launch the Google Play Billing purchase sheet for a given product ID.
+     * Returns true if Google Play checkout UI was launched, false otherwise.
+     * Does NEVER grant free items on failure.
      */
-    fun launchBillingFlow(activity: Activity, productId: String, onFallbackSuccess: (() -> Unit)? = null) {
+    fun launchBillingFlow(
+        activity: Activity,
+        productId: String,
+        onError: ((String) -> Unit)? = null
+    ): Boolean {
         val client = billingClient
         val details = _productDetailsMap.value[productId]
 
@@ -194,14 +208,24 @@ class BillingManager(
 
             val result = client.launchBillingFlow(activity, flowParams)
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                Log.w(TAG, "Launch billing flow error: ${result.debugMessage}")
-                // Fallback for offline or test sandbox
-                onFallbackSuccess?.invoke()
+                val errorMsg = result.debugMessage ?: "Billing launch failed (Code ${result.responseCode})"
+                Log.w(TAG, "Launch billing flow error: $errorMsg")
+                onError?.invoke(errorMsg)
+                coroutineScope.launch {
+                    _purchaseEvents.emit(PurchaseEvent.Failed(result.responseCode, errorMsg))
+                }
+                return false
             }
+            return true
         } else {
-            Log.i(TAG, "BillingClient not ready or product details not loaded yet. Executing direct purchase callback.")
-            onPurchaseSuccessCallback?.invoke(productId)
-            onFallbackSuccess?.invoke()
+            val errorMsg = "Google Play Store service is connecting. Please try again in a moment."
+            Log.w(TAG, "BillingClient not ready (client=$client, isReady=${client?.isReady}) or product details not loaded for $productId.")
+            onError?.invoke(errorMsg)
+            startBillingConnection()
+            coroutineScope.launch {
+                _purchaseEvents.emit(PurchaseEvent.Failed(BillingClient.BillingResponseCode.SERVICE_DISCONNECTED, errorMsg))
+            }
+            return false
         }
     }
 
@@ -224,7 +248,7 @@ class BillingManager(
                 Log.w(TAG, "Purchase failed: ${billingResult.responseCode} - ${billingResult.debugMessage}")
                 coroutineScope.launch {
                     _purchaseEvents.emit(
-                        PurchaseEvent.Failed(billingResult.responseCode, billingResult.debugMessage ?: "Unknown error")
+                        PurchaseEvent.Failed(billingResult.responseCode, billingResult.debugMessage ?: "Purchase error")
                     )
                 }
             }
@@ -236,12 +260,20 @@ class BillingManager(
 
         val products = purchase.products
         for (productId in products) {
-            Log.d(TAG, "Processing purchase for product: $productId")
+            Log.d(TAG, "Processing purchase for product: $productId, token: ${purchase.purchaseToken.take(12)}...")
             
-            // Dispatch grant
+            val purchaseData = VerifiedPurchaseData(
+                productId = productId,
+                purchaseToken = purchase.purchaseToken,
+                signature = purchase.signature,
+                originalJson = purchase.originalJson,
+                orderId = purchase.orderId
+            )
+
+            // Dispatch grant to secure verification callback
             coroutineScope.launch {
                 withContext(Dispatchers.Main) {
-                    onPurchaseSuccessCallback?.invoke(productId)
+                    onPurchaseSuccessCallback?.invoke(purchaseData)
                     _purchaseEvents.emit(PurchaseEvent.Success(productId, purchase.purchaseToken))
                 }
             }

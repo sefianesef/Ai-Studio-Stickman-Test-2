@@ -18,11 +18,11 @@ import com.example.model.RivalGhost
 import com.example.model.TournamentLeague
 import com.example.model.WeeklyMissionItem
 import com.example.security.AdServerSideVerificationManager
+import com.example.security.CloudBackendCurrencyAuthority
 import com.example.security.CurrencySource
 import com.example.security.CurrencyTransactionRequest
 import com.example.security.EncryptedSaveStorage
 import com.example.security.IServerCurrencyAuthority
-import com.example.security.ProductionServerCurrencyAuthority
 import com.example.security.SecureCurrencyVault
 import com.example.security.SecureTimeAuthority
 import com.example.security.ServerVerificationResult
@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 class GameRepository(
     context: Context,
     private val database: AppDatabase = AppDatabase.getDatabase(context),
-    val serverAuthority: IServerCurrencyAuthority = ProductionServerCurrencyAuthority(context)
+    val serverAuthority: IServerCurrencyAuthority = CloudBackendCurrencyAuthority(context)
 ) : CurrencyRepository {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val playerProfileDao = database.playerProfileDao()

@@ -1,5 +1,8 @@
 package com.example.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -35,6 +38,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
 import com.example.model.CurrencyType
@@ -53,6 +58,15 @@ import com.example.model.LeaderboardEntry
 import com.example.model.TournamentLeague
 import kotlin.math.cos
 import kotlin.math.sin
+
+internal fun Context.findActivity(): Activity? {
+    var current = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
+}
 
 @Composable
 fun GameHud(
@@ -3372,6 +3386,8 @@ fun GemVaultContent(
     viewModel: GameViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val gemPacks = viewModel.availableGemPacks
     val isDailyFreeAvailable = viewModel.isDailyFreeGemsAvailable()
     var selectedPackForCheckout by remember { mutableStateOf<GemPack?>(null) }
@@ -3560,7 +3576,7 @@ fun GemVaultContent(
         RealMoneyIapCheckoutDialog(
             pack = pack,
             onConfirmPurchase = {
-                viewModel.buyGemPackRealMoney(pack)
+                viewModel.buyGemPackRealMoney(pack, activity)
                 selectedPackForCheckout = null
             },
             onDismiss = { selectedPackForCheckout = null }
@@ -4823,6 +4839,8 @@ fun OutOfGemsSpecialOfferDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val gems by viewModel.gems.collectAsState()
     val reviveCost = viewModel.engine.getReviveCost()
     val neededGems = (reviveCost - gems).coerceAtLeast(1)
@@ -5154,7 +5172,7 @@ fun OutOfGemsSpecialOfferDialog(
         RealMoneyIapCheckoutDialog(
             pack = pack,
             onConfirmPurchase = {
-                viewModel.buyGemPackRealMoney(pack)
+                viewModel.buyGemPackRealMoney(pack, activity)
                 selectedPackForCheckout = null
                 onDismiss()
                 // Auto revive player if they now have enough gems
@@ -5173,6 +5191,8 @@ fun RealMoneyGemShopDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val gemPacks = viewModel.availableGemPacks
     val currentGems by viewModel.gems.collectAsState()
     val isDailyFreeAvailable = viewModel.isDailyFreeGemsAvailable()
@@ -5491,7 +5511,7 @@ fun RealMoneyGemShopDialog(
         RealMoneyIapCheckoutDialog(
             pack = pack,
             onConfirmPurchase = {
-                viewModel.buyGemPackRealMoney(pack)
+                viewModel.buyGemPackRealMoney(pack, activity)
                 selectedPackForCheckout = null
             },
             onDismiss = { selectedPackForCheckout = null }
@@ -5719,6 +5739,8 @@ fun LifeShopDialog(
     viewModel: GameViewModel,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val lives by viewModel.lives.collectAsState()
     val gems by viewModel.gems.collectAsState()
     val secondsUntilNextLife by viewModel.secondsUntilNextLife.collectAsState()
@@ -6082,7 +6104,7 @@ fun LifeShopDialog(
                         }
                         Button(
                             onClick = {
-                                viewModel.buyLifePack(pack)
+                                viewModel.buyLifePackRealMoney(pack, activity)
                                 selectedPackForCheckout = null
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
