@@ -283,13 +283,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun getAdSpinsCount(): Int = repository.getAdSpinsCount()
     fun hasAvailableSpin(): Boolean = repository.hasAvailableSpin()
 
-    fun watchAdForSpin(onAdComplete: () -> Unit) {
+    fun watchAdForSpin(onAdComplete: (Boolean) -> Unit) {
         soundManager.playButton()
         hapticManager.uiClick()
-        repository.grantAdRewardSpin()
-        soundManager.playBuyGemsSuccess()
-        hapticManager.missionClaim()
-        onAdComplete()
+        val adSession = repository.adSsvManager.createAdSession(adUnitId = "rewarded_spin_ad")
+        val success = repository.verifyAndGrantAdReward(adSession, 1)
+        if (success) {
+            soundManager.playBuyGemsSuccess()
+            hapticManager.missionClaim()
+        }
+        onAdComplete(success)
     }
 
     fun buySpinsWithGems(gemCost: Int, spinsCount: Int): Boolean {

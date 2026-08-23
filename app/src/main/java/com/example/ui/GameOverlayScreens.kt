@@ -4597,8 +4597,12 @@ fun LuckySpinWheelDialog(
                             adNotice = "📺 Watching sponsored video ad..."
                             coroutineScope.launch {
                                 kotlinx.coroutines.delay(1800)
-                                viewModel.watchAdForSpin {
-                                    adNotice = "🎟️ Ad completed! +1 Bonus Spin added!"
+                                viewModel.watchAdForSpin { isVerified ->
+                                    adNotice = if (isVerified) {
+                                        "🎟️ Ad SSV verified! +1 Bonus Spin added!"
+                                    } else {
+                                        "⚠️ Ad verification failed or spoofed callback."
+                                    }
                                 }
                                 isWatchingAd = false
                             }

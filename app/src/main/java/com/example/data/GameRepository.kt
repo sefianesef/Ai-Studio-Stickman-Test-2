@@ -17,11 +17,14 @@ import com.example.model.PlayerCareerStats
 import com.example.model.RivalGhost
 import com.example.model.TournamentLeague
 import com.example.model.WeeklyMissionItem
+import com.example.security.AdServerSideVerificationManager
 import com.example.security.CurrencySource
 import com.example.security.CurrencyTransactionRequest
+import com.example.security.EncryptedSaveStorage
 import com.example.security.IServerCurrencyAuthority
 import com.example.security.ProductionServerCurrencyAuthority
 import com.example.security.SecureCurrencyVault
+import com.example.security.SecureTimeAuthority
 import com.example.security.ServerVerificationResult
 import com.example.security.TransactionType
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +47,10 @@ class GameRepository(
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("STICKMAN_HERO_DATA", Context.MODE_PRIVATE)
+
+    val timeAuthority = SecureTimeAuthority(context)
+    val adSsvManager = AdServerSideVerificationManager(context)
+    val encryptedStorage = EncryptedSaveStorage(context, "STICKMAN_HERO_SECURE_VAULT")
 
     companion object {
         private const val KEY_GEMS = "GEMS"
@@ -852,7 +859,7 @@ class GameRepository(
      */
     fun recalculateRegeneratingLives() {
         val currentLives = _lives.value
-        val now = System.currentTimeMillis()
+        val now = timeAuthority.getCurrentTimeMs()
         if (currentLives >= MAX_LIVES) {
             _lastLifeRegenTime.value = now
             _secondsUntilNextLife.value = 0L
@@ -892,7 +899,7 @@ class GameRepository(
                 kotlinx.coroutines.delay(1000L)
                 val currentLives = _lives.value
                 if (currentLives < MAX_LIVES) {
-                    val now = System.currentTimeMillis()
+                    val now = timeAuthority.getCurrentTimeMs()
                     val lastRegen = _lastLifeRegenTime.value
                     val elapsedMs = (now - lastRegen).coerceAtLeast(0L)
                     if (elapsedMs >= LIFE_REGEN_INTERVAL_MS) {
@@ -916,7 +923,7 @@ class GameRepository(
             _lives.value = next
             if (current == MAX_LIVES) {
                 // Was previously at max, so start regeneration timer from now
-                val now = System.currentTimeMillis()
+                val now = timeAuthority.getCurrentTimeMs()
                 _lastLifeRegenTime.value = now
                 _secondsUntilNextLife.value = LIFE_REGEN_INTERVAL_MS / 1000L
                 prefs.edit()
@@ -932,10 +939,11 @@ class GameRepository(
     }
 
     fun addLives(count: Int) {
+        if (count <= 0) return
         val newLives = (_lives.value + count).coerceAtLeast(0)
         _lives.value = newLives
         if (newLives >= MAX_LIVES) {
-            _lastLifeRegenTime.value = System.currentTimeMillis()
+            _lastLifeRegenTime.value = timeAuthority.getCurrentTimeMs()
             _secondsUntilNextLife.value = 0L
         }
         prefs.edit()
@@ -946,7 +954,7 @@ class GameRepository(
 
     fun refillMaxLives() {
         _lives.value = MAX_LIVES
-        _lastLifeRegenTime.value = System.currentTimeMillis()
+        _lastLifeRegenTime.value = timeAuthority.getCurrentTimeMs()
         _secondsUntilNextLife.value = 0L
         prefs.edit()
             .putInt(KEY_LIVES_COUNT, MAX_LIVES)
@@ -1091,9 +1099,9 @@ class GameRepository(
 
     private fun getTodayEpochDay(): Long {
         return try {
-            System.currentTimeMillis() / (1000L * 60 * 60 * 24)
+            timeAuthority.getAuthoritativeEpochDay()
         } catch (_: Throwable) {
-            0L
+            System.currentTimeMillis() / (1000L * 60 * 60 * 24)
         }
     }
 
@@ -1508,8 +1516,9 @@ class GameRepository(
     }
 
     override fun spendBlueGems(amount: Int): Boolean {
-        if (_blueGems.value >= amount) {
-            val newGems = _blueGems.value - amount
+        if (amount <= 0) return false
+        val (success, newGems) = currencyVault.spendBlueGemsSecurely(_blueGems.value, amount)
+        if (success) {
             _blueGems.value = newGems
             prefs.edit().putInt(KEY_BLUE_GEMS, newGems).apply()
             saveIntegritySignature()
@@ -1519,6 +1528,7 @@ class GameRepository(
     }
 
     override fun addRedGems(amount: Int) {
+        if (amount <= 0) return
         val newGems = (_redGems.value + amount).coerceAtLeast(0)
         _redGems.value = newGems
         val totalEarned = prefs.getInt(KEY_TOTAL_RED_GEMS_EARNED, 0) + amount
@@ -1530,8 +1540,9 @@ class GameRepository(
     }
 
     override fun spendRedGems(amount: Int): Boolean {
-        if (_redGems.value >= amount) {
-            val newGems = _redGems.value - amount
+        if (amount <= 0) return false
+        val (success, newGems) = currencyVault.spendRedGemsSecurely(_redGems.value, amount)
+        if (success) {
             _redGems.value = newGems
             prefs.edit().putInt(KEY_RED_GEMS, newGems).apply()
             saveIntegritySignature()
@@ -1781,13 +1792,25 @@ class GameRepository(
         return isDailyFreeSpinAvailable() || _adEarnedSpins.value > 0
     }
 
-    fun grantAdRewardSpin(count: Int = 1) {
+    fun grantAdRewardSpin(count: Int = 1, ssvVerificationToken: String? = null) {
+        if (count <= 0) return
         val current = _adEarnedSpins.value + count
         _adEarnedSpins.value = current
         prefs.edit().putInt("AD_EARNED_SPINS", current).apply()
     }
 
+    fun verifyAndGrantAdReward(adSession: AdServerSideVerificationManager.AdSSVChallenge, spinsToGrant: Int = 1): Boolean {
+        if (spinsToGrant <= 0) return false
+        val verification = adSsvManager.verifyAdRewardCallback(adSession)
+        if (verification.isVerified) {
+            grantAdRewardSpin(spinsToGrant, verification.verificationToken)
+            return true
+        }
+        return false
+    }
+
     fun buySpinsWithGems(gemCost: Int, spinsCount: Int): Boolean {
+        if (gemCost <= 0 || spinsCount <= 0) return false
         if (spendGems(gemCost)) {
             grantAdRewardSpin(spinsCount)
             return true

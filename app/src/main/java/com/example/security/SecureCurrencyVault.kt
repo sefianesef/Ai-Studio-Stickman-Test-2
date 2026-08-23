@@ -185,16 +185,41 @@ class SecureCurrencyVault(private val context: Context) {
     }
 
     /**
-     * Validates and applies a currency deduction.
+     * Validates and applies a currency deduction with strict underflow & negative cost rejection.
      */
     @Synchronized
     fun spendGemsSecurely(currentBalance: Int, amount: Int): Pair<Boolean, Int> {
-        if (amount <= 0) return Pair(true, currentBalance)
+        // Strict boundary check: Reject negative or zero cost attempts to prevent underflow exploits
+        if (amount <= 0) {
+            Log.e(TAG, "ANTI-UNDERFLOW REJECT: Attempted to spend non-positive amount: $amount")
+            return Pair(false, currentBalance)
+        }
         if (currentBalance < amount) {
+            Log.w(TAG, "INSUFFICIENT FUNDS: Balance ($currentBalance) < required cost ($amount)")
             return Pair(false, currentBalance)
         }
         val newBalance = currentBalance - amount
         obfuscatedGems.set(newBalance)
+        return Pair(true, newBalance)
+    }
+
+    @Synchronized
+    fun spendBlueGemsSecurely(currentBalance: Int, amount: Int): Pair<Boolean, Int> {
+        if (amount <= 0 || currentBalance < amount) {
+            return Pair(false, currentBalance)
+        }
+        val newBalance = currentBalance - amount
+        obfuscatedBlueGems.set(newBalance)
+        return Pair(true, newBalance)
+    }
+
+    @Synchronized
+    fun spendRedGemsSecurely(currentBalance: Int, amount: Int): Pair<Boolean, Int> {
+        if (amount <= 0 || currentBalance < amount) {
+            return Pair(false, currentBalance)
+        }
+        val newBalance = currentBalance - amount
+        obfuscatedRedGems.set(newBalance)
         return Pair(true, newBalance)
     }
 

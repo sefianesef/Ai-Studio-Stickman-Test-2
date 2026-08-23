@@ -56,4 +56,23 @@
 -keepclassmembers class com.example.security.ObfuscatedInt {
     public <methods>;
 }
+-keepclassmembers class com.example.security.SecureTimeAuthority {
+    public <methods>;
+}
+-keepclassmembers class com.example.security.EncryptedSaveStorage {
+    public <methods>;
+}
+-keepclassmembers class com.example.security.AdServerSideVerificationManager {
+    public <methods>;
+}
+-keepclassmembers class com.example.security.ServerCurrencyAuthority {
+    public <methods>;
+}
+
+# Strip Android Log calls in release builds to prevent symbol leakage
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+}
 
