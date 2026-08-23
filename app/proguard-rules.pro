@@ -12,10 +12,25 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep line numbers for debugging
+-keepattributes SourceFile,LineNumberTable
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Google Play Billing Client
+-keep class com.android.billingclient.api.** { *; }
+-dontwarn com.android.billingclient.api.**
+
+# AndroidX Room
+-keep class androidx.room.** { *; }
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**
+
+# Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler { *; }
+-keepclassmembers class kotlinx.coroutines.** {
+    volatile <fields>;
+}
+
+# Android Jetpack Compose & State
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**

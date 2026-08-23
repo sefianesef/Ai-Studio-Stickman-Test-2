@@ -1,10 +1,12 @@
 package com.example.ui
 
+import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.audio.HapticManager
 import com.example.audio.SoundManager
+import com.example.billing.BillingManager
 import com.example.data.GameRepository
 import com.example.data.local.entity.DailyMissionEntity
 import com.example.game.StickmanGameEngine
@@ -24,6 +26,47 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val soundManager = SoundManager(application).apply {
         soundEnabled = repository.soundEnabled.value
         hapticsEnabled = repository.hapticsEnabled.value
+    }
+
+    val billingManager = BillingManager(application, viewModelScope).apply {
+        setOnPurchaseSuccessListener { productId ->
+            when (productId) {
+                BillingManager.SKU_GEMS_TIER1 -> {
+                    repository.addGems(100)
+                    soundManager.playBuyGemsSuccess()
+                    hapticManager.levelUp()
+                }
+                BillingManager.SKU_GEMS_TIER2 -> {
+                    repository.addGems(550)
+                    soundManager.playBuyGemsSuccess()
+                    hapticManager.levelUp()
+                }
+                BillingManager.SKU_GEMS_TIER3 -> {
+                    repository.addGems(1200)
+                    soundManager.playBuyGemsSuccess()
+                    hapticManager.levelUp()
+                }
+                BillingManager.SKU_GEMS_TIER4 -> {
+                    repository.addGems(3000)
+                    soundManager.playBuyGemsSuccess()
+                    hapticManager.levelUp()
+                }
+                BillingManager.SKU_LIFE_PACK_10 -> {
+                    engine.addLives(10)
+                    soundManager.playBuyGemsSuccess()
+                    hapticManager.levelUp()
+                }
+                BillingManager.SKU_VIP_PASS -> {
+                    repository.addGems(5000)
+                    soundManager.playVictoryMusic()
+                    hapticManager.levelUp()
+                }
+                BillingManager.SKU_REMOVE_ADS -> {
+                    soundManager.playBuyGemsSuccess()
+                    hapticManager.levelUp()
+                }
+            }
+        }
     }
 
     val engine = StickmanGameEngine(
@@ -275,12 +318,46 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return success
     }
 
-    fun buyGemPackRealMoney(pack: com.example.model.GemPack): Boolean {
-        val totalAwarded = pack.gemAmount + pack.bonusGems
-        repository.addGems(totalAwarded)
-        soundManager.playBuyGemsSuccess()
-        soundManager.playVictoryMusic()
-        hapticManager.levelUp()
+    fun buyGemPackRealMoney(pack: com.example.model.GemPack, activity: Activity? = null): Boolean {
+        val sku = when (pack.gemAmount) {
+            100 -> BillingManager.SKU_GEMS_TIER1
+            500, 550 -> BillingManager.SKU_GEMS_TIER2
+            1000, 1200 -> BillingManager.SKU_GEMS_TIER3
+            else -> BillingManager.SKU_GEMS_TIER4
+        }
+        if (activity != null) {
+            billingManager.launchBillingFlow(activity, sku) {
+                val totalAwarded = pack.gemAmount + pack.bonusGems
+                repository.addGems(totalAwarded)
+                soundManager.playBuyGemsSuccess()
+                soundManager.playVictoryMusic()
+                hapticManager.levelUp()
+            }
+        } else {
+            val totalAwarded = pack.gemAmount + pack.bonusGems
+            repository.addGems(totalAwarded)
+            soundManager.playBuyGemsSuccess()
+            soundManager.playVictoryMusic()
+            hapticManager.levelUp()
+        }
+        return true
+    }
+
+    fun buyLifePackRealMoney(pack: com.example.model.LifeShopPack, activity: Activity? = null): Boolean {
+        val sku = BillingManager.SKU_LIFE_PACK_10
+        if (activity != null) {
+            billingManager.launchBillingFlow(activity, sku) {
+                engine.addLives(pack.livesCount)
+                soundManager.playBuyGemsSuccess()
+                soundManager.playVictoryMusic()
+                hapticManager.levelUp()
+            }
+        } else {
+            engine.addLives(pack.livesCount)
+            soundManager.playBuyGemsSuccess()
+            soundManager.playVictoryMusic()
+            hapticManager.levelUp()
+        }
         return true
     }
 
@@ -604,6 +681,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        billingManager.endConnection()
         soundManager.release()
     }
 }

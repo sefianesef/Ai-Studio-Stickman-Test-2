@@ -110,40 +110,42 @@ class SoundManager(private val context: Context) {
                     }
                 }
 
-                val rawOhNoRes = try {
-                    context.resources.getIdentifier("oh_no", "raw", context.packageName)
-                } catch (_: Throwable) { 0 }
+                fun loadOrRegister(key: String, rawResName: String, fallbackSamples: ShortArray) {
+                    val rawResId = try {
+                        context.resources.getIdentifier(rawResName, "raw", context.packageName)
+                    } catch (_: Throwable) { 0 }
 
-                if (rawOhNoRes != 0) {
-                    try {
-                        val soundId = pool.load(context, rawOhNoRes, 1)
-                        soundIdMap["oh_no_voice"] = soundId
-                        soundIdMap["funny_voice_over"] = soundId
-                    } catch (_: Throwable) {
-                        registerSound("funny_voice_over", pcmOhNoVoice)
-                        registerSound("oh_no_voice", pcmOhNoVoice)
+                    if (rawResId != 0) {
+                        try {
+                            val soundId = pool.load(context, rawResId, 1)
+                            soundIdMap[key] = soundId
+                            return
+                        } catch (e: Throwable) {
+                            Log.w("SoundManager", "Error loading raw res $rawResName", e)
+                        }
                     }
-                } else {
-                    registerSound("funny_voice_over", pcmOhNoVoice)
-                    registerSound("oh_no_voice", pcmOhNoVoice)
+                    registerSound(key, fallbackSamples)
                 }
 
-                registerSound("tick1", pcmTick1)
-                registerSound("tick2", pcmTick2)
-                registerSound("tick3", pcmTick3)
-                registerSound("tick4", pcmTick4)
-                registerSound("bridge_land", pcmBridgeLand)
-                registerSound("stickman_land", pcmStickmanLand)
-                registerSound("gem", pcmGem)
-                registerSound("perfect", pcmPerfect)
-                registerSound("flip", pcmFlip)
-                registerSound("fall", pcmFall)
-                registerSound("funny_fall", pcmFunnyFallingMusic)
-                registerSound("game_over", pcmGameOver)
-                registerSound("button", pcmButton)
-                registerSound("victory", pcmVictory)
-                registerSound("buy_success", pcmBuySuccess)
-                registerSound("startup", pcmStartupMelody)
+                loadOrRegister("oh_no_voice", "oh_no", pcmOhNoVoice)
+                soundIdMap["funny_voice_over"] = soundIdMap["oh_no_voice"] ?: 0
+
+                loadOrRegister("tick1", "button_click", pcmTick1)
+                loadOrRegister("tick2", "button_click", pcmTick2)
+                loadOrRegister("tick3", "button_click", pcmTick3)
+                loadOrRegister("tick4", "button_click", pcmTick4)
+                loadOrRegister("bridge_land", "bridge_land", pcmBridgeLand)
+                loadOrRegister("stickman_land", "stickman_land", pcmStickmanLand)
+                loadOrRegister("gem", "gem_collect", pcmGem)
+                loadOrRegister("perfect", "perfect_hit", pcmPerfect)
+                loadOrRegister("flip", "flip", pcmFlip)
+                loadOrRegister("fall", "game_over", pcmFall)
+                loadOrRegister("funny_fall", "funny_fall", pcmFunnyFallingMusic)
+                loadOrRegister("game_over", "game_over", pcmGameOver)
+                loadOrRegister("button", "button_click", pcmButton)
+                loadOrRegister("victory", "victory", pcmVictory)
+                loadOrRegister("buy_success", "buy_success", pcmBuySuccess)
+                loadOrRegister("startup", "victory", pcmStartupMelody)
 
             } catch (t: Throwable) {
                 Log.w("SoundManager", "SoundPool initialization error", t)
