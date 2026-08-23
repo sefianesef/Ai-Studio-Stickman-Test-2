@@ -12,6 +12,8 @@ import com.example.data.local.entity.DailyMissionEntity
 import com.example.game.StickmanGameEngine
 import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
+import com.example.security.CurrencySource
+import com.example.security.PurchaseVerificationService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,42 +30,47 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         hapticsEnabled = repository.hapticsEnabled.value
     }
 
+    private val purchaseVerifier = PurchaseVerificationService(application)
+
     val billingManager = BillingManager(application, viewModelScope).apply {
         setOnPurchaseSuccessListener { productId ->
-            when (productId) {
-                BillingManager.SKU_GEMS_TIER1 -> {
-                    repository.addGems(100)
-                    soundManager.playBuyGemsSuccess()
-                    hapticManager.levelUp()
-                }
-                BillingManager.SKU_GEMS_TIER2 -> {
-                    repository.addGems(550)
-                    soundManager.playBuyGemsSuccess()
-                    hapticManager.levelUp()
-                }
-                BillingManager.SKU_GEMS_TIER3 -> {
-                    repository.addGems(1200)
-                    soundManager.playBuyGemsSuccess()
-                    hapticManager.levelUp()
-                }
-                BillingManager.SKU_GEMS_TIER4 -> {
-                    repository.addGems(3000)
-                    soundManager.playBuyGemsSuccess()
-                    hapticManager.levelUp()
-                }
-                BillingManager.SKU_LIFE_PACK_10 -> {
-                    engine.addLives(10)
-                    soundManager.playBuyGemsSuccess()
-                    hapticManager.levelUp()
-                }
-                BillingManager.SKU_VIP_PASS -> {
-                    repository.addGems(5000)
-                    soundManager.playVictoryMusic()
-                    hapticManager.levelUp()
-                }
-                BillingManager.SKU_REMOVE_ADS -> {
-                    soundManager.playBuyGemsSuccess()
-                    hapticManager.levelUp()
+            val verification = purchaseVerifier.verifyPurchase(productId, null)
+            if (verification.isValid) {
+                when (productId) {
+                    BillingManager.SKU_GEMS_TIER1 -> {
+                        repository.addGems(100, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
+                        soundManager.playBuyGemsSuccess()
+                        hapticManager.levelUp()
+                    }
+                    BillingManager.SKU_GEMS_TIER2 -> {
+                        repository.addGems(550, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
+                        soundManager.playBuyGemsSuccess()
+                        hapticManager.levelUp()
+                    }
+                    BillingManager.SKU_GEMS_TIER3 -> {
+                        repository.addGems(1200, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
+                        soundManager.playBuyGemsSuccess()
+                        hapticManager.levelUp()
+                    }
+                    BillingManager.SKU_GEMS_TIER4 -> {
+                        repository.addGems(3000, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
+                        soundManager.playBuyGemsSuccess()
+                        hapticManager.levelUp()
+                    }
+                    BillingManager.SKU_LIFE_PACK_10 -> {
+                        engine.addLives(10)
+                        soundManager.playBuyGemsSuccess()
+                        hapticManager.levelUp()
+                    }
+                    BillingManager.SKU_VIP_PASS -> {
+                        repository.addGems(5000, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
+                        soundManager.playVictoryMusic()
+                        hapticManager.levelUp()
+                    }
+                    BillingManager.SKU_REMOVE_ADS -> {
+                        soundManager.playBuyGemsSuccess()
+                        hapticManager.levelUp()
+                    }
                 }
             }
         }
@@ -325,17 +332,19 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             1000, 1200 -> BillingManager.SKU_GEMS_TIER3
             else -> BillingManager.SKU_GEMS_TIER4
         }
+        val verification = purchaseVerifier.verifyPurchase(sku, null)
+        val token = verification.verificationToken
         if (activity != null) {
             billingManager.launchBillingFlow(activity, sku) {
                 val totalAwarded = pack.gemAmount + pack.bonusGems
-                repository.addGems(totalAwarded)
+                repository.addGems(totalAwarded, CurrencySource.IN_APP_PURCHASE, token)
                 soundManager.playBuyGemsSuccess()
                 soundManager.playVictoryMusic()
                 hapticManager.levelUp()
             }
         } else {
             val totalAwarded = pack.gemAmount + pack.bonusGems
-            repository.addGems(totalAwarded)
+            repository.addGems(totalAwarded, CurrencySource.IN_APP_PURCHASE, token)
             soundManager.playBuyGemsSuccess()
             soundManager.playVictoryMusic()
             hapticManager.levelUp()
@@ -526,7 +535,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (multiplier > 1 && totalGems > 0) {
             // grant the extra multiplier gems
             val extraGems = totalGems - (totalGems / multiplier)
-            repository.addGems(extraGems)
+            repository.addGems(extraGems, CurrencySource.DAILY_MISSION)
         }
         if (totalGems > 0) {
             soundManager.playVictoryMusic()
@@ -552,7 +561,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val totalAwarded = gemsAwarded * multiplier
         if (multiplier > 1 && gemsAwarded > 0) {
             val extra = totalAwarded - gemsAwarded
-            repository.addGems(extra)
+            repository.addGems(extra, CurrencySource.DAILY_REWARD)
         }
         soundManager.playGemCollect()
         soundManager.playPerfectHit()

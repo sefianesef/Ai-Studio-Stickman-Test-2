@@ -140,6 +140,7 @@ class SoundManager(private val context: Context) {
                 loadOrRegister("perfect", "perfect_hit", pcmPerfect)
                 loadOrRegister("flip", "flip", pcmFlip)
                 loadOrRegister("fall", "game_over", pcmFall)
+                loadOrRegister("falling", "falling", pcmFall)
                 loadOrRegister("funny_fall", "funny_fall", pcmFunnyFallingMusic)
                 loadOrRegister("game_over", "game_over", pcmGameOver)
                 loadOrRegister("button", "button_click", pcmButton)
@@ -234,21 +235,67 @@ class SoundManager(private val context: Context) {
         }
     }
 
+    // Falling sound pitch animation state
+    private var fallingStreamId: Int = 0
+    private var fallStartRate = 1.4f   // starts higher pitch
+    private var fallEndRate = 0.7f     // ends lower pitch — sells "falling away"
+    private val mainHandler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+
+    fun playFallingSound(fallDurationMs: Long = 1800L) {
+        if (!soundEnabled) return
+        initAudioEngines()
+
+        val fallingSoundId = soundIdMap["falling"] ?: soundIdMap["fall"] ?: return
+        val pool = soundPool ?: return
+
+        stopFallingSound()
+
+        fallingStreamId = pool.play(fallingSoundId, 0.85f, 0.85f, 1, 0, fallStartRate)
+
+        // Animate the pitch down over the fall duration for a Doppler-like effect
+        val steps = 12
+        val stepDelay = (fallDurationMs / steps).coerceAtLeast(10L)
+        val rateStep = (fallStartRate - fallEndRate) / steps
+        repeat(steps) { i ->
+            mainHandler.postDelayed({
+                try {
+                    soundPool?.setRate(fallingStreamId, (fallStartRate - (rateStep * i)).coerceIn(0.5f, 2.0f))
+                } catch (_: Throwable) {}
+            }, stepDelay * i)
+        }
+    }
+
+    fun stopFallingSound() {
+        try {
+            if (fallingStreamId != 0) {
+                soundPool?.stop(fallingStreamId)
+                fallingStreamId = 0
+            }
+        } catch (_: Throwable) {}
+    }
+
     fun playBridgePlaced() = play("bridge_land", pcmBridgeLand, volume = 0.90f)
     fun playBridgeLand() = play("bridge_land", pcmBridgeLand, volume = 0.90f)
-    fun playStickmanLand() = play("stickman_land", pcmStickmanLand, volume = 0.85f)
+    fun playStickmanLand() {
+        stopFallingSound()
+        play("stickman_land", pcmStickmanLand, volume = 0.85f)
+    }
     fun playGemCollect() = play("gem", pcmGem, volume = 0.95f)
     fun playPerfectHit() = play("perfect", pcmPerfect, volume = 1.00f)
     fun playFlip() = play("flip", pcmFlip, volume = 0.85f)
     fun playBridgeFall() = play("fall", pcmFall, volume = 0.90f)
-    fun playStickmanFall() {
+    fun playStickmanFall(fallDurationMs: Long = 2000L) {
+        playFallingSound(fallDurationMs)
         play("oh_no_voice", pcmOhNoVoice, volume = 1.00f, priority = 10)
         play("funny_fall", pcmFunnyFallingMusic, volume = 0.95f, priority = 9)
     }
     fun playFunnyFallingMusic() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
     fun playFunnyVoiceOver() = play("oh_no_voice", pcmOhNoVoice, volume = 1.00f, priority = 10)
     fun playOhNoVoice() = play("oh_no_voice", pcmOhNoVoice, volume = 1.00f, priority = 10)
-    fun playGameOver() = play("game_over", pcmGameOver, volume = 0.95f)
+    fun playGameOver() {
+        stopFallingSound()
+        play("game_over", pcmGameOver, volume = 0.95f)
+    }
     fun playWalkStep() = play("tick1", pcmTick1, volume = 0.35f)
     fun playButton() = play("button", pcmButton, volume = 0.80f)
     fun playVictoryMusic() = play("victory", pcmVictory, volume = 1.00f)
@@ -258,6 +305,7 @@ class SoundManager(private val context: Context) {
 
     fun release() {
         try {
+            stopFallingSound()
             soundPool?.release()
             soundPool = null
         } catch (_: Throwable) {}

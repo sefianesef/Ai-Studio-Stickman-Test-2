@@ -17,6 +17,13 @@ import com.example.model.PlayerCareerStats
 import com.example.model.RivalGhost
 import com.example.model.TournamentLeague
 import com.example.model.WeeklyMissionItem
+import com.example.security.CurrencySource
+import com.example.security.CurrencyTransactionRequest
+import com.example.security.IServerCurrencyAuthority
+import com.example.security.ProductionServerCurrencyAuthority
+import com.example.security.SecureCurrencyVault
+import com.example.security.ServerVerificationResult
+import com.example.security.TransactionType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -27,8 +34,9 @@ import kotlinx.coroutines.launch
 
 class GameRepository(
     context: Context,
-    private val database: AppDatabase = AppDatabase.getDatabase(context)
-) {
+    private val database: AppDatabase = AppDatabase.getDatabase(context),
+    val serverAuthority: IServerCurrencyAuthority = ProductionServerCurrencyAuthority(context)
+) : CurrencyRepository {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val playerProfileDao = database.playerProfileDao()
     private val inventoryDao = database.inventoryDao()
@@ -70,6 +78,8 @@ class GameRepository(
         private const val KEY_HIGHEST_UNLOCKED_LEVEL = "HIGHEST_UNLOCKED_LEVEL"
         private const val KEY_LIVES_COUNT = "LIVES_COUNT"
         private const val KEY_LAST_LIFE_REGEN_TIME = "LAST_LIFE_REGEN_TIME"
+        private const val KEY_CURRENCY_INTEGRITY_SIGNATURE = "CURRENCY_INTEGRITY_SIG"
+        private const val KEY_PLAYER_ID = "PLAYER_UUID"
 
         const val MAX_LIVES = 5
         const val LIFE_REGEN_INTERVAL_MS = 20 * 60 * 1000L // 20 minutes in ms
@@ -682,14 +692,19 @@ class GameRepository(
         )
     )
 
-    private val _gems = MutableStateFlow(prefs.getInt(KEY_GEMS, 10)) // 10 starter gems!
-    val gems: StateFlow<Int> = _gems.asStateFlow()
+    private val currencyVault = SecureCurrencyVault(context)
 
-    private val _blueGems = MutableStateFlow(prefs.getInt(KEY_BLUE_GEMS, 6)) // Starter Blue Gems for contest testing!
-    val blueGems: StateFlow<Int> = _blueGems.asStateFlow()
+    private val _gems = MutableStateFlow(prefs.getInt(KEY_GEMS, 10))
+    override val gems: StateFlow<Int> = _gems.asStateFlow()
 
-    private val _redGems = MutableStateFlow(prefs.getInt(KEY_RED_GEMS, 3)) // Starter Red Gems for championship testing!
-    val redGems: StateFlow<Int> = _redGems.asStateFlow()
+    private val _blueGems = MutableStateFlow(prefs.getInt(KEY_BLUE_GEMS, 6))
+    override val blueGems: StateFlow<Int> = _blueGems.asStateFlow()
+
+    private val _redGems = MutableStateFlow(prefs.getInt(KEY_RED_GEMS, 3))
+    override val redGems: StateFlow<Int> = _redGems.asStateFlow()
+
+    private val _pendingTransactions = MutableStateFlow<List<PendingCurrencyTransaction>>(emptyList())
+    override val pendingTransactions: StateFlow<List<PendingCurrencyTransaction>> = _pendingTransactions.asStateFlow()
 
     private val _highScore = MutableStateFlow(prefs.getInt(KEY_HIGH_SCORE, 0))
     val highScore: StateFlow<Int> = _highScore.asStateFlow()
@@ -757,6 +772,30 @@ class GameRepository(
     val dailyMissionsFlow: Flow<List<DailyMissionEntity>> = dailyMissionDao.getMissionsForDayFlow(getTodayEpochDay())
 
     init {
+        val rawGems = prefs.getInt(KEY_GEMS, 10)
+        val rawBlueGems = prefs.getInt(KEY_BLUE_GEMS, 6)
+        val rawRedGems = prefs.getInt(KEY_RED_GEMS, 3)
+        val rawHighScore = prefs.getInt(KEY_HIGH_SCORE, 0)
+        val rawTotalBridges = prefs.getInt(KEY_TOTAL_BRIDGES, 0)
+        val rawStreak = prefs.getInt(KEY_CURRENT_STREAK, 1)
+        val rawLastClaimDay = prefs.getLong(KEY_LAST_CLAIM_DAY, 0L)
+        val storedSignature = prefs.getString(KEY_CURRENCY_INTEGRITY_SIGNATURE, "") ?: ""
+
+        val isDataValid = currencyVault.verifyIntegritySignature(
+            rawGems, rawBlueGems, rawRedGems, rawHighScore, rawTotalBridges, rawStreak, rawLastClaimDay, storedSignature
+        )
+
+        val initialGems = if (isDataValid) rawGems else 10
+        val initialBlue = if (isDataValid) rawBlueGems else 6
+        val initialRed = if (isDataValid) rawRedGems else 3
+
+        _gems.value = initialGems
+        _blueGems.value = initialBlue
+        _redGems.value = initialRed
+
+        currencyVault.syncFromDisk(initialGems, initialBlue, initialRed)
+        saveIntegritySignature()
+
         // Unlock all free items in memory and Room
         val freeItems = availableAccessories.filter { it.cost == 0 }
         freeItems.forEach {
@@ -1033,7 +1072,7 @@ class GameRepository(
             dailyMissionDao.markClaimed(missionId)
         }
         if (rewardGems > 0) {
-            addGems(rewardGems)
+            addGems(rewardGems, CurrencySource.DAILY_MISSION)
         }
     }
 
@@ -1046,7 +1085,7 @@ class GameRepository(
                 dailyMissionDao.markClaimed(m.id)
             }
         }
-        addGems(totalGems)
+        addGems(totalGems, CurrencySource.DAILY_MISSION)
         return totalGems
     }
 
@@ -1094,7 +1133,7 @@ class GameRepository(
         val rewardGems = DAILY_REWARD_AMOUNTS.getOrElse(streak - 1) { 10 }
 
         // Add gems
-        addGems(rewardGems)
+        addGems(rewardGems, CurrencySource.DAILY_REWARD)
 
         // Record claim in prefs
         prefs.edit()
@@ -1134,66 +1173,391 @@ class GameRepository(
         }
     }
 
-    fun addGems(amount: Int) {
-        val newGems = _gems.value + amount
-        _gems.value = newGems
-        prefs.edit().putInt(KEY_GEMS, newGems).apply()
+    /**
+     * Retrieves or generates a cryptographically unique Player ID.
+     */
+    fun getPlayerId(): String {
+        var id = prefs.getString(KEY_PLAYER_ID, null)
+        if (id.isNullOrBlank()) {
+            id = "USR_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+            prefs.edit().putString(KEY_PLAYER_ID, id).apply()
+        }
+        return id
+    }
+
+    private fun saveIntegritySignature() {
+        val signature = currencyVault.computeIntegritySignature(
+            gems = _gems.value,
+            blueGems = _blueGems.value,
+            redGems = _redGems.value,
+            highScore = _highScore.value,
+            totalBridges = prefs.getInt(KEY_TOTAL_BRIDGES, 0),
+            streak = prefs.getInt(KEY_CURRENT_STREAK, 1),
+            lastClaimEpochDay = prefs.getLong(KEY_LAST_CLAIM_DAY, 0L)
+        )
+        prefs.edit().putString(KEY_CURRENCY_INTEGRITY_SIGNATURE, signature).apply()
+    }
+
+    /**
+     * Executes the server-side handshake/validation logic for currency transactions.
+     *
+     * STUBBED FOR FIREBASE CLOUD FUNCTIONS / FIRESTORE INTEGRATION:
+     * When migrating to a remote Firebase backend, replace this call with the Firebase callable function:
+     *
+     * ```kotlin
+     * val functions = com.google.firebase.functions.FirebaseFunctions.getInstance()
+     * val payload = hashMapOf(
+     *     "transactionId" to transaction.transactionId,
+     *     "playerId" to transaction.playerId,
+     *     "type" to type.name,
+     *     "amount" to transaction.amount,
+     *     "source" to transaction.source.name,
+     *     "verificationToken" to transaction.verificationToken,
+     *     "timestamp" to transaction.timestampMs
+     * )
+     * val result = functions.getHttpsCallable("verifyAndCommitCurrencyTransaction").call(payload).await()
+     * ```
+     */
+    private suspend fun performServerCurrencyHandshake(
+        transaction: PendingCurrencyTransaction,
+        currentBalance: Int,
+        type: TransactionType
+    ): ServerVerificationResult {
+        val request = CurrencyTransactionRequest(
+            transactionId = transaction.transactionId,
+            playerId = transaction.playerId,
+            type = type,
+            amount = transaction.amount,
+            source = transaction.source,
+            currentBalance = currentBalance,
+            clientTimestampMs = transaction.timestampMs,
+            verificationToken = transaction.verificationToken
+        )
+        return serverAuthority.verifyAndAuthorizeTransaction(request)
+    }
+
+    /**
+     * Enqueues an addition of gems into the 'PENDING' transaction state,
+     * immediately initiates the asynchronous server-side handshake/validation flow,
+     * and applies authoritative balance updates upon server confirmation.
+     *
+     * @return The unique transaction ID for tracking.
+     */
+    override fun addGems(
+        amount: Int,
+        source: CurrencySource,
+        verificationToken: String?
+    ): String {
+        val txId = "TX_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+        val pendingTx = PendingCurrencyTransaction(
+            transactionId = txId,
+            playerId = getPlayerId(),
+            amount = amount,
+            source = source,
+            verificationToken = verificationToken,
+            timestampMs = System.currentTimeMillis(),
+            status = TransactionStatus.PENDING
+        )
+
+        // 1. Enqueue to pending transactions StateFlow
+        _pendingTransactions.value = _pendingTransactions.value + pendingTx
+
+        // 2. Launch asynchronous server handshake pipeline
         scope.launch {
-            playerProfileDao.updateGems(newGems)
+            // Transition to IN_FLIGHT
+            _pendingTransactions.value = _pendingTransactions.value.map {
+                if (it.transactionId == txId) it.copy(status = TransactionStatus.IN_FLIGHT) else it
+            }
+
+            val result = performServerCurrencyHandshake(
+                transaction = pendingTx,
+                currentBalance = _gems.value,
+                type = TransactionType.CREDIT
+            )
+
+            if (result.isApproved) {
+                val serverAuthorized = result.authorizedBalance
+                _gems.value = serverAuthorized
+                currencyVault.syncFromDisk(serverAuthorized, _blueGems.value, _redGems.value)
+                prefs.edit().putInt(KEY_GEMS, serverAuthorized).apply()
+                saveIntegritySignature()
+                playerProfileDao.updateGems(serverAuthorized)
+
+                // Update transaction state to CONFIRMED
+                _pendingTransactions.value = _pendingTransactions.value.map {
+                    if (it.transactionId == txId) {
+                        it.copy(
+                            status = TransactionStatus.CONFIRMED,
+                            serverAuthToken = result.serverAuthorizationToken
+                        )
+                    } else it
+                }.takeLast(20)
+            } else {
+                // Server rejected - mark REJECTED and do not credit balance
+                _pendingTransactions.value = _pendingTransactions.value.map {
+                    if (it.transactionId == txId) {
+                        it.copy(
+                            status = TransactionStatus.REJECTED,
+                            failureReason = result.rejectionReason ?: "SERVER_REJECTED"
+                        )
+                    } else it
+                }.takeLast(20)
+            }
+        }
+
+        return txId
+    }
+
+    /**
+     * Suspending version that initiates the handshake and awaits the authoritative server verification outcome.
+     */
+    override suspend fun addGemsAuthoritative(
+        amount: Int,
+        source: CurrencySource,
+        verificationToken: String?
+    ): CurrencyTransactionOutcome {
+        val txId = "TX_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+        val pendingTx = PendingCurrencyTransaction(
+            transactionId = txId,
+            playerId = getPlayerId(),
+            amount = amount,
+            source = source,
+            verificationToken = verificationToken,
+            timestampMs = System.currentTimeMillis(),
+            status = TransactionStatus.IN_FLIGHT
+        )
+        _pendingTransactions.value = _pendingTransactions.value + pendingTx
+
+        val result = performServerCurrencyHandshake(
+            transaction = pendingTx,
+            currentBalance = _gems.value,
+            type = TransactionType.CREDIT
+        )
+
+        return if (result.isApproved) {
+            val serverAuthorized = result.authorizedBalance
+            _gems.value = serverAuthorized
+            currencyVault.syncFromDisk(serverAuthorized, _blueGems.value, _redGems.value)
+            prefs.edit().putInt(KEY_GEMS, serverAuthorized).apply()
+            saveIntegritySignature()
+            playerProfileDao.updateGems(serverAuthorized)
+
+            _pendingTransactions.value = _pendingTransactions.value.map {
+                if (it.transactionId == txId) {
+                    it.copy(
+                        status = TransactionStatus.CONFIRMED,
+                        serverAuthToken = result.serverAuthorizationToken
+                    )
+                } else it
+            }.takeLast(20)
+
+            CurrencyTransactionOutcome(
+                transactionId = txId,
+                isApproved = true,
+                status = TransactionStatus.CONFIRMED,
+                newBalance = serverAuthorized
+            )
+        } else {
+            _pendingTransactions.value = _pendingTransactions.value.map {
+                if (it.transactionId == txId) {
+                    it.copy(
+                        status = TransactionStatus.REJECTED,
+                        failureReason = result.rejectionReason ?: "SERVER_REJECTED"
+                    )
+                } else it
+            }.takeLast(20)
+
+            CurrencyTransactionOutcome(
+                transactionId = txId,
+                isApproved = false,
+                status = TransactionStatus.REJECTED,
+                newBalance = _gems.value,
+                message = result.rejectionReason
+            )
         }
     }
 
-    fun spendGems(amount: Int): Boolean {
-        if (_gems.value >= amount) {
-            val newGems = _gems.value - amount
+    /**
+     * Mandates server-side verification before applying any debit mutation to the player's account.
+     */
+    override suspend fun spendGemsAuthoritative(
+        amount: Int,
+        source: CurrencySource
+    ): CurrencyTransactionOutcome {
+        val txId = "TX_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+        val pendingTx = PendingCurrencyTransaction(
+            transactionId = txId,
+            playerId = getPlayerId(),
+            amount = amount,
+            source = source,
+            verificationToken = null,
+            timestampMs = System.currentTimeMillis(),
+            status = TransactionStatus.IN_FLIGHT
+        )
+        _pendingTransactions.value = _pendingTransactions.value + pendingTx
+
+        val result = performServerCurrencyHandshake(
+            transaction = pendingTx,
+            currentBalance = _gems.value,
+            type = TransactionType.DEBIT
+        )
+
+        return if (result.isApproved) {
+            val serverAuthorized = result.authorizedBalance
+            _gems.value = serverAuthorized
+            currencyVault.syncFromDisk(serverAuthorized, _blueGems.value, _redGems.value)
+            prefs.edit().putInt(KEY_GEMS, serverAuthorized).apply()
+            saveIntegritySignature()
+            playerProfileDao.updateGems(serverAuthorized)
+
+            _pendingTransactions.value = _pendingTransactions.value.map {
+                if (it.transactionId == txId) {
+                    it.copy(
+                        status = TransactionStatus.CONFIRMED,
+                        serverAuthToken = result.serverAuthorizationToken
+                    )
+                } else it
+            }.takeLast(20)
+
+            CurrencyTransactionOutcome(
+                transactionId = txId,
+                isApproved = true,
+                status = TransactionStatus.CONFIRMED,
+                newBalance = serverAuthorized
+            )
+        } else {
+            _pendingTransactions.value = _pendingTransactions.value.map {
+                if (it.transactionId == txId) {
+                    it.copy(
+                        status = TransactionStatus.REJECTED,
+                        failureReason = result.rejectionReason ?: "INSUFFICIENT_FUNDS"
+                    )
+                } else it
+            }.takeLast(20)
+
+            CurrencyTransactionOutcome(
+                transactionId = txId,
+                isApproved = false,
+                status = TransactionStatus.REJECTED,
+                newBalance = _gems.value,
+                message = result.rejectionReason
+            )
+        }
+    }
+
+    /**
+     * Spends gems from the account with synchronous local vault gating and server-side authorization handshake.
+     */
+    override fun spendGems(amount: Int): Boolean {
+        val (success, newGems) = currencyVault.spendGemsSecurely(_gems.value, amount)
+        if (success) {
             _gems.value = newGems
             prefs.edit().putInt(KEY_GEMS, newGems).apply()
+            saveIntegritySignature()
+
+            val txId = "TX_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+            val pendingTx = PendingCurrencyTransaction(
+                transactionId = txId,
+                playerId = getPlayerId(),
+                amount = amount,
+                source = CurrencySource.IN_APP_PURCHASE,
+                verificationToken = null,
+                timestampMs = System.currentTimeMillis(),
+                status = TransactionStatus.IN_FLIGHT
+            )
+            _pendingTransactions.value = _pendingTransactions.value + pendingTx
+
             scope.launch {
-                playerProfileDao.updateGems(newGems)
+                val result = performServerCurrencyHandshake(
+                    transaction = pendingTx,
+                    currentBalance = newGems + amount,
+                    type = TransactionType.DEBIT
+                )
+                if (result.isApproved) {
+                    playerProfileDao.updateGems(result.authorizedBalance)
+                    _pendingTransactions.value = _pendingTransactions.value.map {
+                        if (it.transactionId == txId) it.copy(status = TransactionStatus.CONFIRMED) else it
+                    }.takeLast(20)
+                } else {
+                    // Rollback if server debit check fails
+                    val rolledBack = result.authorizedBalance
+                    _gems.value = rolledBack
+                    currencyVault.syncFromDisk(rolledBack, _blueGems.value, _redGems.value)
+                    prefs.edit().putInt(KEY_GEMS, rolledBack).apply()
+                    saveIntegritySignature()
+                    playerProfileDao.updateGems(rolledBack)
+                    _pendingTransactions.value = _pendingTransactions.value.map {
+                        if (it.transactionId == txId) it.copy(status = TransactionStatus.REJECTED, failureReason = result.rejectionReason) else it
+                    }.takeLast(20)
+                }
             }
             return true
         }
         return false
     }
 
-    fun addBlueGems(amount: Int) {
-        val newGems = _blueGems.value + amount
+    override fun addBlueGems(amount: Int) {
+        val newGems = (_blueGems.value + amount).coerceAtLeast(0)
         _blueGems.value = newGems
         val totalEarned = prefs.getInt(KEY_TOTAL_BLUE_GEMS_EARNED, 0) + amount
         prefs.edit()
             .putInt(KEY_BLUE_GEMS, newGems)
             .putInt(KEY_TOTAL_BLUE_GEMS_EARNED, totalEarned)
             .apply()
+        saveIntegritySignature()
     }
 
-    fun spendBlueGems(amount: Int): Boolean {
+    override fun spendBlueGems(amount: Int): Boolean {
         if (_blueGems.value >= amount) {
             val newGems = _blueGems.value - amount
             _blueGems.value = newGems
             prefs.edit().putInt(KEY_BLUE_GEMS, newGems).apply()
+            saveIntegritySignature()
             return true
         }
         return false
     }
 
-    fun addRedGems(amount: Int) {
-        val newGems = _redGems.value + amount
+    override fun addRedGems(amount: Int) {
+        val newGems = (_redGems.value + amount).coerceAtLeast(0)
         _redGems.value = newGems
         val totalEarned = prefs.getInt(KEY_TOTAL_RED_GEMS_EARNED, 0) + amount
         prefs.edit()
             .putInt(KEY_RED_GEMS, newGems)
             .putInt(KEY_TOTAL_RED_GEMS_EARNED, totalEarned)
             .apply()
+        saveIntegritySignature()
     }
 
-    fun spendRedGems(amount: Int): Boolean {
+    override fun spendRedGems(amount: Int): Boolean {
         if (_redGems.value >= amount) {
             val newGems = _redGems.value - amount
             _redGems.value = newGems
             prefs.edit().putInt(KEY_RED_GEMS, newGems).apply()
+            saveIntegritySignature()
             return true
         }
         return false
+    }
+
+    /**
+     * Performs a full balance reconciliation handshake with the remote authoritative server
+     * (stubbed for Firebase Cloud Functions / Firestore backend).
+     */
+    override suspend fun syncCurrencyWithServer(): Boolean {
+        return try {
+            val serverBalance = serverAuthority.fetchAuthoritativeBalance(getPlayerId())
+            if (serverBalance > 0 && serverBalance != _gems.value) {
+                _gems.value = serverBalance
+                currencyVault.syncFromDisk(serverBalance, _blueGems.value, _redGems.value)
+                prefs.edit().putInt(KEY_GEMS, serverBalance).apply()
+                saveIntegritySignature()
+                playerProfileDao.updateGems(serverBalance)
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     fun updateHighScore(score: Int): Boolean {
@@ -1372,7 +1736,7 @@ class GameRepository(
         val lastDay = prefs.getLong(lastClaimKey, 0L)
         if (lastDay != today) {
             prefs.edit().putLong(lastClaimKey, today).apply()
-            addGems(15) // Rebalanced competitive reward
+            addGems(15, CurrencySource.DAILY_FREE_GEMS) // Rebalanced competitive reward
             return true
         }
         return false
@@ -1389,7 +1753,7 @@ class GameRepository(
             return claimDailyFreeGems()
         }
         val totalAwarded = pack.gemAmount + pack.bonusGems
-        addGems(totalAwarded)
+        addGems(totalAwarded, CurrencySource.LUCKY_SPIN)
         return true
     }
 
@@ -1454,7 +1818,7 @@ class GameRepository(
             roll <= 92 -> 10
             else -> 20 // Grand Lucky Prize
         }
-        addGems(reward)
+        addGems(reward, CurrencySource.LUCKY_SPIN)
         return reward
     }
 
@@ -1579,7 +1943,7 @@ class GameRepository(
     fun claimWeeklyMission(id: String, rewardGems: Int, rewardBlueGems: Int = 0): Boolean {
         if (!prefs.getBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, false)) {
             prefs.edit().putBoolean(KEY_WEEKLY_CLAIM_PREFIX + id, true).apply()
-            if (rewardGems > 0) addGems(rewardGems)
+            if (rewardGems > 0) addGems(rewardGems, CurrencySource.WEEKLY_MISSION)
             if (rewardBlueGems > 0) addBlueGems(rewardBlueGems)
             return true
         }
@@ -1596,7 +1960,7 @@ class GameRepository(
             totalGems += it.rewardGems
             totalBlue += it.rewardBlueGems
         }
-        if (totalGems > 0) addGems(totalGems)
+        if (totalGems > 0) addGems(totalGems, CurrencySource.WEEKLY_MISSION)
         if (totalBlue > 0) addBlueGems(totalBlue)
         return totalGems to totalBlue
     }
@@ -1703,7 +2067,7 @@ class GameRepository(
         val contest = getContestTournaments().find { it.id == contestId } ?: return Triple(0, 0, 0)
         if (contest.isCompleted && !contest.isClaimed) {
             prefs.edit().putBoolean(KEY_CONTEST_CLAIM_PREFIX + contestId, true).apply()
-            if (contest.prizePoolGems > 0) addGems(contest.prizePoolGems)
+            if (contest.prizePoolGems > 0) addGems(contest.prizePoolGems, CurrencySource.CONTEST_REWARD)
             if (contest.prizePoolBlueGems > 0) addBlueGems(contest.prizePoolBlueGems)
             if (contest.prizePoolRedGems > 0) addRedGems(contest.prizePoolRedGems)
             return Triple(contest.prizePoolGems, contest.prizePoolBlueGems, contest.prizePoolRedGems)

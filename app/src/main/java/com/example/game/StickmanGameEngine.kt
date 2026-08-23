@@ -163,6 +163,7 @@ class StickmanGameEngine(
     }
 
     fun resetGame(initial: Boolean = false, startLevel: Int = 1) {
+        soundManager.stopFallingSound()
         val targetStartLevel = startLevel.coerceAtLeast(1)
         val initialScore = ((targetStartLevel - 1) * 3).coerceAtLeast(0)
         _score.value = initialScore
@@ -235,6 +236,7 @@ class StickmanGameEngine(
      * Loss Aversion / Revive Mechanic: Revives stickman right back on the platform with full score preserved.
      */
     fun reviveRun() {
+        soundManager.stopFallingSound()
         soundManager.playPerfectHit()
         hapticManager?.perfectHit()
         _revivalsUsed.value += 1
@@ -451,7 +453,7 @@ class StickmanGameEngine(
                                 scale = 1.3f
                             )
                             _score.value += 1 // Bonus +1 for bullseye
-                            repository.addGems(1)
+                            repository.addGems(1, com.example.security.CurrencySource.PERFECT_BULLSEYE)
                             repository.recordGemsHarvested(1)
                         }
 
@@ -498,17 +500,18 @@ class StickmanGameEngine(
                 nextPlatform.gem?.let { gem ->
                     if (physicsEngine.checkGemPickup(stickmanX, isUpsideDown, gem)) {
                         gem.collected = true
-                        val event = gemStateManager.onGemCollected(gem, floorY)
-                        soundManager.playGemCollect()
-                        hapticManager?.gemCollect()
-                        repository.trackMissionProgress("COLLECT_GEMS", event.amount)
-                        repository.trackWeeklyMissionProgress("COLLECT_GEMS", event.amount)
-                        repository.trackContestProgress("COLLECT_GEMS", event.amount)
-                        repository.recordGemsHarvested(event.amount)
+                        gemStateManager.onGemCollected(gem, floorY)?.let { event ->
+                            soundManager.playGemCollect()
+                            hapticManager?.gemCollect()
+                            repository.trackMissionProgress("COLLECT_GEMS", event.amount)
+                            repository.trackWeeklyMissionProgress("COLLECT_GEMS", event.amount)
+                            repository.trackContestProgress("COLLECT_GEMS", event.amount)
+                            repository.recordGemsHarvested(event.amount)
 
-                        val comboLabel = if (event.comboMultiplier > 1) "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)" else "💎 +${event.amount}"
-                        addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1) 1.25f else 1.0f)
-                        spawnGemCollectEffects(event.x, event.y)
+                            val comboLabel = if (event.comboMultiplier > 1) "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)" else "💎 +${event.amount}"
+                            addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1) 1.25f else 1.0f)
+                            spawnGemCollectEffects(event.x, event.y)
+                        }
                     }
                 }
 
@@ -579,7 +582,7 @@ class StickmanGameEngine(
                                 previousLevel % 5 == 0 -> 20
                                 else -> 2
                             }
-                            repository.addGems(bonusGems)
+                            repository.addGems(bonusGems, com.example.security.CurrencySource.LEVEL_MILESTONE)
                             repository.saveProgressLevel(newLevel)
                             val title = when (previousLevel) {
                                 1 -> "Novice Stickman"

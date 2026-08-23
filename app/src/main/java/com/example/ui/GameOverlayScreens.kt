@@ -2443,7 +2443,7 @@ fun ShopDialog(
                     if (gems < 25) {
                         Surface(
                             onClick = {
-                                viewModel.repository.addGems(25)
+                                viewModel.repository.addGems(25, com.example.security.CurrencySource.DAILY_FREE_GEMS)
                                 viewModel.soundManager.playGemCollect()
                             },
                             shape = RoundedCornerShape(12.dp),
@@ -4653,7 +4653,7 @@ fun LuckySpinWheelDialog(
             onConfirmPurchase = {
                 val spinsToAdd = if (pack.id == "spin_pack_5") 5 else 15
                 viewModel.buySpinsRealMoney(spinsToAdd)
-                viewModel.repository.addGems(pack.gemAmount)
+                viewModel.repository.addGems(pack.gemAmount, com.example.security.CurrencySource.IN_APP_PURCHASE)
                 adNotice = "✅ Purchase successful! Added $spinsToAdd Spins and ${pack.gemAmount} 💎!"
                 showCheckoutPack = null
             },

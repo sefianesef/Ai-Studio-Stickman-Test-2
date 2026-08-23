@@ -27,10 +27,16 @@ class GemStateManager(
 
     private var lastGemCollectTime = 0L
 
+    // Track gem IDs actually spawned this run, and which have been collected
+    private val spawnedGemIds = mutableSetOf<Long>()
+    private val collectedGemIds = mutableSetOf<Long>()
+
     fun resetRun() {
         _collectedInRun.value = 0
         _currentCombo.value = 0
         lastGemCollectTime = 0L
+        spawnedGemIds.clear()
+        collectedGemIds.clear()
     }
 
     /**
@@ -69,19 +75,27 @@ class GemStateManager(
         }
         val isUnder = Random.nextFloat() < flipThreshold
 
-        return GemData(
+        val gem = GemData(
             id = System.nanoTime(),
             x = gemX,
             isUnderBridge = isUnder,
             collected = false,
             floatOffset = 0f
         )
+        spawnedGemIds.add(gem.id)
+        return gem
     }
 
     /**
      * Handles gem pickup, combo multiplier calculation, and repository persistence.
+     * Rejects anything not spawned legitimately or already collected.
      */
-    fun onGemCollected(gem: GemData, floorY: Float): GemPickupEvent {
+    fun onGemCollected(gem: GemData, floorY: Float): GemPickupEvent? {
+        if (gem.id !in spawnedGemIds || gem.id in collectedGemIds) {
+            return null
+        }
+        collectedGemIds.add(gem.id)
+
         val now = System.currentTimeMillis()
         val isQuickChain = (now - lastGemCollectTime) < 12000L // within 12 seconds
         lastGemCollectTime = now
@@ -96,7 +110,7 @@ class GemStateManager(
         }
 
         _collectedInRun.value += gemReward
-        repository.addGems(gemReward)
+        repository.addGems(gemReward, com.example.security.CurrencySource.GAMEPLAY_COLLECT)
 
         val gemY = if (gem.isUnderBridge) floorY + 40f else floorY - 20f
 

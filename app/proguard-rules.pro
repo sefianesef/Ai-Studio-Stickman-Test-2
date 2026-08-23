@@ -34,3 +34,26 @@
 # Android Jetpack Compose & State
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
+
+# Keep Data Models and Entities with Serializable fields
+-keepclassmembers class com.example.model.** {
+    public *;
+}
+-keepclassmembers class com.example.data.local.entity.** {
+    public *;
+}
+
+# Obfuscate and protect Security Vault & Anti-Cheat Engine
+-keepclassmembers class com.example.security.SecureCurrencyVault {
+    public <methods>;
+}
+-keepclassmembers class com.example.security.PurchaseVerificationService {
+    public <methods>;
+}
+-keepclassmembers class com.example.security.DeviceIntegrityManager {
+    public <methods>;
+}
+-keepclassmembers class com.example.security.ObfuscatedInt {
+    public <methods>;
+}
+
