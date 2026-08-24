@@ -19,9 +19,11 @@ import com.example.model.TournamentLeague
 import com.example.model.WeeklyMissionItem
 import com.example.security.AdServerSideVerificationManager
 import com.example.security.CloudBackendCurrencyAuthority
+import com.example.security.CloudSyncStatus
 import com.example.security.CurrencySource
 import com.example.security.CurrencyTransactionRequest
 import com.example.security.EncryptedSaveStorage
+import com.example.security.FirebaseCloudWalletService
 import com.example.security.IServerCurrencyAuthority
 import com.example.security.SecureCurrencyVault
 import com.example.security.SecureTimeAuthority
@@ -38,7 +40,8 @@ import kotlinx.coroutines.launch
 class GameRepository(
     context: Context,
     private val database: AppDatabase = AppDatabase.getDatabase(context),
-    val serverAuthority: IServerCurrencyAuthority = CloudBackendCurrencyAuthority(context)
+    val serverAuthority: IServerCurrencyAuthority = CloudBackendCurrencyAuthority(context),
+    val cloudWalletService: FirebaseCloudWalletService = FirebaseCloudWalletService(context)
 ) : CurrencyRepository {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val playerProfileDao = database.playerProfileDao()
@@ -46,11 +49,13 @@ class GameRepository(
     private val dailyMissionDao = database.dailyMissionDao()
 
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("STICKMAN_HERO_DATA", Context.MODE_PRIVATE)
+        EncryptedSaveStorage.createEncryptedSharedPreferences(context).also { securePrefs ->
+            EncryptedSaveStorage.migrateFromLegacySharedPreferences(context, securePrefs = securePrefs)
+        }
 
     val timeAuthority = SecureTimeAuthority(context)
     val adSsvManager = AdServerSideVerificationManager(context)
-    val encryptedStorage = EncryptedSaveStorage(context, "STICKMAN_HERO_SECURE_VAULT")
+    val encryptedStorage = EncryptedSaveStorage(context)
 
     companion object {
         private const val KEY_GEMS = "GEMS"
@@ -847,6 +852,30 @@ class GameRepository(
                 // Setup or refresh Daily Missions for today
                 initDailyMissions()
             } catch (_: Throwable) {}
+        }
+
+        // Realtime Firestore Cloud Wallet Sync Listener
+        scope.launch {
+            cloudWalletService.cloudGems.collect { remoteGems ->
+                if (remoteGems != null) {
+                    _gems.value = remoteGems
+                    currencyVault.syncFromDisk(remoteGems, _blueGems.value, _redGems.value)
+                    prefs.edit().putInt(KEY_GEMS, remoteGems).apply()
+                    saveIntegritySignature()
+                    playerProfileDao.updateGems(remoteGems)
+                }
+            }
+        }
+
+        scope.launch {
+            cloudWalletService.cloudRedGems.collect { remoteRed ->
+                if (remoteRed != null) {
+                    _redGems.value = remoteRed
+                    currencyVault.syncFromDisk(_gems.value, _blueGems.value, remoteRed)
+                    prefs.edit().putInt(KEY_RED_GEMS, remoteRed).apply()
+                    saveIntegritySignature()
+                }
+            }
         }
 
         refreshDailyRewardState()
@@ -1857,9 +1886,10 @@ class GameRepository(
     }
 
     fun getGlobalLeaderboard(): List<LeaderboardEntry> {
-        val userHighScore = _highScore.value
-        val userPerfects = prefs.getInt(KEY_PERFECT_HITS, 0)
-        val userLeague = getUserTournamentLeague()
+        val isCheater = currencyVault.earningLimiter.isCheater()
+        val userHighScore = if (isCheater) 0 else _highScore.value
+        val userPerfects = if (isCheater) 0 else prefs.getInt(KEY_PERFECT_HITS, 0)
+        val userLeague = if (isCheater) TournamentLeague.BRONZE else getUserTournamentLeague()
 
         val entries = mutableListOf(
             LeaderboardEntry(1, "ShadowNinja", "🥷", "🇯🇵", 248, 114, TournamentLeague.MASTER),
@@ -1883,8 +1913,8 @@ class GameRepository(
         val userRank = (entries.indexOfFirst { userHighScore >= it.score }.takeIf { it != -1 }?.plus(1)) ?: (entries.size + 1)
         val userEntry = LeaderboardEntry(
             rank = userRank,
-            playerName = "YOU (Hero)",
-            avatarEmoji = "⭐",
+            playerName = if (isCheater) "YOU (Flagged ⚠️)" else "YOU (Hero)",
+            avatarEmoji = if (isCheater) "⚠️" else "⭐",
             countryFlag = "🌍",
             score = userHighScore,
             perfectHits = userPerfects,

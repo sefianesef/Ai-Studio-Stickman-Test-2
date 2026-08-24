@@ -14,6 +14,7 @@ import com.example.model.AccessoryItem
 import com.example.model.AccessoryType
 import com.example.security.CurrencySource
 import com.example.security.PurchaseVerificationService
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,51 +35,53 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     val billingManager = BillingManager(application, viewModelScope).apply {
         setOnPurchaseSuccessListener { purchaseData ->
-            val verification = purchaseVerifier.verifyPurchase(
-                productId = purchaseData.productId,
-                purchaseToken = purchaseData.purchaseToken,
-                signature = purchaseData.signature,
-                signedData = purchaseData.originalJson
-            )
-            if (verification.isValid) {
-                when (purchaseData.productId) {
-                    BillingManager.SKU_GEMS_TIER1 -> {
-                        repository.addGems(100, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
-                        soundManager.playBuyGemsSuccess()
-                        hapticManager.levelUp()
+            viewModelScope.launch {
+                val verification = purchaseVerifier.verifyWithGooglePlayServer(
+                    productId = purchaseData.productId,
+                    purchaseToken = purchaseData.purchaseToken,
+                    orderId = purchaseData.orderId
+                )
+                if (verification.isValid) {
+                    val gemCount = when (purchaseData.productId) {
+                        BillingManager.SKU_GEMS_TIER1 -> 100
+                        BillingManager.SKU_GEMS_TIER2 -> 550
+                        BillingManager.SKU_GEMS_TIER3 -> 1200
+                        BillingManager.SKU_GEMS_TIER4 -> 3000
+                        BillingManager.SKU_VIP_PASS -> 5000
+                        else -> 0
                     }
-                    BillingManager.SKU_GEMS_TIER2 -> {
-                        repository.addGems(550, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
-                        soundManager.playBuyGemsSuccess()
-                        hapticManager.levelUp()
+
+                    if (gemCount > 0) {
+                        repository.addGems(gemCount, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
+                        // Also sync directly to Firebase Cloud Wallet if user is online
+                        repository.cloudWalletService.creditCloudGems(gemCount, "IAP_${purchaseData.productId}", verification.verificationToken)
                     }
-                    BillingManager.SKU_GEMS_TIER3 -> {
-                        repository.addGems(1200, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
-                        soundManager.playBuyGemsSuccess()
-                        hapticManager.levelUp()
+
+                    when (purchaseData.productId) {
+                        BillingManager.SKU_GEMS_TIER1,
+                        BillingManager.SKU_GEMS_TIER2,
+                        BillingManager.SKU_GEMS_TIER3,
+                        BillingManager.SKU_GEMS_TIER4 -> {
+                            soundManager.playBuyGemsSuccess()
+                            hapticManager.levelUp()
+                        }
+                        BillingManager.SKU_LIFE_PACK_10 -> {
+                            engine.addLives(10)
+                            soundManager.playBuyGemsSuccess()
+                            hapticManager.levelUp()
+                        }
+                        BillingManager.SKU_VIP_PASS -> {
+                            soundManager.playVictoryMusic()
+                            hapticManager.levelUp()
+                        }
+                        BillingManager.SKU_REMOVE_ADS -> {
+                            soundManager.playBuyGemsSuccess()
+                            hapticManager.levelUp()
+                        }
                     }
-                    BillingManager.SKU_GEMS_TIER4 -> {
-                        repository.addGems(3000, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
-                        soundManager.playBuyGemsSuccess()
-                        hapticManager.levelUp()
-                    }
-                    BillingManager.SKU_LIFE_PACK_10 -> {
-                        engine.addLives(10)
-                        soundManager.playBuyGemsSuccess()
-                        hapticManager.levelUp()
-                    }
-                    BillingManager.SKU_VIP_PASS -> {
-                        repository.addGems(5000, CurrencySource.IN_APP_PURCHASE, verification.verificationToken)
-                        soundManager.playVictoryMusic()
-                        hapticManager.levelUp()
-                    }
-                    BillingManager.SKU_REMOVE_ADS -> {
-                        soundManager.playBuyGemsSuccess()
-                        hapticManager.levelUp()
-                    }
+                } else {
+                    android.util.Log.e("GameViewModel", "REJECTED IAP: Google Play verification failed for ${purchaseData.productId}: ${verification.message}")
                 }
-            } else {
-                android.util.Log.e("GameViewModel", "REJECTED IAP: Verification failed for ${purchaseData.productId}: ${verification.message}")
             }
         }
     }
@@ -678,6 +681,53 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val id = selectedThemeId.value
         return availableAccessories.firstOrNull { it.id == id }
             ?: availableAccessories.first { it.type == AccessoryType.THEME }
+    }
+
+    // Cloud Wallet & Firebase Auth
+    val cloudSyncStatus = repository.cloudWalletService.syncStatus
+    val firebaseUser = repository.cloudWalletService.currentUser
+    val cloudAuthoritativeGems = repository.cloudWalletService.cloudGems
+
+    fun signInWithGoogle(activity: Activity, onComplete: (Boolean, String?) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            val result = repository.cloudWalletService.signInWithGoogle(activity)
+            if (result.isSuccess) {
+                val user = result.getOrNull()
+                // Synchronize local balance to remote Firestore on successful sign in
+                repository.cloudWalletService.syncLocalBalanceToCloud(
+                    localGems = repository.gems.value,
+                    localRedGems = repository.redGems.value,
+                    highScore = repository.highScore.value,
+                    isCheater = false
+                )
+                soundManager.playVictoryMusic()
+                hapticManager.levelUp()
+                onComplete(true, user?.email ?: user?.displayName)
+            } else {
+                val errorMsg = result.exceptionOrNull()?.message ?: "Google Sign-In failed"
+                soundManager.playButton()
+                onComplete(false, errorMsg)
+            }
+        }
+    }
+
+    fun signOutCloud() {
+        viewModelScope.launch {
+            repository.cloudWalletService.signOut()
+            soundManager.playButton()
+            hapticManager.uiClick()
+        }
+    }
+
+    fun syncLocalProgressToCloud() {
+        viewModelScope.launch {
+            repository.cloudWalletService.syncLocalBalanceToCloud(
+                localGems = repository.gems.value,
+                localRedGems = repository.redGems.value,
+                highScore = repository.highScore.value,
+                isCheater = false
+            )
+        }
     }
 
     override fun onCleared() {

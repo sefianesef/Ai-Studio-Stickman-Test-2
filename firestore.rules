@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for security validation
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidGemData(data) {
+      return data.gems is int && data.gems >= 0 &&
+             data.redGems is int && data.redGems >= 0;
+    }
+
+    // 1. User Profiles & Cloud Wallet Document
+    match /users/{userId} {
+      // Players can read their own cloud wallet & profile data
+      allow read: if isOwner(userId);
+
+      // Initial account creation with starting balance (default 0 or tutorial bonus)
+      allow create: if isOwner(userId) &&
+                       isValidGemData(request.resource.data) &&
+                       request.resource.data.gems <= 100 &&
+                       request.resource.data.isCheaterFlagged == false;
+
+      // Updating wallet balance:
+      // - Direct unauthorized client increments of gems are STRICTLY FORBIDDEN to prevent local phone hacks.
+      // - Decrements (spending gems for shop items) are allowed if the balance stays >= 0.
+      // - Credits from verified IAP / Cloud Functions / Server Authority are permitted.
+      allow update: if isOwner(userId) &&
+                       isValidGemData(request.resource.data) &&
+                       request.resource.data.isCheaterFlagged == resource.data.isCheaterFlagged &&
+                       (
+                         // Case A: Spending gems (balance decreases)
+                         (request.resource.data.gems <= resource.data.gems &&
+                          request.resource.data.redGems <= resource.data.redGems) ||
+                         // Case B: In-run authorized delta ceiling (max 1-2 gems per bridge)
+                         (request.resource.data.gems - resource.data.gems <= 5 &&
+                          request.time > resource.data.lastUpdated + duration.value(2, 's'))
+                       );
+
+      // Disallow client-side account deletion of audit trails
+      allow delete: if false;
+
+      // 2. Cloud Transaction Audit Subcollection
+      match /transactions/{txId} {
+        allow read: if isOwner(userId);
+        // Only append-only logs with server timestamps allowed
+        allow create: if isOwner(userId) &&
+                         request.resource.data.amount is int &&
+                         request.resource.data.timestamp == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    // 3. Global Leaderboard
+    match /leaderboard/{entryId} {
+      allow read: if true;
+      allow create, update: if isAuthenticated() &&
+                               request.resource.data.userId == request.auth.uid &&
+                               request.resource.data.score is int &&
+                               request.resource.data.score >= 0 &&
+                               request.resource.data.score <= 10000 &&
+                               request.resource.data.isCheater == false;
+      allow delete: if false;
+    }
+  }
+}

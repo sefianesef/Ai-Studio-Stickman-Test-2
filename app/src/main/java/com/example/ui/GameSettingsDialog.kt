@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,12 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.security.CloudSyncStatus
 
 @Composable
 fun GameSettingsDialog(
@@ -27,6 +30,7 @@ fun GameSettingsDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val soundEnabled by viewModel.soundEnabled.collectAsState()
     val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
     val leftHanded by viewModel.leftHandedMode.collectAsState()
@@ -34,7 +38,12 @@ fun GameSettingsDialog(
     val ultraParticles by viewModel.particleQualityUltra.collectAsState()
     val screenShake by viewModel.screenShakeEnabled.collectAsState()
 
+    val syncStatus by viewModel.cloudSyncStatus.collectAsState()
+    val firebaseUser by viewModel.firebaseUser.collectAsState()
+    val cloudGems by viewModel.cloudAuthoritativeGems.collectAsState()
+
     var showResetConfirmation by remember { mutableStateOf(false) }
+    var cloudSignInStatusMessage by remember { mutableStateOf<String?>(null) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -166,6 +175,164 @@ fun GameSettingsDialog(
                         isChecked = ultraParticles,
                         onCheckedChange = { viewModel.toggleParticleQuality() }
                     )
+
+                    // Cloud Server & Firebase Wallet Section
+                    SettingsSectionTitle(title = "FIREBASE CLOUD WALLET")
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("cloud_wallet_settings_card")
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CloudSync,
+                                        contentDescription = "Cloud Wallet",
+                                        tint = Color(0xFF38BDF8),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "Server Authoritative Wallet",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            text = if (firebaseUser != null) {
+                                                "Logged in: ${firebaseUser?.email ?: firebaseUser?.displayName ?: "Verified Player"}"
+                                            } else {
+                                                "Local Vault Only (Sign in to sync online)"
+                                            },
+                                            color = if (firebaseUser != null) Color(0xFF34D399) else Color(0xFF94A3B8),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = when (syncStatus) {
+                                        CloudSyncStatus.SYNCED -> Color(0xFF065F46)
+                                        CloudSyncStatus.CONNECTING -> Color(0xFF1E3A8A)
+                                        CloudSyncStatus.OFFLINE_SAVED -> Color(0xFF78350F)
+                                        CloudSyncStatus.DISCONNECTED, CloudSyncStatus.ERROR -> Color(0xFF334155)
+                                    }
+                                ) {
+                                    Text(
+                                        text = when (syncStatus) {
+                                            CloudSyncStatus.SYNCED -> "ONLINE"
+                                            CloudSyncStatus.CONNECTING -> "SYNCING"
+                                            CloudSyncStatus.OFFLINE_SAVED -> "OFFLINE"
+                                            CloudSyncStatus.DISCONNECTED -> "LOCAL"
+                                            CloudSyncStatus.ERROR -> "RETRY"
+                                        },
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "Connected Project: stickman-rush-88867 | Authoritative server balances prevent local phone hacks from altering your gems. Changes made directly to phone files do not affect your cloud account.",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp
+                            )
+
+                            if (cloudGems != null && firebaseUser != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(text = "💎 Cloud Authoritative Gems:", color = Color(0xFF67E8F9), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = "$cloudGems", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+
+                            if (cloudSignInStatusMessage != null) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = cloudSignInStatusMessage ?: "",
+                                    color = Color(0xFFFDE047),
+                                    fontSize = 10.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (firebaseUser == null) {
+                                    Button(
+                                        onClick = {
+                                            val activity = context as? Activity
+                                            if (activity != null) {
+                                                cloudSignInStatusMessage = "Connecting with Google Credential Manager..."
+                                                viewModel.signInWithGoogle(activity) { success, msg ->
+                                                    cloudSignInStatusMessage = if (success) "Connected as $msg" else "Sign-In Error: $msg"
+                                                }
+                                            } else {
+                                                cloudSignInStatusMessage = "Activity context required for Google Sign-In"
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f).testTag("google_signin_button")
+                                    ) {
+                                        Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Sign In with Google", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            viewModel.syncLocalProgressToCloud()
+                                            cloudSignInStatusMessage = "Cloud sync triggered at ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())}"
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f).testTag("sync_cloud_button")
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Sync Now", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            viewModel.signOutCloud()
+                                            cloudSignInStatusMessage = "Signed out from Google Cloud"
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.6f)),
+                                        modifier = Modifier.testTag("signout_cloud_button")
+                                    ) {
+                                        Text("Sign Out", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     // Data Management Section
                     SettingsSectionTitle(title = "DATA MANAGEMENT")

@@ -4,6 +4,7 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
+  alias(libs.plugins.google.services)
 }
 
 android {
@@ -90,6 +91,14 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.play.billing)
   implementation(libs.androidx.security.crypto)
+
+  // Firebase Cloud Database & Authentication
+  implementation(platform(libs.firebase.bom))
+  implementation(libs.firebase.firestore)
+  implementation(libs.firebase.auth)
+  implementation(libs.androidx.credentials)
+  implementation(libs.androidx.credentials.play.services)
+  implementation(libs.googleid)
 
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)

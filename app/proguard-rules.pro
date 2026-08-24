@@ -1,41 +1,43 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Advanced Code Scrambling, R8 Minification & Anti-Decompilation Rules
+# Protects the APK bytecode against JADX, APKTool, and Ghidra decompilation.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# 1. Aggressive Obfuscation & Bytecode Scrambling
+-optimizationpasses 5
+-allowaccessmodification
+-repackageclasses 'com.example.internal.obf'
+-renamesourcefileattribute ''
+-keepattributes !SourceFile,!LineNumberTable,!LocalVariableTable,!LocalVariableTypeTable
 
-# Keep line numbers for debugging
--keepattributes SourceFile,LineNumberTable
+# 2. Strip Logging & String Metadata to Prevent Symbol Discovery
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+    public static int w(...);
+}
 
-# Google Play Billing Client
+# 3. Google Play Billing Client
 -keep class com.android.billingclient.api.** { *; }
 -dontwarn com.android.billingclient.api.**
 
-# AndroidX Room
+# 4. AndroidX Room Database & Entities
 -keep class androidx.room.** { *; }
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.paging.**
 
-# Kotlin Coroutines
+# 5. Kotlin Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler { *; }
 -keepclassmembers class kotlinx.coroutines.** {
     volatile <fields>;
 }
 
-# Android Jetpack Compose & State
+# 6. Android Jetpack Compose
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
 
-# Keep Data Models and Entities with Serializable fields
+# 7. Keep Data Models and Entities
 -keepclassmembers class com.example.model.** {
     public *;
 }
@@ -43,7 +45,7 @@
     public *;
 }
 
-# Obfuscate and protect Security Vault & Anti-Cheat Engine
+# 8. Anti-Tamper & Security Engine Obfuscation
 -keepclassmembers class com.example.security.SecureCurrencyVault {
     public <methods>;
 }
@@ -68,11 +70,15 @@
 -keepclassmembers class com.example.security.ServerCurrencyAuthority {
     public <methods>;
 }
-
-# Strip Android Log calls in release builds to prevent symbol leakage
--assumenosideeffects class android.util.Log {
-    public static boolean isLoggable(java.lang.String, int);
-    public static int v(...);
-    public static int d(...);
+-keepclassmembers class com.example.security.AntiCheatEarningLimiter {
+    public <methods>;
 }
+
+# 9. AndroidX Security Crypto & Google Tink (Hardware Keystore)
+-keep class androidx.security.crypto.** { *; }
+-dontwarn androidx.security.crypto.**
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**
+
+
 

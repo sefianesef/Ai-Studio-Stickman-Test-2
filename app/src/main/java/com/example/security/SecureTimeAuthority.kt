@@ -9,7 +9,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.HttpURLConnection
 import java.net.InetAddress
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Secure Time Authority & Anti-Time-Manipulation Engine
@@ -20,21 +26,30 @@ import java.net.InetAddress
  * Mechanisms:
  * 1. Monotonic Hardware Clock Reference: Uses [SystemClock.elapsedRealtime()] which continues
  *    ticking accurately across sleep and is immune to device clock modifications.
- * 2. Network Time Protocol (NTP / SNTP): Queries trusted NTP servers (time.google.com, pool.ntp.org)
- *    to obtain authoritative atomic UTC timestamps.
- * 3. Clock Skew / Time-Travel Anomaly Detection: Detects if wall clock time jumped forwards or backwards
+ * 2. Multi-Pool Network Time Protocol (NTP / SNTP): Queries trusted NTP servers (time.google.com, time.cloudflare.com, pool.ntp.org, time.android.com).
+ * 3. HTTPS Web Time Fallback: Queries HTTP Date headers from trusted endpoints if UDP/NTP is firewalled.
+ * 4. Clock Skew & Time-Travel Anomaly Detection: Detects if wall clock time jumped forwards or backwards
  *    relative to the monotonic elapsed hardware clock.
  */
 class SecureTimeAuthority(private val context: Context) {
 
     companion object {
         private const val TAG = "SecureTimeAuthority"
-        private const val NTP_HOST_PRIMARY = "time.google.com"
-        private const val NTP_HOST_BACKUP = "pool.ntp.org"
+        private val NTP_SERVERS = listOf(
+            "time.google.com",
+            "time.cloudflare.com",
+            "time.android.com",
+            "pool.ntp.org"
+        )
         private const val NTP_PORT = 123
-        private const val NTP_TIMEOUT_MS = 3000
+        private const val NTP_TIMEOUT_MS = 2500
         private const val NTP_RESPONSE_OFFSET = 40
         private const val SEVENTY_YEARS_MS = 2208988800000L // Difference between 1900 and 1970 in ms
+
+        private val HTTPS_TIME_ENDPOINTS = listOf(
+            "https://www.google.com",
+            "https://www.cloudflare.com"
+        )
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -61,26 +76,48 @@ class SecureTimeAuthority(private val context: Context) {
         calibratedNetworkTimeMs = System.currentTimeMillis()
         lastObservedWallTimeMs = System.currentTimeMillis()
 
-        // Kick off background NTP calibration
+        // Kick off background atomic network time calibration
         syncWithNetworkTime()
     }
 
     /**
-     * Attempts to query authoritative NTP atomic server to calibrate trusted time.
+     * Attempts to query authoritative NTP atomic server or HTTPS time servers to calibrate trusted time.
      */
     fun syncWithNetworkTime() {
         scope.launch {
             try {
-                val ntpTime = querySntpServer(NTP_HOST_PRIMARY) ?: querySntpServer(NTP_HOST_BACKUP)
-                if (ntpTime != null && ntpTime > 1700000000000L) { // Sanity check: > late 2023
+                // 1. Try NTP servers first
+                var atomicTime: Long? = null
+                for (host in NTP_SERVERS) {
+                    atomicTime = querySntpServer(host)
+                    if (atomicTime != null && atomicTime > 1700000000000L) {
+                        Log.d(TAG, "Calibrated time via NTP server: $host ($atomicTime ms)")
+                        break
+                    }
+                }
+
+                // 2. Fallback to HTTPS HTTP Date headers if UDP/NTP is firewalled
+                if (atomicTime == null) {
+                    for (endpoint in HTTPS_TIME_ENDPOINTS) {
+                        atomicTime = queryHttpsDateHeader(endpoint)
+                        if (atomicTime != null && atomicTime > 1700000000000L) {
+                            Log.d(TAG, "Calibrated time via HTTPS server: $endpoint ($atomicTime ms)")
+                            break
+                        }
+                    }
+                }
+
+                if (atomicTime != null && atomicTime > 1700000000000L) {
                     val elapsed = SystemClock.elapsedRealtime()
-                    calibratedNetworkTimeMs = ntpTime
+                    calibratedNetworkTimeMs = atomicTime
                     calibratedElapsedRealtimeMs = elapsed
                     isCalibrated = true
-                    Log.d(TAG, "Successfully calibrated atomic network time: $ntpTime ms")
+                    Log.i(TAG, "Successfully locked authoritative atomic internet time: $atomicTime ms")
+                } else {
+                    Log.w(TAG, "All network time servers unreachable; relying on monotonic elapsed anchor.")
                 }
             } catch (e: Throwable) {
-                Log.w(TAG, "NTP time synchronization failed: ${e.message}. Using monotonic hardware anchor.")
+                Log.w(TAG, "Internet time synchronization exception: ${e.message}. Using monotonic anchor.")
             }
         }
     }
@@ -111,11 +148,24 @@ class SecureTimeAuthority(private val context: Context) {
 
     /**
      * Returns the authoritative calendar epoch day (days since Jan 1, 1970 UTC).
+     * Used for daily missions, streaks, lucky spin, and daily gifts.
      */
     fun getAuthoritativeEpochDay(): Long {
         val timeMs = getCurrentTimeMs()
         return timeMs / (1000L * 60 * 60 * 24)
     }
+
+    /**
+     * Returns seconds remaining until the next authoritative UTC day rollover.
+     */
+    fun getSecondsUntilNextUtcDay(): Long {
+        val timeMs = getCurrentTimeMs()
+        val currentDay = timeMs / (1000L * 60 * 60 * 24)
+        val nextDayStartMs = (currentDay + 1) * (1000L * 60 * 60 * 24)
+        return ((nextDayStartMs - timeMs) / 1000L).coerceAtLeast(0L)
+    }
+
+    fun isCalibrated(): Boolean = isCalibrated
 
     fun isTimeTampered(): Boolean = timeTravelTamperDetected
 
@@ -137,14 +187,39 @@ class SecureTimeAuthority(private val context: Context) {
             socket.receive(responsePacket)
 
             // Extract transmit timestamp (bytes 40..47)
-            val transmitTime = readTimestamp(buffer, NTP_RESPONSE_OFFSET)
-            transmitTime
+            readTimestamp(buffer, NTP_RESPONSE_OFFSET)
         } catch (_: Throwable) {
             null
         } finally {
             try {
                 socket?.close()
             } catch (_: Throwable) {}
+        }
+    }
+
+    private suspend fun queryHttpsDateHeader(endpoint: String): Long? = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(endpoint)
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "HEAD"
+                connectTimeout = 3000
+                readTimeout = 3000
+                instanceFollowRedirects = false
+            }
+            val dateHeader = conn.getHeaderField("Date")
+            conn.disconnect()
+
+            if (!dateHeader.isNullOrBlank()) {
+                val format = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("GMT")
+                }
+                val parsed: Date? = format.parse(dateHeader)
+                parsed?.time
+            } else {
+                null
+            }
+        } catch (_: Throwable) {
+            null
         }
     }
 

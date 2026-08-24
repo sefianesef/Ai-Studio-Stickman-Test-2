@@ -71,23 +71,20 @@ enum class CurrencySource(val maxAllowedAmount: Int, val requiresVerificationTok
  * 3. Plausibility & Rate-limiting blocks Frida method hooking or arbitrary large gem injection.
  * 4. Audit ledger logs every currency transaction with nonces and timestamps.
  */
-class SecureCurrencyVault(private val context: Context) {
+class SecureCurrencyVault(
+    private val context: Context,
+    val earningLimiter: AntiCheatEarningLimiter = AntiCheatEarningLimiter(context)
+) {
 
     companion object {
         private const val TAG = "SecureCurrencyVault"
         private const val HMAC_ALGO = "HmacSHA256"
         private const val SECRET_KEY_SEED = "STICKMAN_HERO_SECURE_VAULT_KEY_2026_PROD"
-
-        // Rate limiting: Maximum allowable gameplay gems earned in a 60-second window
-        private const val MAX_GAMEPLAY_GEMS_PER_MINUTE = 40
     }
 
     private val obfuscatedGems = ObfuscatedInt(0)
     private val obfuscatedBlueGems = ObfuscatedInt(0)
     private val obfuscatedRedGems = ObfuscatedInt(0)
-
-    private var gameplayGemsInWindow = 0
-    private var windowStartTimeMs = System.currentTimeMillis()
 
     init {
         // Vault initialized
@@ -153,9 +150,11 @@ class SecureCurrencyVault(private val context: Context) {
     ): Int {
         if (amount <= 0) return currentBalance
 
-        // 1. Enforce ceiling per transaction source
-        if (amount > source.maxAllowedAmount) {
-            Log.e(TAG, "ANTI-CHEAT REJECT: Transaction from ${source.name} requested $amount gems, exceeding ceiling of ${source.maxAllowedAmount}!")
+        // 1. Evaluate proposal against physical gameplay velocity limits & abnormal earning bounds
+        val isVerifiedIap = source.requiresVerificationToken && !verificationToken.isNullOrBlank()
+        val eval = earningLimiter.evaluateGemGain(amount, source, isVerifiedIap)
+        if (!eval.isAllowed) {
+            Log.e(TAG, "ANTI-CHEAT REJECT: Transaction rejected by earning velocity limiter: ${eval.rejectionReason}")
             return currentBalance
         }
 
@@ -165,21 +164,8 @@ class SecureCurrencyVault(private val context: Context) {
             return currentBalance
         }
 
-        // 3. Gameplay Rate-Limiter Window Check
-        if (source == CurrencySource.GAMEPLAY_COLLECT) {
-            val now = System.currentTimeMillis()
-            if (now - windowStartTimeMs > 60_000L) {
-                windowStartTimeMs = now
-                gameplayGemsInWindow = 0
-            }
-            if (gameplayGemsInWindow + amount > MAX_GAMEPLAY_GEMS_PER_MINUTE) {
-                Log.w(TAG, "ANTI-CHEAT WARNING: Gem pickup rate exceeded safe threshold ($gameplayGemsInWindow/min). Clamping.")
-                return currentBalance
-            }
-            gameplayGemsInWindow += amount
-        }
-
-        val newTotal = (currentBalance + amount).coerceAtLeast(0)
+        val approvedAmount = eval.sanitizedAmount
+        val newTotal = (currentBalance + approvedAmount).coerceAtLeast(0)
         obfuscatedGems.set(newTotal)
         return newTotal
     }
