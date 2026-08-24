@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.mygames.stickmanrush"
   compileSdk = 36
 
   defaultConfig {
