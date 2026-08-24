@@ -36,7 +36,7 @@ jobs:
 
       - name: Create Secrets and Keystore
         run: |
-          echo "=== 1. Setting up Environment Secrets ==="
+          echo "=== 1. Setting up Environment Secrets & Properties ==="
           if [ ! -f ".env" ]; then
             if [ -f ".env.example" ]; then
               cp .env.example .env
@@ -44,8 +44,43 @@ jobs:
               touch .env
             fi
           fi
+          touch local.properties
+          touch secrets.properties
+          touch app/secrets.properties
+          touch app/local.properties
 
-          echo "=== 2. Setting up Debug Keystore ==="
+          echo "=== 2. Ensuring Google Services JSON ==="
+          if [ ! -f "app/google-services.json" ]; then
+            cat << 'EOF' > app/google-services.json
+{
+  "project_info": {
+    "project_number": "842418078736",
+    "project_id": "stickman-rush-88867",
+    "storage_bucket": "stickman-rush-88867.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:842418078736:android:b891ca82349071d2",
+        "android_client_info": {
+          "package_name": "com.aistudio.stickmanhero.vjkwpz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyStickmanRushProjectKey88867"
+        }
+      ],
+      "services": {}
+    }
+  ],
+  "configuration_version": "1"
+}
+EOF
+          fi
+
+          echo "=== 3. Setting up Debug Keystore ==="
           if [ -f "debug.keystore.base64" ]; then
             base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || base64 --decode debug.keystore.base64 > debug.keystore 2>/dev/null || true
           fi
@@ -61,8 +96,11 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
+          mkdir -p ~/.android
+          cp debug.keystore ~/.android/debug.keystore || true
+          cp debug.keystore app/debug.keystore || true
 
-          echo "=== 3. Setting Execution Permissions ==="
+          echo "=== 4. Setting Execution Permissions ==="
           chmod +x gradlew || true
 
       - name: Build Debug APK
