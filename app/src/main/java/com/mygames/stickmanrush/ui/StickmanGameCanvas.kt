@@ -401,6 +401,81 @@ private fun DrawScope.drawGameBackground(engine: StickmanGameEngine, stage: Stag
                 )
             }
         }
+        CelestialType.CITY_SKYSCRAPERS -> {
+            // Luminous Midnight City Moon
+            drawCircle(
+                color = Color(0x3338BDF8),
+                radius = 56.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            drawCircle(
+                color = Color(0xFFE2E8F0),
+                radius = 34.dp.toPx(),
+                center = Offset(baseCelestialX, celestialY)
+            )
+            // Parallax Midnight Skyscraper Silhouette with glowing windows & spires
+            val bldgPeriod = 480.dp.toPx()
+            val bldgShift = (parallax * 0.08f).mod(bldgPeriod)
+            var bX = -bldgPeriod - bldgShift
+            while (bX <= screenW + bldgPeriod) {
+                // Skyscraper 1 (Tall Spire)
+                val h1 = 200.dp.toPx()
+                val w1 = 55.dp.toPx()
+                val y1 = screenH * 0.68f - h1
+                drawRect(color = Color(0xFF090D16), topLeft = Offset(bX, y1), size = Size(w1, h1 + 100f))
+                drawLine(color = Color(0xFF38BDF8), start = Offset(bX + w1 / 2f, y1), end = Offset(bX + w1 / 2f, y1 - 24.dp.toPx()), strokeWidth = 2.dp.toPx())
+                val beaconAlpha = (sin(time * 6f) * 0.5f + 0.5f).coerceIn(0.2f, 1f)
+                drawCircle(color = Color(0xFFEF4444).copy(alpha = beaconAlpha), radius = 2.5.dp.toPx(), center = Offset(bX + w1 / 2f, y1 - 24.dp.toPx()))
+                for (r in 0 until 6) {
+                    for (c in 0 until 3) {
+                        val winColor = if ((r + c + (bX.toInt() / 20)) % 3 != 0) Color(0xFFFDE047).copy(alpha = 0.65f) else Color(0xFF38BDF8).copy(alpha = 0.5f)
+                        drawRect(color = winColor, topLeft = Offset(bX + 8.dp.toPx() + c * 14.dp.toPx(), y1 + 16.dp.toPx() + r * 22.dp.toPx()), size = Size(6.dp.toPx(), 9.dp.toPx()))
+                    }
+                }
+
+                // Skyscraper 2 (Glass Tower)
+                val h2 = 160.dp.toPx()
+                val w2 = 70.dp.toPx()
+                val x2 = bX + 60.dp.toPx()
+                val y2 = screenH * 0.68f - h2
+                drawRect(color = Color(0xFF0F172A), topLeft = Offset(x2, y2), size = Size(w2, h2 + 100f))
+                for (r in 0 until 5) {
+                    for (c in 0 until 4) {
+                        val winColor = if ((r * 2 + c) % 2 == 0) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color(0xFFFACC15).copy(alpha = 0.5f)
+                        drawRect(color = winColor, topLeft = Offset(x2 + 7.dp.toPx() + c * 14.dp.toPx(), y2 + 14.dp.toPx() + r * 22.dp.toPx()), size = Size(7.dp.toPx(), 9.dp.toPx()))
+                    }
+                }
+
+                // Skyscraper 3 (Modern Stepped Tower)
+                val h3 = 230.dp.toPx()
+                val w3 = 65.dp.toPx()
+                val x3 = bX + 135.dp.toPx()
+                val y3 = screenH * 0.68f - h3
+                drawRect(color = Color(0xFF0B1120), topLeft = Offset(x3, y3), size = Size(w3, h3 + 100f))
+                drawLine(color = Color(0xFF818CF8), start = Offset(x3 + w3 / 2f, y3), end = Offset(x3 + w3 / 2f, y3 - 30.dp.toPx()), strokeWidth = 2.dp.toPx())
+                val beaconAlpha2 = (cos(time * 6f) * 0.5f + 0.5f).coerceIn(0.2f, 1f)
+                drawCircle(color = Color(0xFFEF4444).copy(alpha = beaconAlpha2), radius = 2.5.dp.toPx(), center = Offset(x3 + w3 / 2f, y3 - 30.dp.toPx()))
+                for (r in 0 until 7) {
+                    for (c in 0 until 3) {
+                        drawRect(color = Color(0xFFFEF08A).copy(alpha = 0.6f), topLeft = Offset(x3 + 9.dp.toPx() + c * 16.dp.toPx(), y3 + 18.dp.toPx() + r * 22.dp.toPx()), size = Size(7.dp.toPx(), 9.dp.toPx()))
+                    }
+                }
+
+                // Skyscraper 4 (Sleek Highrise)
+                val h4 = 140.dp.toPx()
+                val w4 = 60.dp.toPx()
+                val x4 = bX + 205.dp.toPx()
+                val y4 = screenH * 0.68f - h4
+                drawRect(color = Color(0xFF111827), topLeft = Offset(x4, y4), size = Size(w4, h4 + 100f))
+                for (r in 0 until 4) {
+                    for (c in 0 until 3) {
+                        drawRect(color = Color(0xFF67E8F9).copy(alpha = 0.55f), topLeft = Offset(x4 + 8.dp.toPx() + c * 16.dp.toPx(), y4 + 16.dp.toPx() + r * 22.dp.toPx()), size = Size(6.dp.toPx(), 8.dp.toPx()))
+                    }
+                }
+
+                bX += bldgPeriod
+            }
+        }
     }
 
     // 4. Distant Parallax Mountain Range (Slow Speed: 0.10x)
@@ -586,6 +661,39 @@ private fun DrawScope.drawPlatforms(engine: StickmanGameEngine, stage: StageThem
                 center = Offset(centerDotX, p2TopY + 1.dp.toPx())
             )
         }
+
+        // Moving Platform Thrusters & Directional Indicators
+        if (p2.isMoving) {
+            val thrusterY = p2TopY + 10.dp.toPx()
+            val pulse = (sin(p2.movePhase * 4f) * 0.3f + 0.7f).coerceIn(0.3f, 1f)
+            // Thrusters on left & right
+            drawCircle(color = Color(0xFF0284C7), radius = 5.dp.toPx(), center = Offset(p2.leftX + 8.dp.toPx(), thrusterY))
+            drawCircle(color = Color(0xFF38BDF8).copy(alpha = pulse), radius = 3.dp.toPx(), center = Offset(p2.leftX + 8.dp.toPx(), thrusterY))
+            drawCircle(color = Color(0xFF0284C7), radius = 5.dp.toPx(), center = Offset(p2.leftX + p2.width - 8.dp.toPx(), thrusterY))
+            drawCircle(color = Color(0xFF38BDF8).copy(alpha = pulse), radius = 3.dp.toPx(), center = Offset(p2.leftX + p2.width - 8.dp.toPx(), thrusterY))
+
+            // Directional motion arrow indicator
+            val arrowMidX = p2.leftX + (p2.width / 2f)
+            val arrowY = p2TopY + 16.dp.toPx()
+            val arrowOffset = sin(p2.movePhase) * 5.dp.toPx()
+            if (p2.moveVertical) {
+                drawLine(
+                    color = Color(0xFF38BDF8).copy(alpha = 0.85f),
+                    start = Offset(arrowMidX, arrowY - 5.dp.toPx() + arrowOffset),
+                    end = Offset(arrowMidX, arrowY + 5.dp.toPx() + arrowOffset),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            } else {
+                drawLine(
+                    color = Color(0xFF38BDF8).copy(alpha = 0.85f),
+                    start = Offset(arrowMidX - 7.dp.toPx() + arrowOffset, arrowY),
+                    end = Offset(arrowMidX + 7.dp.toPx() + arrowOffset, arrowY),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
     }
 }
 
@@ -759,6 +867,54 @@ private fun DrawScope.drawObstacles(engine: StickmanGameEngine, time: Float) {
                     start = Offset(obs.x, obs.y),
                     end = Offset(sx, sy),
                     strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+
+        ObstacleType.SLIP_PATCH -> {
+            // Slick ice / oil slip hazard on bridge
+            val patchWidth = obs.width
+            val patchLeft = obs.x - patchWidth / 2f
+            val patchTop = obs.y - 4.dp.toPx()
+
+            // Translucent cyan icy surface bar
+            drawRoundRect(
+                color = Color(0xDD38BDF8),
+                topLeft = Offset(patchLeft, patchTop),
+                size = Size(patchWidth, 9.dp.toPx()),
+                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+            )
+            // Frost glow outline
+            drawRoundRect(
+                color = Color(0xFFE0F2FE),
+                topLeft = Offset(patchLeft, patchTop),
+                size = Size(patchWidth, 9.dp.toPx()),
+                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+            // Sparkling ice glints
+            val glintX = patchLeft + 6.dp.toPx() + ((time * 30f) % (patchWidth - 12.dp.toPx()))
+            drawCircle(
+                color = Color.White,
+                radius = 2.dp.toPx(),
+                center = Offset(glintX, patchTop + 4.5.dp.toPx())
+            )
+            // Chevron slide guides indicating slick zone
+            for (c in 0 until 3) {
+                val cx = patchLeft + 10.dp.toPx() + (c * 12.dp.toPx())
+                drawLine(
+                    color = Color.White.copy(alpha = 0.85f),
+                    start = Offset(cx, patchTop + 2.dp.toPx()),
+                    end = Offset(cx + 4.dp.toPx(), patchTop + 4.5.dp.toPx()),
+                    strokeWidth = 1.8.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                drawLine(
+                    color = Color.White.copy(alpha = 0.85f),
+                    start = Offset(cx + 4.dp.toPx(), patchTop + 4.5.dp.toPx()),
+                    end = Offset(cx, patchTop + 7.dp.toPx()),
+                    strokeWidth = 1.8.dp.toPx(),
                     cap = StrokeCap.Round
                 )
             }
@@ -1209,8 +1365,8 @@ private fun DrawScope.drawHeroStickman(
         // 1. Scarf / Cape (Drawn behind body)
         drawHeroCape(scarf, scarfColor, x, currentNeckY, isWalking, walkPhase, gameTime)
 
-        // 2. Spine / Torso (with slight forward lean during walking)
-        val torsoLean = if (isWalking) 1.5.dp.toPx() else 0f
+        // 2. Spine / Torso (with slight forward lean during walking or backward slide lean during slip)
+        val torsoLean = if (engine.isSlipping) -3.5.dp.toPx() else if (isWalking) 1.5.dp.toPx() else 0f
         drawLine(
             color = bodyColor,
             start = Offset(x + torsoLean, currentNeckY),
@@ -1220,7 +1376,34 @@ private fun DrawScope.drawHeroStickman(
         )
 
         // 3. Legs: 2-Segment Articulated Kinematics (Hip -> Knee -> Foot)
-        if (isWalking) {
+        if (engine.isSlipping) {
+            // High-speed ice slide stance (feet kicked forward, arms flailing)
+            val slideWobble = sin(gameTime * 22f) * 2.dp.toPx()
+            val foot1X = x + 12.dp.toPx() + slideWobble
+            val foot2X = x + 6.dp.toPx() - slideWobble
+            drawLine(
+                color = bodyColor,
+                start = Offset(x, currentHipY),
+                end = Offset(foot1X, y),
+                strokeWidth = 2.8.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            drawLine(
+                color = bodyColor,
+                start = Offset(x, currentHipY),
+                end = Offset(foot2X, y),
+                strokeWidth = 2.8.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            // Speed slide lines under feet
+            drawLine(
+                color = Color(0xCC38BDF8),
+                start = Offset(x - 14.dp.toPx(), y + 1.dp.toPx()),
+                end = Offset(foot1X, y + 1.dp.toPx()),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        } else if (isWalking) {
             // Left Leg (Lead Phase)
             val leftLegPhase = walkPhase
             val leftFootX = x + sin(leftLegPhase) * 8.dp.toPx()

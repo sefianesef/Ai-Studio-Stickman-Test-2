@@ -227,11 +227,11 @@ class DifficultyManager {
         val posX = spanStart + (spanWidth * (Random.nextFloat() * 0.4f + 0.3f))
         
         // Choose obstacle type
-        val types = com.mygames.stickmanrush.model.ObstacleType.values()
-        val chosenType = when (Random.nextInt(4)) {
+        val chosenType = when (Random.nextInt(5)) {
             0 -> com.mygames.stickmanrush.model.ObstacleType.SPINNING_BLADE // Top of bridge
             1 -> com.mygames.stickmanrush.model.ObstacleType.SPIKE_MINE // Under bridge
             2 -> com.mygames.stickmanrush.model.ObstacleType.LASER_BARRIER // Pulsing laser
+            3 -> com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH // Slippery ice patch
             else -> com.mygames.stickmanrush.model.ObstacleType.MOVING_SPIKE_BALL // Hovering orb
         }
 
@@ -252,8 +252,31 @@ class DifficultyManager {
         return Random.nextFloat() < tier.gemSpawnRate
     }
 
-    fun isMovingPlatform(score: Int): Boolean {
+    fun isMovingPlatform(score: Int, level: Int): Boolean {
+        if (level <= 2) return false
         val tier = getTier(score)
-        return Random.nextFloat() < tier.movingPlatformChance
+        val chance = when {
+            level >= 5 -> 0.35f
+            level >= 3 -> 0.25f
+            else -> tier.movingPlatformChance
+        }
+        return Random.nextFloat() < chance
+    }
+
+    data class MovingPlatformConfig(
+        val isMoving: Boolean,
+        val amplitude: Float,
+        val speed: Float,
+        val isVertical: Boolean
+    )
+
+    fun generateMovingConfig(score: Int, level: Int): MovingPlatformConfig {
+        if (!isMovingPlatform(score, level)) {
+            return MovingPlatformConfig(isMoving = false, amplitude = 0f, speed = 0f, isVertical = false)
+        }
+        val isVertical = Random.nextFloat() < 0.40f
+        val amplitude = if (isVertical) Random.nextFloat() * 18f + 14f else Random.nextFloat() * 24f + 16f
+        val speed = Random.nextFloat() * 1.2f + 1.6f
+        return MovingPlatformConfig(isMoving = true, amplitude = amplitude, speed = speed, isVertical = isVertical)
     }
 }

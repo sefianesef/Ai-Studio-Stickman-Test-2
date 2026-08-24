@@ -140,7 +140,7 @@ class PhysicsEngine {
     }
 
     /**
-     * Checks if the stickman collides with an obstacle hazard along the bridge span.
+     * Checks if the stickman collides with a fatal obstacle hazard along the bridge span.
      * Returns true if hit (damage/fail condition), false if safely navigated/dodged.
      */
     fun checkObstacleCollision(
@@ -149,6 +149,8 @@ class PhysicsEngine {
         obstacle: ObstacleData?
     ): Boolean {
         if (obstacle == null || !obstacle.isActive) return false
+        if (obstacle.type == com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH) return false // Handled as slip physics
+
         val inRange = abs(stickmanX - obstacle.x) <= OBSTACLE_COLLISION_RADIUS
         if (!inRange) return false
 
@@ -159,6 +161,19 @@ class PhysicsEngine {
             // Obstacle is ON TOP of bridge (e.g. spinning buzzsaw) -> Stickman hits it if RIGHT-SIDE UP
             !isUpsideDown
         }
+    }
+
+    /**
+     * Checks if the stickman steps on an ice/oil slip patch on top of the bridge.
+     */
+    fun checkObstacleSlip(
+        stickmanX: Float,
+        isUpsideDown: Boolean,
+        obstacle: ObstacleData?
+    ): Boolean {
+        if (obstacle == null || !obstacle.isActive || obstacle.type != com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH) return false
+        val inRange = abs(stickmanX - obstacle.x) <= 32f
+        return inRange && !isUpsideDown
     }
 
     /**

@@ -46,8 +46,8 @@ class SoundManager(private val context: Context) {
     private val pcmGem by lazy { generateTone(freq = 1046f, durationSec = 0.18f, decayRate = 10f, harmonic = 2093f) }
     private val pcmPerfect by lazy { generateChime(freq1 = 880f, freq2 = 1320f, freq3 = 1760f, durationSec = 0.32f) }
     private val pcmFlip by lazy { generateSweep(startFreq = 320f, endFreq = 640f, durationSec = 0.08f) }
-    private val pcmFall by lazy { generateSweep(startFreq = 420f, endFreq = 90f, durationSec = 0.28f) }
-    private val pcmFunnyFallingMusic by lazy { generateFunnyFallingMusic() }
+    private val pcmFall by lazy { generateSlideWhistleFall(durationSec = 0.85f) }
+    private val pcmFunnyFallingMusic by lazy { generateCartoonSlideWhistleTone() }
     private val pcmOhNoVoice by lazy { generateOhNoVoiceOver() }
     private val pcmGameOver by lazy { generateMinorChord(durationSec = 0.45f) }
     private val pcmButton by lazy { generateTone(freq = 520f, durationSec = 0.05f, decayRate = 45f) }
@@ -583,90 +583,76 @@ class SoundManager(private val context: Context) {
             return pcmSamples
         }
 
-        private fun generateFunnyFallingMusic(): ShortArray {
-            val totalDurationSec = 2.40f
+        private fun generateSlideWhistleFall(durationSec: Float = 0.85f): ShortArray {
+            val totalSamples = (SAMPLE_RATE * durationSec).toInt()
+            val floatBuffer = FloatArray(totalSamples)
+            var phase = 0.0
+
+            for (i in 0 until totalSamples) {
+                val t = i.toFloat() / SAMPLE_RATE
+                val p = (t / durationSec).coerceIn(0f, 1f)
+                
+                // Classic smooth slide whistle pitch descent: 1250 Hz -> 180 Hz with natural breath vibrato
+                val vibrato = sin(2.0 * PI * 18.0 * t).toFloat() * (15f * (1f - p * 0.5f))
+                val baseFreq = 1250f * (1f - (p * p) * 0.85f)
+                val freq = (baseFreq + vibrato).coerceAtLeast(120f)
+
+                phase += 2.0 * PI * freq / SAMPLE_RATE
+
+                val attack = (t / 0.03f).coerceIn(0f, 1f)
+                val decay = (1f - (p * 0.8f)).coerceIn(0f, 1f)
+                val env = attack * decay
+
+                // Authentic slide whistle flute resonance (pure fundamental + gentle 2nd harmonic + subtle breath air)
+                val airNoise = ((i % 17) - 8) / 100f
+                val sample = (sin(phase) * 0.85 + sin(phase * 2.0) * 0.12 + airNoise * 0.03).toFloat()
+
+                floatBuffer[i] = sample * env * 0.90f
+            }
+
+            val pcmSamples = ShortArray(totalSamples)
+            var maxPeak = 0.001f
+            for (v in floatBuffer) {
+                val absV = kotlin.math.abs(v)
+                if (absV > maxPeak) maxPeak = absV
+            }
+            val scale = (27000f / maxPeak).coerceAtMost(28000f)
+            for (i in 0 until totalSamples) {
+                pcmSamples[i] = (floatBuffer[i] * scale).toInt().coerceIn(-32767, 32767).toShort()
+            }
+            return pcmSamples
+        }
+
+        private fun generateCartoonSlideWhistleTone(): ShortArray {
+            val totalDurationSec = 2.20f
             val totalSamples = (SAMPLE_RATE * totalDurationSec).toInt()
             val floatBuffer = FloatArray(totalSamples)
 
-            // Dynamic Catchy Retro/Cartoon Fall Sting
-            // 1. Zippy Descending Whistle Flutter (0.00s - 0.40s)
-            val flutterDuration = 0.40f
-            val flutterSamples = (SAMPLE_RATE * flutterDuration).toInt()
-            var flutterPhase = 0.0
-            for (i in 0 until flutterSamples) {
+            // 1. Authentic Cartoon Slide Whistle Glissando (0.00s - 1.10s)
+            val whistleDuration = 1.10f
+            val whistleSamples = (SAMPLE_RATE * whistleDuration).toInt()
+            var whistlePhase = 0.0
+
+            for (i in 0 until whistleSamples) {
                 val t = i.toFloat() / SAMPLE_RATE
-                val p = t / flutterDuration
-                val baseFreq = 950f * (1f - p * 0.70f)
-                val trill = sin(2.0 * PI * 22.0 * t).toFloat() * 60f
-                val freq = (baseFreq + trill).coerceAtLeast(100f)
+                val p = t / whistleDuration
 
-                flutterPhase += 2.0 * PI * freq / SAMPLE_RATE
-                val attack = (t / 0.02f).coerceIn(0f, 1f)
-                val decay = (1f - p).coerceIn(0f, 1f)
-                val sample = sin(flutterPhase).toFloat()
-                floatBuffer[i] += sample * attack * decay * 0.70f
+                // Dynamic expressive cartoon downward slide 1400 Hz -> 220 Hz
+                val slideCurve = p * p
+                val pitchMod = sin(2.0 * PI * 16.0 * t).toFloat() * (22f * (1f - p * 0.6f))
+                val freq = (1400f * (1f - slideCurve * 0.84f) + pitchMod).coerceAtLeast(140f)
+
+                whistlePhase += 2.0 * PI * freq / SAMPLE_RATE
+                val attack = (t / 0.025f).coerceIn(0f, 1f)
+                val decay = (1f - p * 0.65f).coerceIn(0f, 1f)
+                val sample = (sin(whistlePhase) * 0.82 + sin(whistlePhase * 2.0) * 0.15 + sin(whistlePhase * 3.0) * 0.03).toFloat()
+
+                floatBuffer[i] += sample * attack * decay * 0.90f
             }
 
-            // 2. Catchy Comedic Descending Brass/Marimba Riff (0.35s - 1.80s)
-            // Distinct musical fail motif: F# -> E -> D# -> D -> C (bouncy syncopation)
-            data class CatchyNote(
-                val startSec: Float,
-                val durationSec: Float,
-                val freq: Float,
-                val gain: Float = 0.90f,
-                val pitchBendDown: Boolean = false
-            )
-
-            val catchyNotes = listOf(
-                CatchyNote(0.35f, 0.22f, 739.99f, 0.90f), // F#5
-                CatchyNote(0.55f, 0.18f, 659.25f, 0.95f), // E5
-                CatchyNote(0.72f, 0.18f, 622.25f, 0.95f), // D#5
-                CatchyNote(0.90f, 0.22f, 587.33f, 1.00f), // D5
-                CatchyNote(1.12f, 0.22f, 523.25f, 1.00f), // C5
-                CatchyNote(1.34f, 0.55f, 392.00f, 1.10f, pitchBendDown = true) // G4 -> low comedic droop
-            )
-
-            for (note in catchyNotes) {
-                val startIdx = (note.startSec * SAMPLE_RATE).toInt()
-                val noteSamples = (note.durationSec * SAMPLE_RATE).toInt()
-                var notePhase = 0.0
-
-                for (i in 0 until noteSamples) {
-                    val idx = startIdx + i
-                    if (idx < totalSamples) {
-                        val t = i.toFloat() / SAMPLE_RATE
-                        val p = t / note.durationSec
-
-                        val currentFreq = if (note.pitchBendDown) {
-                            val droop = note.freq * (1f - p * 0.40f)
-                            val vibrato = if (p > 0.20f) sin(2.0 * PI * 6.5 * t).toFloat() * 12f else 0f
-                            droop + vibrato
-                        } else {
-                            note.freq + sin(2.0 * PI * 5.0 * t).toFloat() * 3f
-                        }
-
-                        notePhase += 2.0 * PI * currentFreq / SAMPLE_RATE
-
-                        val attack = (t / 0.015f).coerceIn(0f, 1f)
-                        val decay = exp(-3.8f * t)
-                        val env = attack * decay * note.gain
-
-                        // Rich bell + marimba + brass timbre
-                        val sample = (
-                            sin(notePhase) * 0.60 +
-                            sin(notePhase * 2.0) * 0.25 +
-                            sin(notePhase * 3.0) * 0.10 +
-                            sin(notePhase * 4.0) * 0.05
-                        ).toFloat()
-
-                        floatBuffer[idx] += sample * env * 0.85f
-                    }
-                }
-            }
-
-            // 3. Playful Spring "Boing" & Woodblock Pop at the End (1.80s - 2.40s)
-            val boingStartSec = 1.80f
-            val boingDurationSec = 0.55f
+            // 2. Comedic "Boing-Wobble" Spring Drop at the Bottom (1.10s - 1.95s)
+            val boingStartSec = 1.10f
+            val boingDurationSec = 0.85f
             val boingStartIdx = (boingStartSec * SAMPLE_RATE).toInt()
             val boingSamples = (boingDurationSec * SAMPLE_RATE).toInt()
             var boingPhase = 0.0
@@ -676,14 +662,18 @@ class SoundManager(private val context: Context) {
                 if (idx < totalSamples) {
                     val t = i.toFloat() / SAMPLE_RATE
                     val p = t / boingDurationSec
-                    val springMod = sin(2.0 * PI * 26.0 * t).toFloat() * 85f * (1f - p)
-                    val freq = (240f + springMod + (1f - p) * 90f).coerceAtLeast(80f)
+
+                    // Spring wobble modulation
+                    val springWobble = sin(2.0 * PI * 24.0 * t).toFloat() * (95f * (1f - p))
+                    val baseFreq = 260f * (1f - p * 0.55f)
+                    val freq = (baseFreq + springWobble).coerceAtLeast(80f)
 
                     boingPhase += 2.0 * PI * freq / SAMPLE_RATE
-                    val attack = (t / 0.008f).coerceIn(0f, 1f)
-                    val decay = exp(-6.5f * t)
-                    val sample = sin(boingPhase).toFloat()
-                    floatBuffer[idx] += sample * attack * decay * 0.80f
+                    val attack = (t / 0.01f).coerceIn(0f, 1f)
+                    val decay = exp(-4.2f * t)
+                    val sample = (sin(boingPhase) * 0.75 + sin(boingPhase * 2.0) * 0.20 + sin(boingPhase * 3.0) * 0.05).toFloat()
+
+                    floatBuffer[idx] += sample * attack * decay * 0.95f
                 }
             }
 

@@ -197,7 +197,8 @@ enum class ObstacleType(val label: String, val icon: String, val dodgeHint: Stri
     SPINNING_BLADE("Buzzsaw", "🪚", "FLIP UNDER TO DODGE! 🥷"),
     SPIKE_MINE("Spike Mine", "💥", "WALK ON TOP TO DODGE! ⬆️"),
     LASER_BARRIER("Laser Barrier", "⚡", "FLIP OR TIME YOUR CROSSING! ⚡"),
-    MOVING_SPIKE_BALL("Spike Orb", "🔮", "AVOID THE HOVERING ORB! 🔮")
+    MOVING_SPIKE_BALL("Spike Orb", "🔮", "AVOID THE HOVERING ORB! 🔮"),
+    SLIP_PATCH("Ice Slip", "🧊", "SLIP HAZARD! FLIP UNDER TO BYPASS! ⛸️")
 }
 
 data class ObstacleData(
@@ -302,7 +303,14 @@ data class PlatformData(
     val hasRedDot: Boolean = true,
     var heightOffset: Float = 0f, // Dynamic height variation (negative = higher cliff, positive = lower step)
     var gem: GemData? = null,
-    var obstacle: ObstacleData? = null
+    var obstacle: ObstacleData? = null,
+    var isMoving: Boolean = false,
+    var moveAmplitude: Float = 0f,
+    var moveSpeed: Float = 0f,
+    var movePhase: Float = 0f,
+    var baseLeftX: Float = 0f,
+    var baseHeightOffset: Float = 0f,
+    var moveVertical: Boolean = false
 )
 
 data class GemData(
@@ -366,6 +374,7 @@ data class StageTheme(
 )
 
 enum class CelestialType {
+    CITY_SKYSCRAPERS,
     MOON,
     SUN,
     NEON_PLANET,

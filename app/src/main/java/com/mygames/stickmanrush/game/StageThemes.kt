@@ -8,14 +8,14 @@ object StageThemes {
     val stages = listOf(
         StageTheme(
             stageNumber = 1,
-            name = "Emerald Twilight",
-            bgTopColor = Color(0xFF06140E),
-            bgBottomColor = Color(0xFF1B4332),
-            platformColor = Color(0xFF0F172A),
-            platformHighlightColor = Color(0xFF10B981),
-            mountainColor = Color(0xFF0D2818),
-            celestialType = CelestialType.MOON,
-            ambientDescription = "Whispering emerald pines"
+            name = "Midnight Skyscrapers",
+            bgTopColor = Color(0xFF030712), // Deep midnight sky
+            bgBottomColor = Color(0xFF111827), // Urban horizon
+            platformColor = Color(0xFF0B0F19), // Rooftop asphalt & steel
+            platformHighlightColor = Color(0xFF38BDF8), // Cyan rooftop neon
+            mountainColor = Color(0xFF1E293B), // Skyscraper silhouettes
+            celestialType = CelestialType.CITY_SKYSCRAPERS,
+            ambientDescription = "Towering illuminated city skyline"
         ),
         StageTheme(
             stageNumber = 2,

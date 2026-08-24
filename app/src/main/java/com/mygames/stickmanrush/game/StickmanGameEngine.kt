@@ -121,6 +121,8 @@ class StickmanGameEngine(
     var stickmanFallVel = 0f
     var stickmanRotation = 0f
     var isUpsideDown = false
+    var isSlipping = false
+    var slipTimer = 0f
     var walkPhase = 0f
 
     // Parallax tracking
@@ -203,6 +205,8 @@ class StickmanGameEngine(
         fallElapsedTime = 0f
         hasSpawnedMidFallReaction = false
         isUpsideDown = false
+        isSlipping = false
+        slipTimer = 0f
         walkPhase = 0f
         parallaxOffset = 0f
 
@@ -311,8 +315,11 @@ class StickmanGameEngine(
         val spanEnd = nextLeft
         val gem = gemStateManager.createGemForSpan(spanStart, spanEnd, tier)
 
-        // Procedural Physical Obstacle Hazard (Buzzsaws, Spike Mines, Laser Barriers)
+        // Procedural Physical Obstacle Hazard (Buzzsaws, Spike Mines, Laser Barriers, Ice Slip)
         val obstacle = difficultyManager.generateObstacle(spanStart, spanEnd, currentScore, level, isBossLevel = isBoss)
+
+        // Procedural Moving Platform Config
+        val movingConfig = difficultyManager.generateMovingConfig(currentScore, level)
 
         return PlatformData(
             id = nextPlatform.id + 1,
@@ -321,7 +328,13 @@ class StickmanGameEngine(
             hasRedDot = true,
             heightOffset = heightOffset,
             gem = gem,
-            obstacle = obstacle
+            obstacle = obstacle,
+            isMoving = movingConfig.isMoving,
+            moveAmplitude = movingConfig.amplitude,
+            moveSpeed = movingConfig.speed,
+            moveVertical = movingConfig.isVertical,
+            baseLeftX = nextLeft,
+            baseHeightOffset = heightOffset
         )
     }
 
@@ -477,6 +490,27 @@ class StickmanGameEngine(
             }
         }
 
+        // Procedural Moving Platform Oscillation
+        if (nextPlatform.isMoving && (_gameState.value == GameState.IDLE || _gameState.value == GameState.GROWING || _gameState.value == GameState.FALLING_BRIDGE)) {
+            nextPlatform.movePhase += clampedDt * nextPlatform.moveSpeed
+            if (nextPlatform.moveVertical) {
+                nextPlatform.heightOffset = nextPlatform.baseHeightOffset + sin(nextPlatform.movePhase) * nextPlatform.moveAmplitude
+            } else {
+                nextPlatform.leftX = nextPlatform.baseLeftX + sin(nextPlatform.movePhase) * nextPlatform.moveAmplitude
+            }
+        }
+
+        // Procedural Obstacle Hazard Slanted Bridge Tracking
+        nextPlatform.obstacle?.let { obs ->
+            obs.animPhase += clampedDt * 6f
+            val spanW = (nextPlatform.leftX - bridgeStartX).coerceAtLeast(10f)
+            val prog = ((obs.x - bridgeStartX) / spanW).coerceIn(0.15f, 0.85f)
+            val startY = floorY + currentPlatform.heightOffset
+            val endY = floorY + nextPlatform.heightOffset
+            val bY = startY + prog * (endY - startY)
+            obs.y = if (obs.isUnderBridge) bY + 22f else bY - 20f
+        }
+
         when (_gameState.value) {
             GameState.GROWING -> {
                 // Growth speed scales gently with current difficulty tier for easy early control
@@ -600,10 +634,28 @@ class StickmanGameEngine(
                 bridgeImpactTime += clampedDt
                 bridgeBounceOffset = physicsEngine.computeLandingBounceAngle(bridgeImpactTime, stickLength)
 
-                val stepX = PhysicsEngine.WALK_SPEED * clampedDt
+                // Slip hazard physics check
+                if (physicsEngine.checkObstacleSlip(stickmanX, isUpsideDown, nextPlatform.obstacle)) {
+                    if (!isSlipping) {
+                        isSlipping = true
+                        slipTimer = 0.55f
+                        soundManager.playFlip()
+                        addFloatingText("WHOOSH! SLIPPING! ⛸️", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.25f)
+                    }
+                }
+                if (slipTimer > 0f) {
+                    slipTimer -= clampedDt
+                    if (slipTimer <= 0f) isSlipping = false
+                }
+                if (isSlipping && particles.size < 75) {
+                    spawnFootstepDust(stickmanX, stickmanY)
+                }
+
+                val currentWalkSpeed = if (isSlipping) PhysicsEngine.WALK_SPEED * 1.85f else PhysicsEngine.WALK_SPEED
+                val stepX = currentWalkSpeed * clampedDt
                 stickmanX += stepX
                 parallaxOffset += stepX
-                walkPhase += clampedDt * 16f
+                walkPhase += clampedDt * (if (isSlipping) 26f else 16f)
 
                 // Bridge sag & slope calculation when walking on span
                 val spanWidth = (targetStickmanWalkX - bridgeStartX).coerceAtLeast(10f)
