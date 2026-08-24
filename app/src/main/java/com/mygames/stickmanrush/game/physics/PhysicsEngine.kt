@@ -83,26 +83,35 @@ class PhysicsEngine {
      */
     fun evaluateBridgeLanding(
         bridgeStartX: Float,
+        currentHeightOffset: Float = 0f,
         stickLength: Float,
         targetPlatform: PlatformData,
         bullseyeTolerance: Float = BULLSEYE_TOLERANCE
     ): LandingResult {
-        val bridgeTipX = bridgeStartX + stickLength
         val platformStart = targetPlatform.leftX
         val platformEnd = targetPlatform.leftX + targetPlatform.width
         val platformCenter = targetPlatform.leftX + (targetPlatform.width / 2f)
 
-        val isBullseye = abs(bridgeTipX - platformCenter) <= bullseyeTolerance
-        val isSuccessful = bridgeTipX in platformStart..platformEnd
+        // Height difference between target platform and current platform hinge
+        val deltaY = targetPlatform.heightOffset - currentHeightOffset
 
-        // Landing slope angle if destination platform has height variance
-        val deltaY = targetPlatform.heightOffset
-        val landingSlopeAngle = if (isSuccessful && deltaY != 0f) {
-            val dist = (platformCenter - bridgeStartX).coerceAtLeast(20f)
-            (atan2(deltaY, dist) * (180f / PI.toFloat()))
+        // Slope angle towards target platform center (in degrees)
+        val distToCenter = (platformCenter - bridgeStartX).coerceAtLeast(20f)
+        val candidateSlopeAngle = if (deltaY != 0f) {
+            (atan2(deltaY, distToCenter) * (180f / PI.toFloat()))
         } else {
             0f
         }
+
+        // Calculate actual horizontal reach of bridge along the candidate slope
+        val slopeRad = candidateSlopeAngle * (PI.toFloat() / 180f)
+        val bridgeTipX = bridgeStartX + stickLength * kotlin.math.cos(slopeRad)
+
+        val isBullseye = abs(bridgeTipX - platformCenter) <= bullseyeTolerance
+        val isSuccessful = bridgeTipX in platformStart..platformEnd
+
+        // Landing slope angle applies when bridge successfully connects with target platform
+        val landingSlopeAngle = if (isSuccessful) candidateSlopeAngle else 0f
 
         // Psychological Near-Miss calculation (dopamine trigger)
         val nearMiss = when {
@@ -132,7 +141,7 @@ class PhysicsEngine {
             isSuccessful = isSuccessful,
             isBullseye = isBullseye,
             bridgeTipX = bridgeTipX,
-            targetWalkX = if (isSuccessful) platformEnd - 35f else bridgeTipX,
+            targetWalkX = if (isSuccessful) platformEnd - 35f else (bridgeStartX + stickLength),
             platformCenter = platformCenter,
             landingSlopeAngle = landingSlopeAngle,
             nearMiss = nearMiss

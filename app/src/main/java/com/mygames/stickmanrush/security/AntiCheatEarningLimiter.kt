@@ -60,9 +60,7 @@ class AntiCheatEarningLimiter(private val context: Context) {
     }
 
     private val prefs: SharedPreferences =
-        EncryptedSaveStorage.createEncryptedSharedPreferences(context, PREFS_NAME).also { securePrefs ->
-            EncryptedSaveStorage.migrateFromLegacySharedPreferences(context, PREFS_NAME, securePrefs)
-        }
+        EncryptedSaveStorage.createEncryptedSharedPreferences(context, PREFS_NAME)
 
     private val _isCheaterFlagged = MutableStateFlow(prefs.getBoolean(KEY_IS_CHEAT_FLAGGED, false))
     val isCheaterFlagged: StateFlow<Boolean> = _isCheaterFlagged.asStateFlow()

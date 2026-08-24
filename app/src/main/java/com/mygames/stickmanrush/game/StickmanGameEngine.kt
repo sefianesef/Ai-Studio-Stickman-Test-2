@@ -386,6 +386,19 @@ class StickmanGameEngine(
             if (stickLength > 10f) {
                 _gameState.value = GameState.FALLING_BRIDGE
                 bridgeAngularVel = 0f
+
+                // Pre-evaluate landing result to determine target landing angle (incline or decline)
+                val tier = difficultyManager.getTier(_score.value)
+                val landingResult = physicsEngine.evaluateBridgeLanding(
+                    bridgeStartX = bridgeStartX,
+                    currentHeightOffset = currentPlatform.heightOffset,
+                    stickLength = stickLength,
+                    targetPlatform = nextPlatform,
+                    bullseyeTolerance = tier.bullseyeTolerance
+                )
+                // If the bridge will successfully land on the target platform, land at the slope angle
+                bridgeLandingSlope = if (landingResult.isSuccessful) landingResult.landingSlopeAngle else 0f
+
                 soundManager.playBridgeFall()
                 repository.recordBridgeBuilt()
                 repository.trackMissionProgress("BUILD_BRIDGES", 1)
@@ -539,6 +552,15 @@ class StickmanGameEngine(
                 bridgeAngularVel += torque * clampedDt
                 bridgeAngle += bridgeAngularVel * clampedDt
 
+                val tier = difficultyManager.getTier(_score.value)
+                val landingResult = physicsEngine.evaluateBridgeLanding(
+                    bridgeStartX = bridgeStartX,
+                    currentHeightOffset = currentPlatform.heightOffset,
+                    stickLength = stickLength,
+                    targetPlatform = nextPlatform,
+                    bullseyeTolerance = tier.bullseyeTolerance
+                )
+                bridgeLandingSlope = if (landingResult.isSuccessful) landingResult.landingSlopeAngle else 0f
                 val targetLandingAngle = PhysicsEngine.MAX_BRIDGE_ANGLE + bridgeLandingSlope
 
                 if (bridgeAngle >= targetLandingAngle) {
@@ -546,17 +568,8 @@ class StickmanGameEngine(
                     bridgeAngularVel = 0f
                     bridgeImpactTime = 0f
 
-                    // Evaluate landing with PhysicsEngine collision geometry and difficulty tolerance
-                    val tier = difficultyManager.getTier(_score.value)
                     soundManager.playBridgePlaced()
                     hapticManager?.bridgePlaced(tier.tierLevel)
-
-                    val landingResult = physicsEngine.evaluateBridgeLanding(
-                        bridgeStartX = bridgeStartX,
-                        stickLength = stickLength,
-                        targetPlatform = nextPlatform,
-                        bullseyeTolerance = tier.bullseyeTolerance
-                    )
 
                     isSuccessfulLanding = landingResult.isSuccessful
                     isPerfectHit = landingResult.isBullseye
@@ -680,7 +693,7 @@ class StickmanGameEngine(
                         gem.collected = true
                         gemStateManager.onGemCollected(gem, stickmanY)?.let { event ->
                             soundManager.playGemCollect()
-                            hapticManager?.gemCollect()
+                            hapticManager?.gemCollect(event.comboMultiplier)
                             repository.trackMissionProgress("COLLECT_GEMS", event.amount)
                             repository.trackWeeklyMissionProgress("COLLECT_GEMS", event.amount)
                             repository.trackContestProgress("COLLECT_GEMS", event.amount)
@@ -779,6 +792,12 @@ class StickmanGameEngine(
                             isUpsideDown = false
                         }
                         soundManager.playStickmanLand()
+                        val currentTier = difficultyManager.getTier(_score.value)
+                        hapticManager?.stickmanLand(
+                            tierLevel = currentTier.tierLevel,
+                            isElevated = nextPlatform.heightOffset != currentPlatform.heightOffset,
+                            isSliding = isSlipping
+                        )
 
                         // Turn complete
                         val previousLevel = computeLevelForScore(_score.value)

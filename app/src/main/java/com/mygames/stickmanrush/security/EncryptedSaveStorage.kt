@@ -59,14 +59,21 @@ class EncryptedSaveStorage(
             legacyName: String = LEGACY_UNENCRYPTED_PREFS_NAME,
             securePrefs: SharedPreferences
         ) {
+            if (legacyName == DEFAULT_ENCRYPTED_PREFS_NAME || legacyName.endsWith("_vault") || legacyName.contains("keystore")) {
+                return
+            }
             try {
                 val appContext = context.applicationContext ?: context
                 val legacyPrefs = appContext.getSharedPreferences(legacyName, Context.MODE_PRIVATE)
                 val allEntries = legacyPrefs.all
                 if (allEntries.isNotEmpty()) {
-                    Log.i(TAG, "Migrating ${allEntries.size} entries from legacy unencrypted save file to Hardware-backed Keystore...")
+                    Log.i(TAG, "Migrating ${allEntries.size} entries from legacy unencrypted save file ($legacyName) to Hardware-backed Keystore...")
                     val editor = securePrefs.edit()
                     for ((key, value) in allEntries) {
+                        // CRITICAL: Skip any internal AndroidX security keys or reserved prefixes
+                        if (key.startsWith("__androidx_security_crypto_encrypted_prefs_") || key.startsWith("__")) {
+                            continue
+                        }
                         when (value) {
                             is Int -> editor.putInt(key, value)
                             is Long -> editor.putLong(key, value)

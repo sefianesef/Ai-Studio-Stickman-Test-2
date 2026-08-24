@@ -111,18 +111,93 @@ class HapticManager(private val context: Context) {
     }
 
     /**
-     * Crisp light pop when collecting a gem
+     * Crisp high-frequency tactile sparkle chime when collecting a gem.
+     * Scales dynamically with combo multipliers (2x, 3x, 4x+) into celebratory multi-pulse sparkle bursts!
      */
-    fun gemCollect() {
+    fun gemCollect(comboMultiplier: Int = 1) {
         if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(14, 150))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                when {
+                    comboMultiplier >= 3 -> {
+                        // 4-pulse ascending sparkle fanfare for mega combos
+                        val timings = longArrayOf(0, 8, 12, 10, 12, 14, 14, 24)
+                        val amplitudes = intArrayOf(0, 140, 0, 175, 0, 215, 0, 255)
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                    }
+                    comboMultiplier == 2 -> {
+                        // Triple ascending energetic chime for 2x combo
+                        val timings = longArrayOf(0, 10, 14, 12, 14, 20)
+                        val amplitudes = intArrayOf(0, 130, 0, 180, 0, 235)
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                    }
+                    else -> {
+                        // Crisp double-pulse diamond pop for single gem pickup
+                        val timings = longArrayOf(0, 12, 14, 18)
+                        val amplitudes = intArrayOf(0, 120, 0, 200)
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                    }
+                }
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(14)
+                when {
+                    comboMultiplier >= 3 -> vibrator.vibrate(longArrayOf(0, 10, 15, 12, 15, 20), -1)
+                    comboMultiplier == 2 -> vibrator.vibrate(longArrayOf(0, 10, 15, 16), -1)
+                    else -> vibrator.vibrate(longArrayOf(0, 12, 15, 18), -1)
+                }
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Grounded, solid tactile footfall impact pattern when the stickman successfully
+     * crosses the bridge and plants both feet onto the destination platform.
+     */
+    fun stickmanLand(
+        tierLevel: Int = 1,
+        isElevated: Boolean = false,
+        isSliding: Boolean = false
+    ) {
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                when {
+                    isSliding -> {
+                        // Slick ripple sensation for ice platforms
+                        val timings = longArrayOf(0, 10, 14, 12, 14, 18)
+                        val amplitudes = intArrayOf(0, 90, 0, 140, 0, 190)
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                    }
+                    isElevated -> {
+                        // Punchier landing impact for incline / cliff platforms
+                        val timings = longArrayOf(0, 20, 22, 30)
+                        val amplitudes = intArrayOf(
+                            0,
+                            (160 + tierLevel * 15).coerceIn(160, 240),
+                            0,
+                            (210 + tierLevel * 10).coerceIn(210, 255)
+                        )
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                    }
+                    else -> {
+                        // Solid, satisfying step-and-plant double tap
+                        val timings = longArrayOf(0, 16, 20, 26)
+                        val amplitudes = intArrayOf(
+                            0,
+                            (130 + tierLevel * 15).coerceIn(130, 220),
+                            0,
+                            (170 + tierLevel * 15).coerceIn(170, 255)
+                        )
+                        vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                if (isElevated) {
+                    vibrator.vibrate(longArrayOf(0, 20, 25, 30), -1)
+                } else {
+                    vibrator.vibrate(longArrayOf(0, 16, 20, 24), -1)
+                }
             }
         } catch (_: Throwable) {}
     }

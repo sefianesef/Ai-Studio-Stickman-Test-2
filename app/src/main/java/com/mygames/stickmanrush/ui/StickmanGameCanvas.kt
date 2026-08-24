@@ -702,10 +702,15 @@ private fun DrawScope.drawGems(engine: StickmanGameEngine, time: Float) {
     if (gem.collected) return
 
     val bobbing = sin(time * 4f) * 4.dp.toPx()
+    val spanW = (engine.nextPlatform.leftX - engine.bridgeStartX).coerceAtLeast(10f)
+    val prog = ((gem.x - engine.bridgeStartX) / spanW).coerceIn(0f, 1f)
+    val startY = engine.floorY + engine.currentPlatform.heightOffset
+    val endY = engine.floorY + engine.nextPlatform.heightOffset
+    val baseY = startY + prog * (endY - startY)
     val gemY = if (gem.isUnderBridge) {
-        engine.floorY + engine.nextPlatform.heightOffset + 28.dp.toPx() + bobbing
+        baseY + 28.dp.toPx() + bobbing
     } else {
-        engine.floorY + engine.nextPlatform.heightOffset - 24.dp.toPx() + bobbing
+        baseY - 24.dp.toPx() + bobbing
     }
 
     // Draw diamond gem

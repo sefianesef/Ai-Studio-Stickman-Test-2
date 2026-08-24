@@ -110,43 +110,26 @@ class SoundManager(private val context: Context) {
                     }
                 }
 
-                fun loadOrRegister(key: String, rawResName: String, fallbackSamples: ShortArray) {
-                    val rawResId = try {
-                        context.resources.getIdentifier(rawResName, "raw", context.packageName)
-                    } catch (_: Throwable) { 0 }
-
-                    if (rawResId != 0) {
-                        try {
-                            val soundId = pool.load(context, rawResId, 1)
-                            soundIdMap[key] = soundId
-                            return
-                        } catch (e: Throwable) {
-                            Log.w("SoundManager", "Error loading raw res $rawResName", e)
-                        }
-                    }
-                    registerSound(key, fallbackSamples)
-                }
-
-                loadOrRegister("oh_no_voice", "oh_no", pcmOhNoVoice)
+                registerSound("oh_no_voice", pcmOhNoVoice)
                 soundIdMap["funny_voice_over"] = soundIdMap["oh_no_voice"] ?: 0
 
-                loadOrRegister("tick1", "button_click", pcmTick1)
-                loadOrRegister("tick2", "button_click", pcmTick2)
-                loadOrRegister("tick3", "button_click", pcmTick3)
-                loadOrRegister("tick4", "button_click", pcmTick4)
-                loadOrRegister("bridge_land", "bridge_land", pcmBridgeLand)
-                loadOrRegister("stickman_land", "stickman_land", pcmStickmanLand)
-                loadOrRegister("gem", "gem_collect", pcmGem)
-                loadOrRegister("perfect", "perfect_hit", pcmPerfect)
-                loadOrRegister("flip", "flip", pcmFlip)
-                loadOrRegister("fall", "game_over", pcmFall)
-                loadOrRegister("falling", "falling", pcmFall)
-                loadOrRegister("funny_fall", "funny_fall", pcmFunnyFallingMusic)
-                loadOrRegister("game_over", "game_over", pcmGameOver)
-                loadOrRegister("button", "button_click", pcmButton)
-                loadOrRegister("victory", "victory", pcmVictory)
-                loadOrRegister("buy_success", "buy_success", pcmBuySuccess)
-                loadOrRegister("startup", "victory", pcmStartupMelody)
+                registerSound("tick1", pcmTick1)
+                registerSound("tick2", pcmTick2)
+                registerSound("tick3", pcmTick3)
+                registerSound("tick4", pcmTick4)
+                registerSound("bridge_land", pcmBridgeLand)
+                registerSound("stickman_land", pcmStickmanLand)
+                registerSound("gem", pcmGem)
+                registerSound("perfect", pcmPerfect)
+                registerSound("flip", pcmFlip)
+                registerSound("fall", pcmFall)
+                registerSound("falling", pcmFall)
+                registerSound("funny_fall", pcmFunnyFallingMusic)
+                registerSound("game_over", pcmGameOver)
+                registerSound("button", pcmButton)
+                registerSound("victory", pcmVictory)
+                registerSound("buy_success", pcmBuySuccess)
+                registerSound("startup", pcmStartupMelody)
 
             } catch (t: Throwable) {
                 Log.w("SoundManager", "SoundPool initialization error", t)
@@ -323,12 +306,12 @@ class SoundManager(private val context: Context) {
                 val buffer = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
 
                 // RIFF chunk descriptor
-                buffer.put("RIFF".toByteArray())
+                buffer.put("RIFF".toByteArray(Charsets.US_ASCII))
                 buffer.putInt(totalDataLen)
-                buffer.put("WAVE".toByteArray())
+                buffer.put("WAVE".toByteArray(Charsets.US_ASCII))
 
                 // "fmt " sub-chunk
-                buffer.put("fmt ".toByteArray())
+                buffer.put("fmt ".toByteArray(Charsets.US_ASCII))
                 buffer.putInt(16) // SubChunk1Size for PCM
                 buffer.putShort(1.toShort()) // AudioFormat (1 = PCM)
                 buffer.putShort(1.toShort()) // NumChannels (1 = Mono)
@@ -338,7 +321,7 @@ class SoundManager(private val context: Context) {
                 buffer.putShort(16.toShort()) // BitsPerSample
 
                 // "data" sub-chunk
-                buffer.put("data".toByteArray())
+                buffer.put("data".toByteArray(Charsets.US_ASCII))
                 buffer.putInt(totalAudioLen)
 
                 out.write(header)
@@ -347,6 +330,10 @@ class SoundManager(private val context: Context) {
                 val pcmBytes = ByteArray(pcmData.size * 2)
                 ByteBuffer.wrap(pcmBytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(pcmData)
                 out.write(pcmBytes)
+                out.flush()
+                try {
+                    out.fd.sync()
+                } catch (_: Throwable) {}
             }
         }
 
