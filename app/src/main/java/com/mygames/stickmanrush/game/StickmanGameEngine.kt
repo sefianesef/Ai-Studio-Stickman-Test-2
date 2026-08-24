@@ -121,6 +121,10 @@ class StickmanGameEngine(
     var stickmanFallVel = 0f
     var stickmanRotation = 0f
     var isUpsideDown = false
+    var isJumping = false
+    var jumpOffsetY = 0f
+    var jumpVelocityY = 0f
+    var jumpRotation = 0f
     var isSlipping = false
     var slipTimer = 0f
     var walkPhase = 0f
@@ -205,6 +209,10 @@ class StickmanGameEngine(
         fallElapsedTime = 0f
         hasSpawnedMidFallReaction = false
         isUpsideDown = false
+        isJumping = false
+        jumpOffsetY = 0f
+        jumpVelocityY = 0f
+        jumpRotation = 0f
         isSlipping = false
         slipTimer = 0f
         walkPhase = 0f
@@ -342,8 +350,56 @@ class StickmanGameEngine(
         nextPlatform = generateNextPlatform(_score.value, screenWidth)
     }
 
+    // Actions for Jumping & Flipping
+    fun triggerJump() {
+        if (_gameState.value == GameState.WALKING) {
+            if (!isJumping) {
+                if (isUpsideDown) {
+                    // Quick flip back up to bridge surface before leaping
+                    isUpsideDown = false
+                    soundManager.playFlip()
+                    hapticManager?.flip()
+                }
+                isJumping = true
+                jumpVelocityY = 520f // Peak jump arc ~90px
+                jumpOffsetY = 4f
+                jumpRotation = 0f
+                soundManager.playJump()
+                hapticManager?.jump()
+                spawnJumpTakeoffEffects(stickmanX, stickmanY)
+                addFloatingText("JUMP! 🦘", stickmanX, stickmanY - 50f, Color(0xFF38BDF8), scale = 1.15f)
+                repository.trackMissionProgress("JUMP_HAZARD", 1)
+            }
+        }
+    }
+
+    fun triggerFlip() {
+        if (_gameState.value == GameState.WALKING) {
+            // If in mid-air jump, landing back onto bridge
+            if (isJumping && jumpOffsetY > 15f) {
+                // Ignore flip during high air jump
+                return
+            }
+            if (isJumping) {
+                isJumping = false
+                jumpOffsetY = 0f
+                jumpVelocityY = 0f
+                jumpRotation = 0f
+            }
+
+            isUpsideDown = !isUpsideDown
+            soundManager.playFlip()
+            hapticManager?.flip()
+            if (isUpsideDown) {
+                repository.trackMissionProgress("FLIP_WALK", 1)
+                repository.trackWeeklyMissionProgress("FLIP_WALK", 1)
+            }
+            spawnFlipAcrobaticsEffects(stickmanX, if (isUpsideDown) floorY + 30f else floorY)
+        }
+    }
+
     // Touch input handlers
-    fun onTouchDown() {
+    fun onTouchDown(touchX: Float = 0f, touchY: Float = 0f) {
         when (_gameState.value) {
             GameState.START, GameState.IDLE -> {
                 soundManager.playButton()
@@ -367,15 +423,17 @@ class StickmanGameEngine(
                 // Already growing while finger is pressed down
             }
             GameState.WALKING -> {
-                // Instant responsive tap to toggle flip upside-down / right-side up
-                isUpsideDown = !isUpsideDown
-                soundManager.playFlip()
-                hapticManager?.flip()
                 if (isUpsideDown) {
-                    repository.trackMissionProgress("FLIP_WALK", 1)
-                    repository.trackWeeklyMissionProgress("FLIP_WALK", 1)
+                    // Tap flips upright back onto bridge
+                    triggerFlip()
+                } else {
+                    // If tap is in bottom area, flip underneath; otherwise perform athletic jump
+                    if (touchY > 0f && touchY > (floorY + 30f)) {
+                        triggerFlip()
+                    } else {
+                        triggerJump()
+                    }
                 }
-                spawnFlipAcrobaticsEffects(stickmanX, if (isUpsideDown) floorY + 30f else floorY)
             }
             else -> {}
         }
@@ -647,8 +705,30 @@ class StickmanGameEngine(
                 bridgeImpactTime += clampedDt
                 bridgeBounceOffset = physicsEngine.computeLandingBounceAngle(bridgeImpactTime, stickLength)
 
+                // 1. Jump Physics Update & Airborne Trail
+                if (isJumping) {
+                    jumpOffsetY += jumpVelocityY * clampedDt
+                    jumpVelocityY -= 1400f * clampedDt // Gravity
+                    jumpRotation += 360f * clampedDt // Aerial somersault spin
+
+                    if (particles.size < 130) {
+                        spawnJumpAirborneTrail(stickmanX, stickmanY - jumpOffsetY)
+                    }
+
+                    if (jumpOffsetY <= 0f) {
+                        // Landed safely back onto bridge surface
+                        jumpOffsetY = 0f
+                        isJumping = false
+                        jumpVelocityY = 0f
+                        jumpRotation = 0f
+                        soundManager.playStickmanLand()
+                        hapticManager?.uiClick()
+                        spawnFootstepDust(stickmanX, stickmanY)
+                    }
+                }
+
                 // Slip hazard physics check
-                if (physicsEngine.checkObstacleSlip(stickmanX, isUpsideDown, nextPlatform.obstacle)) {
+                if (physicsEngine.checkObstacleSlip(stickmanX, isUpsideDown, nextPlatform.obstacle, jumpOffsetY)) {
                     if (!isSlipping) {
                         isSlipping = true
                         slipTimer = 0.55f
@@ -680,7 +760,7 @@ class StickmanGameEngine(
                 stickmanY = startY + (walkProgress * (targetY - startY)) + bridgeSagOffset
 
                 // Footstep sound, dust puff & glowing speed trail behind stickman
-                if (particles.size < 120) {
+                if (!isJumping && particles.size < 120) {
                     spawnRunningTrail(
                         stickmanX = stickmanX,
                         stickmanY = stickmanY,
@@ -690,7 +770,7 @@ class StickmanGameEngine(
                     )
                 }
 
-                if (sin(walkPhase) > 0.95f) {
+                if (!isJumping && sin(walkPhase) > 0.95f) {
                     soundManager.playWalkStep()
                     if (particles.size < 90) {
                         spawnFootstepDust(stickmanX, if (isUpsideDown) stickmanY - 20f else stickmanY)
@@ -716,32 +796,39 @@ class StickmanGameEngine(
                     }
                 }
 
-                // Check Obstacle Hazard Collision along the bridge span
+                // Check Obstacle Hazard Collision along the bridge span (Supports Jumping Clearance)
                 nextPlatform.obstacle?.let { obstacle ->
-                    if (physicsEngine.checkObstacleCollision(stickmanX, isUpsideDown, obstacle)) {
+                    if (physicsEngine.checkObstacleCollision(stickmanX, isUpsideDown, obstacle, jumpOffsetY)) {
                         fallElapsedTime = 0f
                         hasSpawnedMidFallReaction = false
                         soundManager.playStickmanFall()
                         hapticManager?.gameOver()
                         spawnDust(stickmanX, stickmanY, count = 16)
                         stickmanFallVel = 60f
-                        val obstacleHits = listOf("OUCH! 🪚", "ZAPPED! ⚡", "SPIKED! 💥", "HIT HAZARD! 💀")
+                        val obstacleHits = listOf("OUCH! 🪚", "ZAPPED! ⚡", "SPIKED! 💥", "HIT HAZARD! 💀", "BURNED! 🔥")
                         addFloatingText(obstacleHits.random(), stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
                         _gameState.value = GameState.DROPPING_FAIL
                         return
                     } else if (!obstacle.isDodged && stickmanX > obstacle.x + 25f) {
                         obstacle.isDodged = true
                         soundManager.playFlip()
-                        addFloatingText("HAZARD DODGED! 🥷", stickmanX, stickmanY - 40f, Color(0xFF10B981), scale = 1.15f)
-                        repository.addGems(1, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
+                        if (isJumping || jumpOffsetY > 12f) {
+                            addFloatingText("VAULT OVER HAZARD! 🦘 +50", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.25f)
+                            repository.trackMissionProgress("JUMP_HAZARD", 1)
+                            repository.trackWeeklyMissionProgress("JUMP_HAZARD", 1)
+                            repository.addGems(1, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
+                        } else {
+                            addFloatingText("HAZARD DODGED! 🥷", stickmanX, stickmanY - 40f, Color(0xFF10B981), scale = 1.15f)
+                            repository.addGems(1, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
+                        }
                     }
                 }
 
-                // Check Boss Projectile Collision
+                // Check Boss Projectile Collision (Supports Jumping Clearance over Ground Fireballs)
                 _activeBossState.value?.let { boss ->
                     if (!boss.isDefeated) {
                         for (proj in boss.projectiles) {
-                            if (physicsEngine.checkBossProjectileCollision(stickmanX, isUpsideDown, proj)) {
+                            if (physicsEngine.checkBossProjectileCollision(stickmanX, isUpsideDown, proj, jumpOffsetY)) {
                                 proj.hasHitPlayer = true
                                 fallElapsedTime = 0f
                                 hasSpawnedMidFallReaction = false
@@ -754,7 +841,13 @@ class StickmanGameEngine(
                                 return
                             } else if (!proj.isDodged && stickmanX > proj.x + 30f) {
                                 proj.isDodged = true
-                                addFloatingText("BLAST DODGED! 🥷", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.15f)
+                                if (isJumping || jumpOffsetY > 12f) {
+                                    addFloatingText("FIREBALL CLEARED! 🔥🦘", stickmanX, stickmanY - 45f, Color(0xFFFBBF24), scale = 1.25f)
+                                    repository.trackMissionProgress("JUMP_HAZARD", 1)
+                                    repository.addGems(2, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
+                                } else {
+                                    addFloatingText("BLAST DODGED! 🥷", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.15f)
+                                }
                             }
                         }
                     }
@@ -1214,6 +1307,59 @@ class StickmanGameEngine(
                 maxLife = 0.28f,
                 life = 0.28f,
                 shape = ParticleShape.DUST
+            )
+        )
+    }
+
+    private fun spawnJumpTakeoffEffects(x: Float, y: Float) {
+        spawnDust(x, y, count = 8)
+        particles.add(
+            Particle(
+                x = x,
+                y = y,
+                vx = 0f,
+                vy = 0f,
+                color = Color(0xFF38BDF8),
+                radius = 8f,
+                maxLife = 0.30f,
+                life = 0.30f,
+                shape = ParticleShape.RING_WAVE
+            )
+        )
+        for (i in 0 until 6) {
+            particles.add(
+                Particle(
+                    x = x + (Random.nextFloat() * 16f - 8f),
+                    y = y,
+                    vx = Random.nextFloat() * 60f - 30f,
+                    vy = -Random.nextFloat() * 120f - 40f,
+                    color = if (i % 2 == 0) Color(0xFF67E8F9) else Color(0xFFFDE047),
+                    radius = Random.nextFloat() * 2.5f + 1.5f,
+                    maxLife = 0.35f,
+                    life = 0.35f,
+                    shape = ParticleShape.SPARKLE,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 300f - 150f
+                )
+            )
+        }
+    }
+
+    private fun spawnJumpAirborneTrail(x: Float, y: Float) {
+        val trailColors = listOf(Color(0xFF38BDF8), Color(0xFF818CF8), Color(0xFF67E8F9), Color.White)
+        particles.add(
+            Particle(
+                x = x - 12f + (Random.nextFloat() * 4f - 2f),
+                y = y + (Random.nextFloat() * 6f - 3f),
+                vx = -Random.nextFloat() * 40f - 10f,
+                vy = Random.nextFloat() * 20f - 10f,
+                color = trailColors[Random.nextInt(trailColors.size)],
+                radius = Random.nextFloat() * 3.0f + 1.5f,
+                maxLife = 0.25f,
+                life = 0.25f,
+                shape = ParticleShape.SPARKLE,
+                rotation = Random.nextFloat() * 360f,
+                vRot = Random.nextFloat() * 360f - 180f
             )
         )
     }

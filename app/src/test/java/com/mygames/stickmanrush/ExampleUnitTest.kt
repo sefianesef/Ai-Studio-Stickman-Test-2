@@ -43,26 +43,55 @@ class ExampleUnitTest {
   @Test
   fun testPhysicsEngineBridgeLanding() {
     val physics = PhysicsEngine()
-    val targetPlatform = PlatformData(id = 2L, leftX = 300f, width = 100f) // spans [300, 400], center = 350
+    val targetPlatform = PlatformData(id = 2L, leftX = 300f, width = 100f, heightOffset = 0f) // spans [300, 400], center = 350
 
-    // Perfect hit: bridgeStartX = 150, length = 200 -> tip = 350
-    val perfectHit = physics.evaluateBridgeLanding(150f, 200f, targetPlatform)
+    // Perfect hit: bridgeStartX = 150, currentHeightOffset = 0f, length = 200 -> tip = 350
+    val perfectHit = physics.evaluateBridgeLanding(150f, 0f, 200f, targetPlatform)
     assertTrue(perfectHit.isSuccessful)
     assertTrue(perfectHit.isBullseye)
     assertEquals(350f, perfectHit.bridgeTipX, 0.01f)
 
     // Normal safe hit: tip = 320 (in [300, 400])
-    val safeHit = physics.evaluateBridgeLanding(150f, 170f, targetPlatform)
+    val safeHit = physics.evaluateBridgeLanding(150f, 0f, 170f, targetPlatform)
     assertTrue(safeHit.isSuccessful)
     assertFalse(safeHit.isBullseye)
 
     // Too short: tip = 280
-    val tooShort = physics.evaluateBridgeLanding(150f, 130f, targetPlatform)
+    val tooShort = physics.evaluateBridgeLanding(150f, 0f, 130f, targetPlatform)
     assertFalse(tooShort.isSuccessful)
 
     // Overshoot: tip = 430
-    val overshoot = physics.evaluateBridgeLanding(150f, 280f, targetPlatform)
+    val overshoot = physics.evaluateBridgeLanding(150f, 0f, 280f, targetPlatform)
     assertFalse(overshoot.isSuccessful)
+  }
+
+  @Test
+  fun testPhysicsEngineObstacleJumpClearance() {
+    val physics = PhysicsEngine()
+    val obstacle = com.mygames.stickmanrush.model.ObstacleData(
+        id = 10L,
+        x = 220f,
+        y = 600f,
+        type = com.mygames.stickmanrush.model.ObstacleType.SPINNING_BLADE
+    )
+
+    // Walking right through obstacle without jumping -> collision!
+    val hitWhileWalking = physics.checkObstacleCollision(
+        stickmanX = 220f,
+        isUpsideDown = false,
+        obstacle = obstacle,
+        jumpOffsetY = 0f
+    )
+    assertTrue(hitWhileWalking)
+
+    // Jumping high over obstacle (jumpOffsetY = 35f) -> cleared safely!
+    val clearedWhileJumping = physics.checkObstacleCollision(
+        stickmanX = 220f,
+        isUpsideDown = false,
+        obstacle = obstacle,
+        jumpOffsetY = 35f
+    )
+    assertFalse(clearedWhileJumping)
   }
 
   @Test

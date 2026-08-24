@@ -227,11 +227,12 @@ class DifficultyManager {
         val posX = spanStart + (spanWidth * (Random.nextFloat() * 0.4f + 0.3f))
         
         // Choose obstacle type
-        val chosenType = when (Random.nextInt(5)) {
+        val chosenType = when (Random.nextInt(6)) {
             0 -> com.mygames.stickmanrush.model.ObstacleType.SPINNING_BLADE // Top of bridge
             1 -> com.mygames.stickmanrush.model.ObstacleType.SPIKE_MINE // Under bridge
             2 -> com.mygames.stickmanrush.model.ObstacleType.LASER_BARRIER // Pulsing laser
-            3 -> com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH // Slippery ice patch
+            3 -> com.mygames.stickmanrush.model.ObstacleType.FIRE_BALL // Blazing fireball on bridge
+            4 -> com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH // Slippery ice patch
             else -> com.mygames.stickmanrush.model.ObstacleType.MOVING_SPIKE_BALL // Hovering orb
         }
 

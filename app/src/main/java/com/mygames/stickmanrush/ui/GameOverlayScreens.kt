@@ -90,13 +90,15 @@ fun GameHud(
 
     if (gameState == GameState.START) return
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        // TOP BAR: Left (Gems + Lives) | Center (Level & Stage) | Right (Daily/Weekly + Action Menu & Pause)
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .align(Alignment.TopCenter)
+        ) {
+            // TOP BAR: Left (Gems + Lives) | Center (Level & Stage) | Right (Daily/Weekly + Action Menu & Pause)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -465,6 +467,83 @@ fun GameHud(
             }
         }
     }
+
+    // BOTTOM ACTION CONTROLS: Jump & Flip during WALKING phase
+    if (gameState == GameState.WALKING) {
+        val isUpsideDown = viewModel.engine.isUpsideDown
+        val isJumping = viewModel.engine.isJumping
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // FLIP BUTTON (Left)
+            Surface(
+                onClick = { viewModel.engine.triggerFlip() },
+                shape = RoundedCornerShape(22.dp),
+                color = if (isUpsideDown) Color(0xDD0284C7) else Color(0xDD0F172A),
+                border = androidx.compose.foundation.BorderStroke(
+                    2.dp,
+                    if (isUpsideDown) Color(0xFF38BDF8) else Color(0xFF0284C7)
+                ),
+                modifier = Modifier
+                    .height(52.dp)
+                    .shadow(8.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF38BDF8))
+                    .testTag("hud_flip_action_button")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = if (isUpsideDown) "⬆️" else "🔄", fontSize = 18.sp)
+                    Text(
+                        text = if (isUpsideDown) "UPRIGHT" else "FLIP",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            // JUMP BUTTON (Right)
+            Surface(
+                onClick = { viewModel.engine.triggerJump() },
+                shape = RoundedCornerShape(22.dp),
+                color = if (isJumping) Color(0xDD0284C7) else Color(0xDD0F172A),
+                border = androidx.compose.foundation.BorderStroke(
+                    2.dp,
+                    if (isJumping) Color(0xFFFDE047) else Color(0xFF38BDF8)
+                ),
+                modifier = Modifier
+                    .height(52.dp)
+                    .shadow(8.dp, RoundedCornerShape(22.dp), ambientColor = Color(0xFF38BDF8))
+                    .testTag("hud_jump_action_button")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 22.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "🦘", fontSize = 20.sp)
+                    Text(
+                        text = "JUMP",
+                        color = Color(0xFF38BDF8),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+        }
+    }
+}
 }
 
 @Composable
@@ -2684,7 +2763,12 @@ fun HowToPlayDialog(
                     TutorialStep(
                         number = "4",
                         title = "Flip for Gems",
-                        desc = "Tap while stickman is walking to flip upside-down and grab gems hanging under the bridge! Tap again before hitting the wall."
+                        desc = "Tap lower screen or FLIP button while walking to flip upside-down and grab gems hanging under the bridge! Tap again before hitting the wall."
+                    )
+                    TutorialStep(
+                        number = "5",
+                        title = "Jump over Obstacles & Fireballs",
+                        desc = "Tap screen or JUMP button to leap into the air! Leap over buzzsaws, spike mines, and fiery boss blasts for bonus score & gems."
                     )
                 }
 

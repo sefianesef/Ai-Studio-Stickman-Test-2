@@ -194,11 +194,12 @@ enum class GameState {
 }
 
 enum class ObstacleType(val label: String, val icon: String, val dodgeHint: String) {
-    SPINNING_BLADE("Buzzsaw", "🪚", "FLIP UNDER TO DODGE! 🥷"),
-    SPIKE_MINE("Spike Mine", "💥", "WALK ON TOP TO DODGE! ⬆️"),
-    LASER_BARRIER("Laser Barrier", "⚡", "FLIP OR TIME YOUR CROSSING! ⚡"),
-    MOVING_SPIKE_BALL("Spike Orb", "🔮", "AVOID THE HOVERING ORB! 🔮"),
-    SLIP_PATCH("Ice Slip", "🧊", "SLIP HAZARD! FLIP UNDER TO BYPASS! ⛸️")
+    SPINNING_BLADE("Buzzsaw", "🪚", "JUMP OVER OR FLIP TO DODGE! 🦘🥷"),
+    SPIKE_MINE("Spike Mine", "💥", "WALK ON TOP OR JUMP OVER! 🦘"),
+    LASER_BARRIER("Laser Barrier", "⚡", "JUMP OVER OR FLIP UNDER! 🦘"),
+    FIRE_BALL("Fireball Hazard", "🔥", "JUMP OVER THE FIREBALL! 🦘🔥"),
+    MOVING_SPIKE_BALL("Spike Orb", "🔮", "JUMP OR FLIP TO AVOID ORB! 🦘"),
+    SLIP_PATCH("Ice Slip", "🧊", "SLIP HAZARD! JUMP OVER OR FLIP UNDER! 🦘")
 }
 
 data class ObstacleData(

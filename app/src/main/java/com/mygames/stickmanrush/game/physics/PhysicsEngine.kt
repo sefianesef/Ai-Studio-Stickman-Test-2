@@ -151,11 +151,13 @@ class PhysicsEngine {
     /**
      * Checks if the stickman collides with a fatal obstacle hazard along the bridge span.
      * Returns true if hit (damage/fail condition), false if safely navigated/dodged.
+     * If the stickman is jumping above clearance height (jumpOffsetY >= 22f), stickman safely leaps over top hazards (buzzsaws, fireballs, lasers).
      */
     fun checkObstacleCollision(
         stickmanX: Float,
         isUpsideDown: Boolean,
-        obstacle: ObstacleData?
+        obstacle: ObstacleData?,
+        jumpOffsetY: Float = 0f
     ): Boolean {
         if (obstacle == null || !obstacle.isActive) return false
         if (obstacle.type == com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH) return false // Handled as slip physics
@@ -167,8 +169,13 @@ class PhysicsEngine {
             // Obstacle is UNDER bridge (e.g. spike mine) -> Stickman hits it if UPSIDE-DOWN
             isUpsideDown
         } else {
-            // Obstacle is ON TOP of bridge (e.g. spinning buzzsaw) -> Stickman hits it if RIGHT-SIDE UP
-            !isUpsideDown
+            // Obstacle is ON TOP of bridge (e.g. spinning buzzsaw, fireball, laser barrier)
+            // If stickman is airborne / jumping with clearance, safely clears the hazard!
+            if (jumpOffsetY >= 22f) {
+                false
+            } else {
+                !isUpsideDown
+            }
         }
     }
 
@@ -178,20 +185,23 @@ class PhysicsEngine {
     fun checkObstacleSlip(
         stickmanX: Float,
         isUpsideDown: Boolean,
-        obstacle: ObstacleData?
+        obstacle: ObstacleData?,
+        jumpOffsetY: Float = 0f
     ): Boolean {
         if (obstacle == null || !obstacle.isActive || obstacle.type != com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH) return false
         val inRange = abs(stickmanX - obstacle.x) <= 32f
-        return inRange && !isUpsideDown
+        return inRange && !isUpsideDown && jumpOffsetY < 10f
     }
 
     /**
      * Checks if the stickman is struck by an incoming boss projectile.
+     * Low/ground projectiles or fireballs can be safely jumped over (jumpOffsetY >= 22f), while high projectiles can be dodged by flipping underneath!
      */
     fun checkBossProjectileCollision(
         stickmanX: Float,
         isUpsideDown: Boolean,
-        projectile: BossProjectile
+        projectile: BossProjectile,
+        jumpOffsetY: Float = 0f
     ): Boolean {
         if (projectile.hasHitPlayer || projectile.isDodged) return false
         val inRange = abs(stickmanX - projectile.x) <= PROJECTILE_COLLISION_RADIUS
@@ -201,8 +211,13 @@ class PhysicsEngine {
             // High projectile (dragon flame, warlock beam): Player hits it if standing on top; flips under to dodge
             !isUpsideDown
         } else {
-            // Low projectile (rolling boulder, ground laser): Player hits it if under bridge
-            isUpsideDown
+            // Low projectile (rolling boulder, ground fireball/laser):
+            // Player leaps over it with a jump, or stays right-side up if projectile is underneath!
+            if (jumpOffsetY >= 22f) {
+                false
+            } else {
+                !isUpsideDown
+            }
         }
     }
 

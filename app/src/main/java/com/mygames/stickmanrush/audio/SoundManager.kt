@@ -46,6 +46,7 @@ class SoundManager(private val context: Context) {
     private val pcmGem by lazy { generateTone(freq = 1046f, durationSec = 0.18f, decayRate = 10f, harmonic = 2093f) }
     private val pcmPerfect by lazy { generateChime(freq1 = 880f, freq2 = 1320f, freq3 = 1760f, durationSec = 0.32f) }
     private val pcmFlip by lazy { generateSweep(startFreq = 320f, endFreq = 640f, durationSec = 0.08f) }
+    private val pcmJump by lazy { generateSweep(startFreq = 260f, endFreq = 720f, durationSec = 0.12f) }
     private val pcmFall by lazy { generateSlideWhistleFall(durationSec = 0.85f) }
     private val pcmFunnyFallingMusic by lazy { generateCartoonSlideWhistleTone() }
     private val pcmOhNoVoice by lazy { generateOhNoVoiceOver() }
@@ -122,6 +123,7 @@ class SoundManager(private val context: Context) {
                 registerSound("gem", pcmGem)
                 registerSound("perfect", pcmPerfect)
                 registerSound("flip", pcmFlip)
+                registerSound("jump", pcmJump)
                 registerSound("fall", pcmFall)
                 registerSound("falling", pcmFall)
                 registerSound("funny_fall", pcmFunnyFallingMusic)
@@ -266,6 +268,7 @@ class SoundManager(private val context: Context) {
     fun playGemCollect() = play("gem", pcmGem, volume = 0.95f)
     fun playPerfectHit() = play("perfect", pcmPerfect, volume = 1.00f)
     fun playFlip() = play("flip", pcmFlip, volume = 0.85f)
+    fun playJump() = play("jump", pcmJump, volume = 0.92f)
     fun playBridgeFall() = play("fall", pcmFall, volume = 0.90f)
     fun playStickmanFall(fallDurationMs: Long = 2000L) {
         playFallingSound(fallDurationMs)

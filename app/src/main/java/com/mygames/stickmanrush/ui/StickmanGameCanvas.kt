@@ -82,7 +82,7 @@ fun StickmanGameCanvas(
                             continue
                         }
 
-                        engine.onTouchDown()
+                        engine.onTouchDown(touchX = down.position.x, touchY = down.position.y)
 
                         // Track pointer until finger is released or touch is cancelled
                         val pointerId = down.id
@@ -924,6 +924,47 @@ private fun DrawScope.drawObstacles(engine: StickmanGameEngine, time: Float) {
                 )
             }
         }
+
+        ObstacleType.FIRE_BALL -> {
+            // Roaring fiery blazing fireball hovering on the bridge track
+            val fireRadius = obs.width / 2f
+            val flamePulse = (sin(time * 16f) * 0.15f + 0.85f)
+            // Outer heat bloom aura
+            drawCircle(
+                color = Color(0xFFFF6B00).copy(alpha = 0.35f),
+                radius = fireRadius * 1.8f * flamePulse,
+                center = Offset(obs.x, obs.y)
+            )
+            // Fiery orange body
+            drawCircle(
+                color = Color(0xFFEA580C),
+                radius = fireRadius * flamePulse,
+                center = Offset(obs.x, obs.y)
+            )
+            // Golden magma layer
+            drawCircle(
+                color = Color(0xFFFBBF24),
+                radius = fireRadius * 0.65f,
+                center = Offset(obs.x, obs.y)
+            )
+            // White-hot core
+            drawCircle(
+                color = Color.White,
+                radius = fireRadius * 0.32f,
+                center = Offset(obs.x, obs.y)
+            )
+            // Orbiting flame embers
+            for (i in 0 until 6) {
+                val fAng = ((i * 60f + time * 320f) * PI / 180.0).toFloat()
+                val fx = obs.x + cos(fAng) * (fireRadius * 1.15f)
+                val fy = obs.y + sin(fAng) * (fireRadius * 1.15f)
+                drawCircle(
+                    color = if (i % 2 == 0) Color(0xFFFFD700) else Color(0xFFEF4444),
+                    radius = (2.5.dp.toPx() + sin(time * 20f + i) * 1.dp.toPx()).coerceAtLeast(1.dp.toPx()),
+                    center = Offset(fx, fy)
+                )
+            }
+        }
     }
 }
 
@@ -1343,10 +1384,12 @@ private fun DrawScope.drawHeroStickman(
     gameTime: Float
 ) {
     val x = engine.stickmanX
-    val y = engine.stickmanY + (if (engine.gameState.value == GameState.WALKING) engine.bridgeSagOffset else 0f)
+    val isJumping = engine.isJumping
+    val jumpOffsetY = if (isJumping) engine.jumpOffsetY else 0f
+    val y = engine.stickmanY - jumpOffsetY + (if (engine.gameState.value == GameState.WALKING) engine.bridgeSagOffset else 0f)
     val isUpsideDown = engine.isUpsideDown
     val walkPhase = engine.walkPhase
-    val rotation = engine.stickmanRotation
+    val rotation = engine.stickmanRotation + (if (isJumping) engine.jumpRotation else 0f)
     val isWalking = engine.gameState.value == GameState.WALKING
 
     val bodyColor = Color(skin.primaryColor)
@@ -1362,16 +1405,16 @@ private fun DrawScope.drawHeroStickman(
         val hipY = y - 11.dp.toPx()
 
         // 2. Head & Torso Bob calculation
-        val bob = if (isWalking) -abs(sin(walkPhase)) * 2.dp.toPx() else 0f
+        val bob = if (isJumping) -3.dp.toPx() else if (isWalking) -abs(sin(walkPhase)) * 2.dp.toPx() else 0f
         val currentHeadY = headCenterY + bob
         val currentNeckY = neckY + bob
         val currentHipY = hipY + bob * 0.7f
 
         // 1. Scarf / Cape (Drawn behind body)
-        drawHeroCape(scarf, scarfColor, x, currentNeckY, isWalking, walkPhase, gameTime)
+        drawHeroCape(scarf, scarfColor, x, currentNeckY, isWalking || isJumping, if (isJumping) gameTime * 14f else walkPhase, gameTime)
 
-        // 2. Spine / Torso (with slight forward lean during walking or backward slide lean during slip)
-        val torsoLean = if (engine.isSlipping) -3.5.dp.toPx() else if (isWalking) 1.5.dp.toPx() else 0f
+        // 2. Spine / Torso (with slight forward lean during walking or leap lean during jump)
+        val torsoLean = if (engine.isSlipping) -3.5.dp.toPx() else if (isJumping) 2.5.dp.toPx() else if (isWalking) 1.5.dp.toPx() else 0f
         drawLine(
             color = bodyColor,
             start = Offset(x + torsoLean, currentNeckY),
@@ -1381,7 +1424,26 @@ private fun DrawScope.drawHeroStickman(
         )
 
         // 3. Legs: 2-Segment Articulated Kinematics (Hip -> Knee -> Foot)
-        if (engine.isSlipping) {
+        if (isJumping) {
+            // High athletic airborne tuck pose
+            val leftKneeX = x + 4.5.dp.toPx()
+            val leftKneeY = currentHipY + 5.dp.toPx()
+            val leftFootX = x - 2.dp.toPx()
+            val leftFootY = currentHipY + 8.5.dp.toPx()
+
+            val rightKneeX = x + 7.5.dp.toPx()
+            val rightKneeY = currentHipY + 4.dp.toPx()
+            val rightFootX = x + 1.5.dp.toPx()
+            val rightFootY = currentHipY + 9.dp.toPx()
+
+            // Left leg
+            drawLine(color = bodyColor, start = Offset(x, currentHipY), end = Offset(leftKneeX, leftKneeY), strokeWidth = 2.8.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(color = bodyColor, start = Offset(leftKneeX, leftKneeY), end = Offset(leftFootX, leftFootY), strokeWidth = 2.8.dp.toPx(), cap = StrokeCap.Round)
+
+            // Right leg
+            drawLine(color = bodyColor, start = Offset(x, currentHipY), end = Offset(rightKneeX, rightKneeY), strokeWidth = 2.8.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(color = bodyColor, start = Offset(rightKneeX, rightKneeY), end = Offset(rightFootX, rightFootY), strokeWidth = 2.8.dp.toPx(), cap = StrokeCap.Round)
+        } else if (engine.isSlipping) {
             // High-speed ice slide stance (feet kicked forward, arms flailing)
             val slideWobble = sin(gameTime * 22f) * 2.dp.toPx()
             val foot1X = x + 12.dp.toPx() + slideWobble
@@ -1475,7 +1537,27 @@ private fun DrawScope.drawHeroStickman(
         }
 
         // 4. Arms: 2-Segment Articulated Kinematics (Shoulder -> Elbow -> Hand)
-        if (isWalking) {
+        if (isJumping) {
+            val shoulderY = currentNeckY + 2.dp.toPx()
+            val shoulderX = x + torsoLean
+
+            // Arms raised dynamically in the air for balance and joy
+            val leftHandX = shoulderX - 6.dp.toPx()
+            val leftHandY = shoulderY - 6.dp.toPx()
+            val leftElbowX = (shoulderX + leftHandX) / 2f - 2.dp.toPx()
+            val leftElbowY = (shoulderY + leftHandY) / 2f + 1.dp.toPx()
+
+            drawLine(color = bodyColor, start = Offset(shoulderX, shoulderY), end = Offset(leftElbowX, leftElbowY), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(color = bodyColor, start = Offset(leftElbowX, leftElbowY), end = Offset(leftHandX, leftHandY), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+
+            val rightHandX = shoulderX + 8.dp.toPx()
+            val rightHandY = shoulderY - 4.dp.toPx()
+            val rightElbowX = (shoulderX + rightHandX) / 2f + 2.dp.toPx()
+            val rightElbowY = (shoulderY + rightHandY) / 2f + 1.dp.toPx()
+
+            drawLine(color = bodyColor, start = Offset(shoulderX, shoulderY), end = Offset(rightElbowX, rightElbowY), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(color = bodyColor, start = Offset(rightElbowX, rightElbowY), end = Offset(rightHandX, rightHandY), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+        } else if (isWalking) {
             val shoulderY = currentNeckY + 2.dp.toPx()
             val shoulderX = x + torsoLean
 

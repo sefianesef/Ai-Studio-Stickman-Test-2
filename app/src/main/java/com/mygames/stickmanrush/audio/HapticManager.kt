@@ -218,6 +218,23 @@ class HapticManager(private val context: Context) {
     }
 
     /**
+     * Crisp upward elastic spring pulse when performing a jump
+     */
+    fun jump() {
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 10, 12, 18)
+                val amplitudes = intArrayOf(0, 110, 0, 190)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(18)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
      * Heavy rumble vibration on game over fall or wall crash
      */
     fun gameOver() {
