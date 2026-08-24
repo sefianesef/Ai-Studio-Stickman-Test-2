@@ -52,7 +52,7 @@ jobs:
           echo "=== 2. Ensuring Google Services JSON ==="
           if [ ! -f "app/google-services.json" ]; then
             mkdir -p app
-            echo '{"project_info":{"project_number":"842418078736","project_id":"stickman-rush-88867","storage_bucket":"stickman-rush-88867.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:842418078736:android:b891ca82349071d2","android_client_info":{"package_name":"com.mygames.stickmanrush"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyStickmanRushProjectKey88867"}],"services":{}}],"configuration_version":"1"}' > app/google-services.json
+            echo '{"project_info":{"project_number":"906302363509","project_id":"stickman-rush-88867","storage_bucket":"stickman-rush-88867.firebasestorage.app"},"client":[{"client_info":{"mobilesdk_app_id":"1:906302363509:android:5bf18cf6ac34e19068a53c","android_client_info":{"package_name":"com.mygames.stickmanrush"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyB4s3p9zh6q_E5Zs23iiSpj_G3Ed7HYDAY"}],"services":{}}],"configuration_version":"1"}' > app/google-services.json
           fi
 
           echo "=== 3. Setting up Debug Keystore ==="
