@@ -182,6 +182,71 @@ class DifficultyManager {
         return Random.nextFloat() * (maxGap - minGap) + minGap
     }
 
+    /**
+     * Generates dynamic platform height variations (elevated cliffs, stepping plateaus).
+     * - Levels 1-2: Level flat terrain for intuitive learning.
+     * - Level 3+: Dynamic height variance (steps up to -45px or down to +40px).
+     */
+    fun generatePlatformHeightOffset(score: Int, level: Int): Float {
+        if (level <= 2) return 0f
+
+        // 45% chance of dynamic elevation change on Level 3+
+        if (Random.nextFloat() < 0.45f) {
+            val maxVariance = when (level) {
+                3 -> 25f
+                4 -> 35f
+                else -> 48f
+            }
+            // Step up or step down randomly
+            val direction = if (Random.nextBoolean()) -1f else 1f
+            return direction * (Random.nextFloat() * (maxVariance - 15f) + 15f)
+        }
+        return 0f
+    }
+
+    /**
+     * Generates physical moving hazards & obstacles (spinning saws, spike mines, laser barriers).
+     * - Levels 1-2: Safe spans for onboarding.
+     * - Level 3+: Procedurally places hazards requiring tactical flips (upside-down or right-side up).
+     */
+    fun generateObstacle(spanStart: Float, spanEnd: Float, score: Int, level: Int, isBossLevel: Boolean): com.mygames.stickmanrush.model.ObstacleData? {
+        if (level <= 2) return null
+        val spanWidth = spanEnd - spanStart
+        if (spanWidth < 140f) return null // Only spawn on medium/wide spans
+
+        val obstacleChance = when {
+            isBossLevel -> 0.20f // Boss already has projectiles
+            level == 3 -> 0.35f
+            level == 4 -> 0.45f
+            else -> 0.55f
+        }
+
+        if (Random.nextFloat() > obstacleChance) return null
+
+        // Position hazard midway along the span
+        val posX = spanStart + (spanWidth * (Random.nextFloat() * 0.4f + 0.3f))
+        
+        // Choose obstacle type
+        val types = com.mygames.stickmanrush.model.ObstacleType.values()
+        val chosenType = when (Random.nextInt(4)) {
+            0 -> com.mygames.stickmanrush.model.ObstacleType.SPINNING_BLADE // Top of bridge
+            1 -> com.mygames.stickmanrush.model.ObstacleType.SPIKE_MINE // Under bridge
+            2 -> com.mygames.stickmanrush.model.ObstacleType.LASER_BARRIER // Pulsing laser
+            else -> com.mygames.stickmanrush.model.ObstacleType.MOVING_SPIKE_BALL // Hovering orb
+        }
+
+        val isUnderBridge = chosenType == com.mygames.stickmanrush.model.ObstacleType.SPIKE_MINE || 
+                           (chosenType == com.mygames.stickmanrush.model.ObstacleType.MOVING_SPIKE_BALL && Random.nextBoolean())
+
+        return com.mygames.stickmanrush.model.ObstacleData(
+            id = System.currentTimeMillis() + Random.nextInt(1000),
+            x = posX,
+            y = 0f, // Initialized relative to bridge floor in engine
+            type = chosenType,
+            isUnderBridge = isUnderBridge
+        )
+    }
+
     fun shouldSpawnGem(score: Int): Boolean {
         val tier = getTier(score)
         return Random.nextFloat() < tier.gemSpawnRate

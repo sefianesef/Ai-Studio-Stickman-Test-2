@@ -81,6 +81,9 @@ class StickmanGameEngine(
     private val _revivalsUsed = MutableStateFlow(0)
     val revivalsUsed: StateFlow<Int> = _revivalsUsed.asStateFlow()
 
+    private val _activeBossState = MutableStateFlow<BossState?>(null)
+    val activeBossState: StateFlow<BossState?> = _activeBossState.asStateFlow()
+
     fun getReviveCost(): Int {
         return when (_revivalsUsed.value) {
             0 -> 5
@@ -105,6 +108,7 @@ class StickmanGameEngine(
     var bridgeStartX = 220f // right edge of current platform
     var stickLength = 0f
     var bridgeAngle = 0f // 0 = straight up, 90 = horizontal flat, 180 = dropped down
+    var bridgeLandingSlope = 0f // Incline or decline angle for sloped platforms
     var bridgeAngularVel = 0f
     var bridgeImpactTime = 0f // Timer tracking spring oscillation wobble
     var bridgeBounceOffset = 0f
@@ -178,12 +182,14 @@ class StickmanGameEngine(
         _activeLevelVictory.value = null
         gemStateManager.resetRun()
 
-        currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f)
+        currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f, heightOffset = 0f)
+        checkOrSpawnBoss(targetStartLevel)
         spawnNextPlatform()
 
         bridgeStartX = currentPlatform.leftX + currentPlatform.width
         stickLength = 0f
         bridgeAngle = 0f
+        bridgeLandingSlope = 0f
         bridgeAngularVel = 0f
         bridgeImpactTime = 0f
         bridgeBounceOffset = 0f
@@ -208,6 +214,20 @@ class StickmanGameEngine(
         }
 
         _gameState.value = if (initial) GameState.START else GameState.IDLE
+    }
+
+    private fun checkOrSpawnBoss(level: Int) {
+        if (level % 5 == 0) {
+            val bossType = when (level) {
+                5 -> BossType.STONE_TITAN
+                10 -> BossType.INFERNO_DRAGON
+                15 -> BossType.CYBER_GOLEM
+                else -> BossType.VOID_REAPER
+            }
+            _activeBossState.value = BossState(type = bossType)
+        } else {
+            _activeBossState.value = null
+        }
     }
 
     fun startGame(startLevel: Int = 1) {
@@ -244,6 +264,7 @@ class StickmanGameEngine(
         // Reset bridge & stickman to start of current platform
         stickLength = 0f
         bridgeAngle = 0f
+        bridgeLandingSlope = 0f
         bridgeAngularVel = 0f
         bridgeImpactTime = 0f
         bridgeBounceOffset = 0f
@@ -251,11 +272,14 @@ class StickmanGameEngine(
         growTickCounter = 0
 
         stickmanX = currentPlatform.leftX + currentPlatform.width - 40f
-        stickmanY = floorY
+        stickmanY = floorY + currentPlatform.heightOffset
         stickmanFallVel = 0f
         stickmanRotation = 0f
         isUpsideDown = false
         walkPhase = 0f
+
+        // Clear boss projectiles for a clean second chance
+        _activeBossState.value?.projectiles?.clear()
 
         // Golden revival shockwave & celebratory particles
         spawnConfetti(stickmanX, floorY - 60f, count = 25)
@@ -272,23 +296,32 @@ class StickmanGameEngine(
         _difficultyTier.value = tier
 
         val level = computeLevelForScore(currentScore)
+        val isBoss = (level % 5 == 0)
         val gap = difficultyManager.generatePlatformGap(currentScore, level, screenW, isFirstBridgeOfLevel = justLeveledUp)
         justLeveledUp = false
 
         val width = difficultyManager.generatePlatformWidth(currentScore).coerceIn(35f, 160f)
         val nextLeft = currentPlatform.leftX + currentPlatform.width + gap
 
+        // Procedural Height Variation (Elevations & Depressions)
+        val heightOffset = difficultyManager.generatePlatformHeightOffset(currentScore, level)
+
         // Procedural Gem Placement via GemStateManager
         val spanStart = currentPlatform.leftX + currentPlatform.width
         val spanEnd = nextLeft
         val gem = gemStateManager.createGemForSpan(spanStart, spanEnd, tier)
+
+        // Procedural Physical Obstacle Hazard (Buzzsaws, Spike Mines, Laser Barriers)
+        val obstacle = difficultyManager.generateObstacle(spanStart, spanEnd, currentScore, level, isBossLevel = isBoss)
 
         return PlatformData(
             id = nextPlatform.id + 1,
             leftX = nextLeft,
             width = width,
             hasRedDot = true,
-            gem = gem
+            heightOffset = heightOffset,
+            gem = gem,
+            obstacle = obstacle
         )
     }
 
@@ -385,6 +418,65 @@ class StickmanGameEngine(
         // Update active particles & floating texts
         updateEffects(clampedDt)
 
+        // Update Obstacle animations
+        nextPlatform.obstacle?.let { obs ->
+            obs.animPhase += clampedDt * 5f
+            if (obs.type == ObstacleType.MOVING_SPIKE_BALL) {
+                obs.y = sin(obs.animPhase) * 18f
+            }
+        }
+
+        // Update Boss Mechanics & Projectiles
+        _activeBossState.value?.let { boss ->
+            if (!boss.isDefeated && _gameState.value != GameState.GAMEOVER && _gameState.value != GameState.START) {
+                boss.attackTimer += clampedDt
+                if (boss.attackTimer >= boss.attackInterval && (_gameState.value == GameState.IDLE || _gameState.value == GameState.GROWING || _gameState.value == GameState.WALKING)) {
+                    boss.attackTimer = 0f
+                    // Boss launches a projectile
+                    val isHigh = (kotlin.random.Random.nextFloat() < 0.65f)
+                    val spawnX = (nextPlatform.leftX + nextPlatform.width + 120f).coerceAtMost(screenWidth + 60f)
+                    val spawnY = floorY + nextPlatform.heightOffset - (if (isHigh) 28f else 0f)
+                    boss.projectiles.add(
+                        BossProjectile(
+                            id = System.currentTimeMillis() + kotlin.random.Random.nextInt(1000),
+                            x = spawnX,
+                            y = spawnY,
+                            vx = -(190f + (_currentLevel.value * 5f)),
+                            colorHex = boss.type.primaryColorHex,
+                            isHigh = isHigh
+                        )
+                    )
+                    spawnTipSparks(spawnX, spawnY)
+                }
+
+                // Update Projectiles
+                val pIter = boss.projectiles.iterator()
+                while (pIter.hasNext()) {
+                    val p = pIter.next()
+                    p.x += p.vx * clampedDt
+                    // Spawn fiery tracer particles
+                    if (particles.size < 85 && kotlin.random.Random.nextFloat() < 0.35f) {
+                        particles.add(
+                            Particle(
+                                x = p.x,
+                                y = p.y,
+                                vx = kotlin.random.Random.nextFloat() * 20f,
+                                vy = (kotlin.random.Random.nextFloat() - 0.5f) * 20f,
+                                color = Color(p.colorHex),
+                                radius = 4.5f,
+                                maxLife = 0.35f,
+                                life = 0.35f,
+                                shape = ParticleShape.FIRE_EMBER
+                            )
+                        )
+                    }
+                    if (p.x < -60f) {
+                        pIter.remove()
+                    }
+                }
+            }
+        }
+
         when (_gameState.value) {
             GameState.GROWING -> {
                 // Growth speed scales gently with current difficulty tier for easy early control
@@ -402,7 +494,7 @@ class StickmanGameEngine(
                     // Themed sparks at the growing bridge tip
                     if (particles.size < 80) {
                         val stickSkin = repository.availableAccessories.find { it.id == repository.selectedStick.value }
-                        spawnTipSparks(bridgeStartX, floorY - stickLength, stickSkin)
+                        spawnTipSparks(bridgeStartX, (floorY + currentPlatform.heightOffset) - stickLength, stickSkin)
                     }
                 }
             }
@@ -413,8 +505,10 @@ class StickmanGameEngine(
                 bridgeAngularVel += torque * clampedDt
                 bridgeAngle += bridgeAngularVel * clampedDt
 
-                if (bridgeAngle >= PhysicsEngine.MAX_BRIDGE_ANGLE) {
-                    bridgeAngle = PhysicsEngine.MAX_BRIDGE_ANGLE
+                val targetLandingAngle = PhysicsEngine.MAX_BRIDGE_ANGLE + bridgeLandingSlope
+
+                if (bridgeAngle >= targetLandingAngle) {
+                    bridgeAngle = targetLandingAngle
                     bridgeAngularVel = 0f
                     bridgeImpactTime = 0f
 
@@ -433,10 +527,38 @@ class StickmanGameEngine(
                     isSuccessfulLanding = landingResult.isSuccessful
                     isPerfectHit = landingResult.isBullseye
                     targetStickmanWalkX = landingResult.targetWalkX
+                    bridgeLandingSlope = landingResult.landingSlopeAngle
                     _lastNearMiss.value = landingResult.nearMiss
 
                     if (landingResult.isSuccessful) {
-                        spawnLandingEffects(landingResult.bridgeTipX, floorY, landingResult.isBullseye)
+                        val impactY = floorY + nextPlatform.heightOffset
+                        spawnLandingEffects(landingResult.bridgeTipX, impactY, landingResult.isBullseye)
+
+                        // Boss damage if boss active
+                        _activeBossState.value?.let { boss ->
+                            if (!boss.isDefeated) {
+                                val damage = if (landingResult.isBullseye) 2 else 1
+                                boss.currentHp = (boss.currentHp - damage).coerceAtLeast(0)
+                                soundManager.playPerfectHit()
+                                hapticManager?.levelUp()
+                                spawnLandingEffects(nextPlatform.leftX + (nextPlatform.width / 2f), impactY - 50f, true)
+                                if (landingResult.isBullseye) {
+                                    addFloatingText("CRITICAL HIT! -${damage} HP 💥", nextPlatform.leftX + (nextPlatform.width / 2f), impactY - 90f, Color(0xFFFF4500), scale = 1.35f)
+                                } else {
+                                    addFloatingText("STRIKE! -${damage} HP ⚔️", nextPlatform.leftX + (nextPlatform.width / 2f), impactY - 75f, Color(0xFFFFD700), scale = 1.2f)
+                                }
+
+                                if (boss.currentHp <= 0) {
+                                    boss.isDefeated = true
+                                    boss.projectiles.clear()
+                                    repository.addGems(boss.type.gemReward, com.mygames.stickmanrush.security.CurrencySource.LEVEL_MILESTONE)
+                                    repository.recordGemsHarvested(boss.type.gemReward)
+                                    spawnConfetti(screenWidth / 2f, screenHeight * 0.35f, count = 60)
+                                    soundManager.playVictoryMusic()
+                                    addFloatingText("BOSS DEFEATED! 🏆 +${boss.type.gemReward} GEMS", screenWidth / 2f, screenHeight * 0.32f, Color(0xFFFFD700), scale = 1.5f)
+                                }
+                            }
+                        }
 
                         if (landingResult.isBullseye) {
                             soundManager.playPerfectHit()
@@ -448,7 +570,7 @@ class StickmanGameEngine(
                             addFloatingText(
                                 "PERFECT! +2",
                                 landingResult.platformCenter,
-                                floorY - 90f,
+                                impactY - 90f,
                                 Color(0xFFFFD700),
                                 scale = 1.3f
                             )
@@ -464,7 +586,7 @@ class StickmanGameEngine(
                             addFloatingText(
                                 nearMiss.message,
                                 landingResult.bridgeTipX,
-                                floorY - 80f,
+                                floorY + nextPlatform.heightOffset - 80f,
                                 Color(0xFFF43F5E),
                                 scale = 1.25f
                             )
@@ -483,16 +605,20 @@ class StickmanGameEngine(
                 parallaxOffset += stepX
                 walkPhase += clampedDt * 16f
 
-                // Bridge sag calculation when walking on span
+                // Bridge sag & slope calculation when walking on span
                 val spanWidth = (targetStickmanWalkX - bridgeStartX).coerceAtLeast(10f)
                 val walkProgress = ((stickmanX - bridgeStartX) / spanWidth).coerceIn(0f, 1f)
                 bridgeSagOffset = physicsEngine.computeBridgeSag(walkProgress, stickLength)
+
+                val startY = floorY + currentPlatform.heightOffset
+                val targetY = floorY + (if (isSuccessfulLanding) nextPlatform.heightOffset else currentPlatform.heightOffset)
+                stickmanY = startY + (walkProgress * (targetY - startY)) + bridgeSagOffset
 
                 // Footstep sound & subtle dust puff
                 if (sin(walkPhase) > 0.95f) {
                     soundManager.playWalkStep()
                     if (particles.size < 70) {
-                        spawnFootstepDust(stickmanX, if (isUpsideDown) floorY - 20f else floorY)
+                        spawnFootstepDust(stickmanX, if (isUpsideDown) stickmanY - 20f else stickmanY)
                     }
                 }
 
@@ -500,7 +626,7 @@ class StickmanGameEngine(
                 nextPlatform.gem?.let { gem ->
                     if (physicsEngine.checkGemPickup(stickmanX, isUpsideDown, gem)) {
                         gem.collected = true
-                        gemStateManager.onGemCollected(gem, floorY)?.let { event ->
+                        gemStateManager.onGemCollected(gem, stickmanY)?.let { event ->
                             soundManager.playGemCollect()
                             hapticManager?.gemCollect()
                             repository.trackMissionProgress("COLLECT_GEMS", event.amount)
@@ -515,13 +641,57 @@ class StickmanGameEngine(
                     }
                 }
 
+                // Check Obstacle Hazard Collision along the bridge span
+                nextPlatform.obstacle?.let { obstacle ->
+                    if (physicsEngine.checkObstacleCollision(stickmanX, isUpsideDown, obstacle)) {
+                        fallElapsedTime = 0f
+                        hasSpawnedMidFallReaction = false
+                        soundManager.playStickmanFall()
+                        hapticManager?.gameOver()
+                        spawnDust(stickmanX, stickmanY, count = 16)
+                        stickmanFallVel = 60f
+                        val obstacleHits = listOf("OUCH! 🪚", "ZAPPED! ⚡", "SPIKED! 💥", "HIT HAZARD! 💀")
+                        addFloatingText(obstacleHits.random(), stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
+                        _gameState.value = GameState.DROPPING_FAIL
+                        return
+                    } else if (!obstacle.isDodged && stickmanX > obstacle.x + 25f) {
+                        obstacle.isDodged = true
+                        soundManager.playFlip()
+                        addFloatingText("HAZARD DODGED! 🥷", stickmanX, stickmanY - 40f, Color(0xFF10B981), scale = 1.15f)
+                        repository.addGems(1, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
+                    }
+                }
+
+                // Check Boss Projectile Collision
+                _activeBossState.value?.let { boss ->
+                    if (!boss.isDefeated) {
+                        for (proj in boss.projectiles) {
+                            if (physicsEngine.checkBossProjectileCollision(stickmanX, isUpsideDown, proj)) {
+                                proj.hasHitPlayer = true
+                                fallElapsedTime = 0f
+                                hasSpawnedMidFallReaction = false
+                                soundManager.playStickmanFall()
+                                hapticManager?.gameOver()
+                                spawnDust(stickmanX, stickmanY, count = 16)
+                                stickmanFallVel = 60f
+                                addFloatingText("BOSS BLAST! 🔥", stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
+                                _gameState.value = GameState.DROPPING_FAIL
+                                return
+                            } else if (!proj.isDodged && stickmanX > proj.x + 30f) {
+                                proj.isDodged = true
+                                addFloatingText("BLAST DODGED! 🥷", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.15f)
+                            }
+                        }
+                    }
+                }
+
                 // Safe Auto-Flip Assist: If stickman is inverted, the bridge successfully landed, and player reaches destination platform edge
                 if (isSuccessfulLanding && isUpsideDown && stickmanX >= (nextPlatform.leftX - 12f)) {
                     isUpsideDown = false
                     soundManager.playFlip()
                     hapticManager?.flip()
-                    spawnFlipAcrobaticsEffects(stickmanX, floorY)
-                    addFloatingText("SAFE FLIP! 🥷", stickmanX, floorY - 50f, Color(0xFF38BDF8), scale = 1.15f)
+                    spawnFlipAcrobaticsEffects(stickmanX, stickmanY)
+                    addFloatingText("SAFE FLIP! 🥷", stickmanX, stickmanY - 50f, Color(0xFF38BDF8), scale = 1.15f)
                 }
 
                 // Obstacle wall collision check (only fails if bridge was NOT landed safely and stickman walked into obstacle or fell off bridge end)
@@ -530,7 +700,7 @@ class StickmanGameEngine(
                     hasSpawnedMidFallReaction = false
                     soundManager.playStickmanFall()
                     hapticManager?.gameOver()
-                    spawnDust(stickmanX, floorY + 30f, count = 14)
+                    spawnDust(stickmanX, stickmanY + 30f, count = 14)
                     stickmanFallVel = 50f
                     val funnyQuotes = listOf(
                         "OH NO! OH NO! 😱",
@@ -543,7 +713,7 @@ class StickmanGameEngine(
                         "SEE YA! 🕳️",
                         "I CAN'T FLY! 🦅"
                     )
-                    addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.35f)
+                    addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
                     _gameState.value = GameState.DROPPING_FAIL
                     return
                 }
@@ -552,6 +722,7 @@ class StickmanGameEngine(
                 if (isSuccessfulLanding) {
                     if (stickmanX >= targetStickmanWalkX) {
                         stickmanX = targetStickmanWalkX
+                        stickmanY = floorY + nextPlatform.heightOffset
                         if (isUpsideDown) {
                             isUpsideDown = false
                         }
@@ -567,7 +738,7 @@ class StickmanGameEngine(
                         val updatedHigh = repository.updateHighScore(_score.value)
                         if (updatedHigh && _score.value > 1) {
                             _isNewHighScore.value = true
-                            addFloatingText("NEW BEST!", stickmanX, floorY - 110f, Color(0xFFFBBF24), scale = 1.4f)
+                            addFloatingText("NEW BEST!", stickmanX, stickmanY - 110f, Color(0xFFFBBF24), scale = 1.4f)
                             spawnConfetti(screenWidth / 2f, screenHeight * 0.4f, count = 35)
                         }
 
@@ -602,6 +773,9 @@ class StickmanGameEngine(
                                 else -> "Level $previousLevel Stickman"
                             }
                             
+                            // Check / Spawn Boss for new level if applicable
+                            checkOrSpawnBoss(newLevel)
+
                             // Pop up challenge motivational victory dialog when clearing level 5, 10, 15, etc.
                             if (isChallengeLevel) {
                                 _activeChallengeDialog.value = ChallengeDialogData(
@@ -627,13 +801,19 @@ class StickmanGameEngine(
                             
                             // Trigger challenging provocation before entering Level 5, 10, 15, etc.
                             if (newLevel % 5 == 0) {
+                                val bossTitle = when (newLevel) {
+                                    5 -> "GOLIAS - THE ROCK TITAN 🗿"
+                                    10 -> "IGNIS - INFERNO WYRM 🐉"
+                                    15 -> "NEXUS - CYBER GOLEM 🤖"
+                                    else -> "MALOK - VOID REAPER ⚔️"
+                                }
                                 _activeChallengeDialog.value = ChallengeDialogData(
                                     levelNumber = newLevel,
-                                    title = "STICKMAN BOSS CHALLENGE: LEVEL $newLevel",
-                                    message = "I challenge you: You cannot clear Level $newLevel!\nThe canyon winds are fierce and the bridges require supreme mastery. Prove me wrong!",
+                                    title = "BOSS BATTLE: $bossTitle",
+                                    message = "WARNING: Boss detected!\nBuild precise bridges to strike the boss and flip under your bridge to dodge incoming attacks!",
                                     type = ChallengeDialogType.PRE_LEVEL_TAUNT,
-                                    rewardGems = bonusGems + 10,
-                                    buttonText = "I ACCEPT THE CHALLENGE! ⚔️"
+                                    rewardGems = bonusGems + 15,
+                                    buttonText = "CONFRONT THE BOSS! ⚔️"
                                 )
                             }
                             
@@ -702,7 +882,7 @@ class StickmanGameEngine(
                             "SEE YA! 🕳️",
                             "I CAN'T FLY! 🦅"
                         )
-                        addFloatingText(funnyQuotes.random(), stickmanX, floorY - 30f, Color(0xFFFB7185), scale = 1.35f)
+                        addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
                         _gameState.value = GameState.DROPPING_FAIL
                     }
                 }
@@ -782,6 +962,9 @@ class StickmanGameEngine(
                 bridgeStartX -= step
                 stickmanX -= step
                 nextPlatform.gem?.let { it.x -= step }
+                nextPlatform.obstacle?.let { it.x -= step }
+
+                _activeBossState.value?.projectiles?.forEach { it.x -= step }
 
                 if (scrollCurrentX >= scrollTargetX) {
                     val overshoot = scrollCurrentX - scrollTargetX
@@ -790,12 +973,15 @@ class StickmanGameEngine(
                     bridgeStartX += overshoot
                     stickmanX += overshoot
                     nextPlatform.gem?.let { it.x += overshoot }
+                    nextPlatform.obstacle?.let { it.x += overshoot }
 
                     currentPlatform = nextPlatform.copy(leftX = 60f)
                     stickmanX = currentPlatform.leftX + currentPlatform.width - 35f
+                    stickmanY = floorY + currentPlatform.heightOffset
                     bridgeStartX = currentPlatform.leftX + currentPlatform.width
                     stickLength = 0f
                     bridgeAngle = 0f
+                    bridgeLandingSlope = 0f
                     bridgeAngularVel = 0f
                     bridgeImpactTime = 0f
                     bridgeBounceOffset = 0f
@@ -841,7 +1027,7 @@ class StickmanGameEngine(
         )
     }
 
-    private fun spawnTipSparks(tipX: Float, tipY: Float, stickSkin: com.mygames.stickmanrush.model.AccessoryItem?) {
+    private fun spawnTipSparks(tipX: Float, tipY: Float, stickSkin: com.mygames.stickmanrush.model.AccessoryItem? = null) {
         val (pColor, shape) = when (stickSkin?.id) {
             "stick_laser" -> Pair(Color(0xFF22D3EE), ParticleShape.SPARKLE)
             "stick_lava" -> Pair(Color(0xFFEA580C), ParticleShape.FIRE_EMBER)

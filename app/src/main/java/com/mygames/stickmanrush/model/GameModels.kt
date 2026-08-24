@@ -193,12 +193,116 @@ enum class GameState {
     PAUSED
 }
 
+enum class ObstacleType(val label: String, val icon: String, val dodgeHint: String) {
+    SPINNING_BLADE("Buzzsaw", "🪚", "FLIP UNDER TO DODGE! 🥷"),
+    SPIKE_MINE("Spike Mine", "💥", "WALK ON TOP TO DODGE! ⬆️"),
+    LASER_BARRIER("Laser Barrier", "⚡", "FLIP OR TIME YOUR CROSSING! ⚡"),
+    MOVING_SPIKE_BALL("Spike Orb", "🔮", "AVOID THE HOVERING ORB! 🔮")
+}
+
+data class ObstacleData(
+    val id: Long,
+    var x: Float,
+    var y: Float,
+    val type: ObstacleType,
+    var width: Float = 32f,
+    var height: Float = 32f,
+    val isUnderBridge: Boolean = false,
+    var isActive: Boolean = true,
+    var animPhase: Float = 0f,
+    var isDodged: Boolean = false
+)
+
+enum class BossType(
+    val bossName: String,
+    val title: String,
+    val avatarEmoji: String,
+    val maxHp: Int,
+    val primaryColorHex: Long,
+    val secondaryColorHex: Long,
+    val attackName: String,
+    val victoryTitle: String,
+    val gemReward: Int
+) {
+    STONE_TITAN(
+        bossName = "GOLIAS",
+        title = "ANCIENT STONE TITAN",
+        avatarEmoji = "🗿",
+        maxHp = 3,
+        primaryColorHex = 0xFFF59E0B,
+        secondaryColorHex = 0xFFD97706,
+        attackName = "Boulder Shockwave 🪨",
+        victoryTitle = "TITAN CRUSHER",
+        gemReward = 30
+    ),
+    INFERNO_DRAGON(
+        bossName = "IGNIS",
+        title = "INFERNAL WYRM",
+        avatarEmoji = "🐉",
+        maxHp = 4,
+        primaryColorHex = 0xFFEF4444,
+        secondaryColorHex = 0xFFDC2626,
+        attackName = "Dragon Fireball 🔥",
+        victoryTitle = "DRAGON SLAYER",
+        gemReward = 45
+    ),
+    CYBER_GOLEM(
+        bossName = "NEXUS-09",
+        title = "CYBERNETIC WARLOCK",
+        avatarEmoji = "🤖",
+        maxHp = 4,
+        primaryColorHex = 0xFF06B6D4,
+        secondaryColorHex = 0xFF0891B2,
+        attackName = "Plasma Pulse Beam ⚡",
+        victoryTitle = "CYBER WARRIOR",
+        gemReward = 60
+    ),
+    VOID_REAPER(
+        bossName = "MALOK",
+        title = "VOID OVERLORD",
+        avatarEmoji = "👑",
+        maxHp = 5,
+        primaryColorHex = 0xFFA855F7,
+        secondaryColorHex = 0xFF7E22CE,
+        attackName = "Dark Matter Scythe 🌌",
+        victoryTitle = "VOID MASTER",
+        gemReward = 100
+    )
+}
+
+data class BossProjectile(
+    val id: Long,
+    var x: Float,
+    var y: Float,
+    var vx: Float,
+    var vy: Float = 0f,
+    val radius: Float = 14f,
+    val colorHex: Long = 0xFFEF4444,
+    val isHigh: Boolean = true, // High projectile: flip under bridge to dodge; Low projectile: stay top to dodge
+    var hasHitPlayer: Boolean = false,
+    var isDodged: Boolean = false
+)
+
+data class BossState(
+    val type: BossType,
+    var currentHp: Int = type.maxHp,
+    val maxHp: Int = type.maxHp,
+    var attackTimer: Float = 0f,
+    var attackInterval: Float = 2.4f,
+    var isEnraged: Boolean = false,
+    var isDefeated: Boolean = false,
+    var defeatAnimProgress: Float = 0f,
+    val projectiles: MutableList<BossProjectile> = mutableListOf()
+)
+
 data class PlatformData(
     val id: Long,
     var leftX: Float,
     var width: Float,
     val hasRedDot: Boolean = true,
-    var gem: GemData? = null
+    var heightOffset: Float = 0f, // Dynamic height variation (negative = higher cliff, positive = lower step)
+    var gem: GemData? = null,
+    var obstacle: ObstacleData? = null
 )
 
 data class GemData(

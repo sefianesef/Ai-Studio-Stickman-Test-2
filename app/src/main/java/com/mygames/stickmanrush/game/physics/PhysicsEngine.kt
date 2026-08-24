@@ -1,22 +1,27 @@
 package com.mygames.stickmanrush.game.physics
 
 import androidx.compose.ui.graphics.Color
+import com.mygames.stickmanrush.model.BossProjectile
 import com.mygames.stickmanrush.model.GemData
 import com.mygames.stickmanrush.model.NearMissInfo
+import com.mygames.stickmanrush.model.ObstacleData
 import com.mygames.stickmanrush.model.Particle
 import com.mygames.stickmanrush.model.ParticleShape
 import com.mygames.stickmanrush.model.PlatformData
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
  * High-performance 2D physics and collision engine for Stickman Hero.
  * Handles rigid body kinematics, gravitational torque, bridge elasticity & spring oscillation,
- * walking sag deflection, dynamic collision detection, and particle aerodynamics.
+ * walking sag deflection, dynamic collision detection, variable platform elevation slopes,
+ * moving obstacles, boss projectiles, and particle aerodynamics.
  */
 class PhysicsEngine {
 
@@ -30,6 +35,8 @@ class PhysicsEngine {
         const val SCROLL_SPEED = 580f // px / s camera pan speed
         const val BULLSEYE_TOLERANCE = 12f // px radius for center red-dot perfect hit
         const val GEM_COLLECT_RADIUS = 28f // px proximity for gem pickup
+        const val OBSTACLE_COLLISION_RADIUS = 24f // px proximity for obstacle hit
+        const val PROJECTILE_COLLISION_RADIUS = 26f // px proximity for boss projectile hit
         
         // Elasticity & Spring Harmonic constants
         const val ELASTICITY_DAMPING = 8.5f // zeta * omega
@@ -72,7 +79,7 @@ class PhysicsEngine {
     }
 
     /**
-     * Evaluates collision and landing results for the dropped bridge, including near-miss analysis.
+     * Evaluates collision and landing results for the dropped bridge, including variable platform elevations.
      */
     fun evaluateBridgeLanding(
         bridgeStartX: Float,
@@ -87,6 +94,15 @@ class PhysicsEngine {
 
         val isBullseye = abs(bridgeTipX - platformCenter) <= bullseyeTolerance
         val isSuccessful = bridgeTipX in platformStart..platformEnd
+
+        // Landing slope angle if destination platform has height variance
+        val deltaY = targetPlatform.heightOffset
+        val landingSlopeAngle = if (isSuccessful && deltaY != 0f) {
+            val dist = (platformCenter - bridgeStartX).coerceAtLeast(20f)
+            (atan2(deltaY, dist) * (180f / PI.toFloat()))
+        } else {
+            0f
+        }
 
         // Psychological Near-Miss calculation (dopamine trigger)
         val nearMiss = when {
@@ -118,8 +134,52 @@ class PhysicsEngine {
             bridgeTipX = bridgeTipX,
             targetWalkX = if (isSuccessful) platformEnd - 35f else bridgeTipX,
             platformCenter = platformCenter,
+            landingSlopeAngle = landingSlopeAngle,
             nearMiss = nearMiss
         )
+    }
+
+    /**
+     * Checks if the stickman collides with an obstacle hazard along the bridge span.
+     * Returns true if hit (damage/fail condition), false if safely navigated/dodged.
+     */
+    fun checkObstacleCollision(
+        stickmanX: Float,
+        isUpsideDown: Boolean,
+        obstacle: ObstacleData?
+    ): Boolean {
+        if (obstacle == null || !obstacle.isActive) return false
+        val inRange = abs(stickmanX - obstacle.x) <= OBSTACLE_COLLISION_RADIUS
+        if (!inRange) return false
+
+        return if (obstacle.isUnderBridge) {
+            // Obstacle is UNDER bridge (e.g. spike mine) -> Stickman hits it if UPSIDE-DOWN
+            isUpsideDown
+        } else {
+            // Obstacle is ON TOP of bridge (e.g. spinning buzzsaw) -> Stickman hits it if RIGHT-SIDE UP
+            !isUpsideDown
+        }
+    }
+
+    /**
+     * Checks if the stickman is struck by an incoming boss projectile.
+     */
+    fun checkBossProjectileCollision(
+        stickmanX: Float,
+        isUpsideDown: Boolean,
+        projectile: BossProjectile
+    ): Boolean {
+        if (projectile.hasHitPlayer || projectile.isDodged) return false
+        val inRange = abs(stickmanX - projectile.x) <= PROJECTILE_COLLISION_RADIUS
+        if (!inRange) return false
+
+        return if (projectile.isHigh) {
+            // High projectile (dragon flame, warlock beam): Player hits it if standing on top; flips under to dodge
+            !isUpsideDown
+        } else {
+            // Low projectile (rolling boulder, ground laser): Player hits it if under bridge
+            isUpsideDown
+        }
     }
 
     /**
@@ -225,6 +285,7 @@ data class LandingResult(
     val bridgeTipX: Float,
     val targetWalkX: Float,
     val platformCenter: Float,
+    val landingSlopeAngle: Float = 0f,
     val nearMiss: NearMissInfo? = null
 )
 
@@ -233,3 +294,4 @@ data class StickmanFallState(
     val velocityY: Float,
     val rotation: Float
 )
+

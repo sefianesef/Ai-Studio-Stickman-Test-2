@@ -111,16 +111,25 @@ fun StickmanGameCanvas(
             // 1. Draw dynamic background sky & multi-layer parallax environment
             drawGameBackground(engine, currentStage, gameTimeSeconds)
 
-            // 2. Draw platforms
+            // 2. Draw platforms (with variable height offsets)
             drawPlatforms(engine, currentStage)
 
-            // 3. Draw gems
+            // 3. Draw Boss entity if active
+            drawBoss(engine, gameTimeSeconds)
+
+            // 4. Draw Obstacles (Buzzsaws, Spike Mines, Laser Barriers, Spike Orbs)
+            drawObstacles(engine, gameTimeSeconds)
+
+            // 5. Draw gems
             drawGems(engine, gameTimeSeconds)
 
-            // 4. Draw Bridge / Stick
+            // 6. Draw Bridge / Stick
             drawBridge(engine, equippedStick)
 
-            // 5. Draw Stickman Hero with cosmetics
+            // 7. Draw Boss Projectiles
+            drawBossProjectiles(engine, gameTimeSeconds)
+
+            // 8. Draw Stickman Hero with cosmetics
             drawHeroStickman(
                 engine = engine,
                 hat = equippedHat,
@@ -129,18 +138,21 @@ fun StickmanGameCanvas(
                 gameTime = gameTimeSeconds
             )
 
-            // 6. Draw particles
+            // 9. Draw Boss Health HUD on top
+            drawBossHud(engine, textMeasurer, gameTimeSeconds)
+
+            // 10. Draw particles
             drawParticles(engine.particles)
 
-            // 7. Draw floating popups
+            // 11. Draw floating popups
             drawFloatingTexts(engine.floatingTexts, textMeasurer)
 
-            // 8. Draw prompt hint when waiting for player to stretch bridge
+            // 12. Draw prompt hint when waiting for player to stretch bridge
             if (engine.gameState.value == GameState.IDLE) {
                 drawIdleHoldPrompt(engine, textMeasurer, gameTimeSeconds)
             }
 
-            // 9. Draw prompt hint when walking inverted under the bridge
+            // 13. Draw prompt hint when walking inverted under the bridge
             if (engine.gameState.value == GameState.WALKING && engine.isUpsideDown) {
                 drawInvertedFlipPrompt(engine, textMeasurer, gameTimeSeconds)
             }
@@ -521,18 +533,19 @@ private fun DrawScope.drawPlatforms(engine: StickmanGameEngine, stage: StageThem
 
     // Current Platform
     val p1 = engine.currentPlatform
+    val p1TopY = floorY + p1.heightOffset
     if (p1.leftX + p1.width > 0f) {
         drawRoundRect(
             color = platColor,
-            topLeft = Offset(p1.leftX, floorY),
-            size = Size(p1.width, size.height - floorY + 100f),
+            topLeft = Offset(p1.leftX, p1TopY),
+            size = Size(p1.width, size.height - p1TopY + 100f),
             cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
         )
         // Top highlight line
         drawLine(
             color = highlightColor,
-            start = Offset(p1.leftX, floorY),
-            end = Offset(p1.leftX + p1.width, floorY),
+            start = Offset(p1.leftX, p1TopY),
+            end = Offset(p1.leftX + p1.width, p1TopY),
             strokeWidth = 3.dp.toPx(),
             cap = StrokeCap.Round
         )
@@ -540,18 +553,19 @@ private fun DrawScope.drawPlatforms(engine: StickmanGameEngine, stage: StageThem
 
     // Next Platform
     val p2 = engine.nextPlatform
+    val p2TopY = floorY + p2.heightOffset
     if (p2.leftX < size.width) {
         drawRoundRect(
             color = platColor,
-            topLeft = Offset(p2.leftX, floorY),
-            size = Size(p2.width, size.height - floorY + 100f),
+            topLeft = Offset(p2.leftX, p2TopY),
+            size = Size(p2.width, size.height - p2TopY + 100f),
             cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
         )
         // Top highlight line
         drawLine(
             color = highlightColor,
-            start = Offset(p2.leftX, floorY),
-            end = Offset(p2.leftX + p2.width, floorY),
+            start = Offset(p2.leftX, p2TopY),
+            end = Offset(p2.leftX + p2.width, p2TopY),
             strokeWidth = 3.dp.toPx(),
             cap = StrokeCap.Round
         )
@@ -561,7 +575,7 @@ private fun DrawScope.drawPlatforms(engine: StickmanGameEngine, stage: StageThem
             val centerDotX = p2.leftX + (p2.width / 2f)
             drawRoundRect(
                 color = Color(0xFFEF4444),
-                topLeft = Offset(centerDotX - 5.dp.toPx(), floorY - 1.dp.toPx()),
+                topLeft = Offset(centerDotX - 5.dp.toPx(), p2TopY - 1.dp.toPx()),
                 size = Size(10.dp.toPx(), 5.dp.toPx()),
                 cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
             )
@@ -569,7 +583,7 @@ private fun DrawScope.drawPlatforms(engine: StickmanGameEngine, stage: StageThem
             drawCircle(
                 color = Color(0xFFFEE2E2),
                 radius = 2.dp.toPx(),
-                center = Offset(centerDotX, floorY + 1.dp.toPx())
+                center = Offset(centerDotX, p2TopY + 1.dp.toPx())
             )
         }
     }
@@ -581,9 +595,9 @@ private fun DrawScope.drawGems(engine: StickmanGameEngine, time: Float) {
 
     val bobbing = sin(time * 4f) * 4.dp.toPx()
     val gemY = if (gem.isUnderBridge) {
-        engine.floorY + 28.dp.toPx() + bobbing
+        engine.floorY + engine.nextPlatform.heightOffset + 28.dp.toPx() + bobbing
     } else {
-        engine.floorY - 24.dp.toPx() + bobbing
+        engine.floorY + engine.nextPlatform.heightOffset - 24.dp.toPx() + bobbing
     }
 
     // Draw diamond gem
@@ -619,11 +633,362 @@ private fun DrawScope.drawGems(engine: StickmanGameEngine, time: Float) {
     drawPath(path = facetPath, color = Color(0xFFBAE6FD))
 }
 
+private fun DrawScope.drawObstacles(engine: StickmanGameEngine, time: Float) {
+    val obs = engine.nextPlatform.obstacle ?: return
+    if (obs.x < -50f || obs.x > size.width + 50f) return
+
+    when (obs.type) {
+        ObstacleType.SPINNING_BLADE -> {
+            // High hazard: Sharp spinning circular buzzsaw with warning teeth
+            val bladeRadius = obs.width / 2f
+            rotate(degrees = (time * 720f) % 360f, pivot = Offset(obs.x, obs.y)) {
+                // Steel saw body
+                drawCircle(
+                    color = Color(0xFFE2E8F0),
+                    radius = bladeRadius,
+                    center = Offset(obs.x, obs.y)
+                )
+                drawCircle(
+                    color = Color(0xFF94A3B8),
+                    radius = bladeRadius * 0.7f,
+                    center = Offset(obs.x, obs.y)
+                )
+                // Red danger core
+                drawCircle(
+                    color = Color(0xFFEF4444),
+                    radius = bladeRadius * 0.35f,
+                    center = Offset(obs.x, obs.y)
+                )
+
+                // 8 Serrated saw teeth
+                for (i in 0 until 8) {
+                    val toothAngle = (i * 45.0 * PI / 180.0).toFloat()
+                    val tx = obs.x + cos(toothAngle) * (bladeRadius + 4.dp.toPx())
+                    val ty = obs.y + sin(toothAngle) * (bladeRadius + 4.dp.toPx())
+                    drawCircle(
+                        color = Color(0xFFF1F5F9),
+                        radius = 2.5.dp.toPx(),
+                        center = Offset(tx, ty)
+                    )
+                }
+            }
+            // Warning ring
+            drawCircle(
+                color = Color(0x44EF4444),
+                radius = bladeRadius * 1.4f,
+                center = Offset(obs.x, obs.y),
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+        }
+
+        ObstacleType.SPIKE_MINE -> {
+            // Low hazard: Spiked proximity mine hanging under bridge
+            val mineRadius = obs.width / 2f
+            // Dark iron spiked shell
+            drawCircle(
+                color = Color(0xFF1E293B),
+                radius = mineRadius,
+                center = Offset(obs.x, obs.y)
+            )
+            // Flashing proximity LED
+            val flash = (sin(time * 12f) * 0.5f + 0.5f).coerceIn(0f, 1f)
+            drawCircle(
+                color = Color(0xFFEF4444).copy(alpha = flash),
+                radius = mineRadius * 0.45f,
+                center = Offset(obs.x, obs.y)
+            )
+            // Metal spikes pointing downward
+            for (i in 0 until 5) {
+                val spikeAngle = ((i * 35.0 + 35.0) * PI / 180.0).toFloat()
+                val sx = obs.x + cos(spikeAngle) * (mineRadius + 5.dp.toPx())
+                val sy = obs.y + sin(spikeAngle) * (mineRadius + 5.dp.toPx())
+                drawLine(
+                    color = Color(0xFF94A3B8),
+                    start = Offset(obs.x, obs.y),
+                    end = Offset(sx, sy),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+
+        ObstacleType.LASER_BARRIER -> {
+            // High hazard: Vertical pulsating laser tripwire
+            val pulseAlpha = (sin(time * 14f) * 0.3f + 0.7f).coerceIn(0.4f, 1f)
+            // Neon red outer aura
+            drawLine(
+                color = Color(0xFFEF4444).copy(alpha = pulseAlpha * 0.4f),
+                start = Offset(obs.x, obs.y - 25.dp.toPx()),
+                end = Offset(obs.x, obs.y + 25.dp.toPx()),
+                strokeWidth = 9.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            // White-hot core beam
+            drawLine(
+                color = Color.White.copy(alpha = pulseAlpha),
+                start = Offset(obs.x, obs.y - 25.dp.toPx()),
+                end = Offset(obs.x, obs.y + 25.dp.toPx()),
+                strokeWidth = 3.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            // Emitter cap top and bottom
+            drawCircle(color = Color(0xFF334155), radius = 4.dp.toPx(), center = Offset(obs.x, obs.y - 25.dp.toPx()))
+            drawCircle(color = Color(0xFF334155), radius = 4.dp.toPx(), center = Offset(obs.x, obs.y + 25.dp.toPx()))
+        }
+
+        ObstacleType.MOVING_SPIKE_BALL -> {
+            // Floating oscillating spike orb
+            val orbRadius = obs.width / 2f
+            drawCircle(
+                color = Color(0xFF581C87),
+                radius = orbRadius,
+                center = Offset(obs.x, obs.y)
+            )
+            drawCircle(
+                color = Color(0xFFA855F7),
+                radius = orbRadius * 0.5f,
+                center = Offset(obs.x, obs.y)
+            )
+            // 6 Dark energy spikes
+            for (i in 0 until 6) {
+                val sAng = (i * 60.0 * PI / 180.0).toFloat()
+                val sx = obs.x + cos(sAng) * (orbRadius + 4.dp.toPx())
+                val sy = obs.y + sin(sAng) * (orbRadius + 4.dp.toPx())
+                drawLine(
+                    color = Color(0xFFC084FC),
+                    start = Offset(obs.x, obs.y),
+                    end = Offset(sx, sy),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+private fun DrawScope.drawBoss(engine: StickmanGameEngine, time: Float) {
+    val boss = engine.activeBossState.value ?: return
+    if (boss.isDefeated) return
+
+    val p2 = engine.nextPlatform
+    val bossX = (p2.leftX + p2.width / 2f).coerceAtLeast(p2.leftX + 25f)
+    val floatBob = sin(time * 3.5f) * 6.dp.toPx()
+    val bossY = engine.floorY + p2.heightOffset - 48.dp.toPx() + floatBob
+
+    val primaryColor = Color(boss.type.primaryColorHex)
+    val secondaryColor = Color(boss.type.secondaryColorHex)
+
+    when (boss.type) {
+        BossType.STONE_TITAN -> {
+            // Heavy Stone Golem Boss with Glowing Rune Eyes
+            // Stone Torso
+            drawRoundRect(
+                color = Color(0xFF475569),
+                topLeft = Offset(bossX - 18.dp.toPx(), bossY - 18.dp.toPx()),
+                size = Size(36.dp.toPx(), 44.dp.toPx()),
+                cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx())
+            )
+            // Stone Shoulders
+            drawCircle(color = Color(0xFF334155), radius = 12.dp.toPx(), center = Offset(bossX - 22.dp.toPx(), bossY - 8.dp.toPx()))
+            drawCircle(color = Color(0xFF334155), radius = 12.dp.toPx(), center = Offset(bossX + 22.dp.toPx(), bossY - 8.dp.toPx()))
+            // Stone Head
+            drawRoundRect(
+                color = Color(0xFF334155),
+                topLeft = Offset(bossX - 14.dp.toPx(), bossY - 42.dp.toPx()),
+                size = Size(28.dp.toPx(), 22.dp.toPx()),
+                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+            )
+            // Glowing Amber Rune Eyes
+            val eyeGlow = (sin(time * 6f) * 0.2f + 0.8f)
+            drawCircle(color = primaryColor.copy(alpha = eyeGlow), radius = 3.5.dp.toPx(), center = Offset(bossX - 6.dp.toPx(), bossY - 32.dp.toPx()))
+            drawCircle(color = primaryColor.copy(alpha = eyeGlow), radius = 3.5.dp.toPx(), center = Offset(bossX + 6.dp.toPx(), bossY - 32.dp.toPx()))
+        }
+
+        BossType.INFERNO_DRAGON -> {
+            // Majestic Fire Wyrm with Flapping Blazing Wings
+            val wingFlap = sin(time * 8f) * 12.dp.toPx()
+            // Fire Wings
+            val leftWing = Path().apply {
+                moveTo(bossX - 10.dp.toPx(), bossY - 15.dp.toPx())
+                lineTo(bossX - 42.dp.toPx(), bossY - 40.dp.toPx() + wingFlap)
+                lineTo(bossX - 32.dp.toPx(), bossY + 10.dp.toPx())
+                close()
+            }
+            val rightWing = Path().apply {
+                moveTo(bossX + 10.dp.toPx(), bossY - 15.dp.toPx())
+                lineTo(bossX + 42.dp.toPx(), bossY - 40.dp.toPx() + wingFlap)
+                lineTo(bossX + 32.dp.toPx(), bossY + 10.dp.toPx())
+                close()
+            }
+            drawPath(path = leftWing, color = Color(0xCCEF4444))
+            drawPath(path = rightWing, color = Color(0xCCEF4444))
+
+            // Dragon Torso & Neck
+            drawOval(
+                color = Color(0xFF7F1D1D),
+                topLeft = Offset(bossX - 16.dp.toPx(), bossY - 25.dp.toPx()),
+                size = Size(32.dp.toPx(), 46.dp.toPx())
+            )
+            // Dragon Head & Horns
+            drawCircle(color = Color(0xFF991B1B), radius = 14.dp.toPx(), center = Offset(bossX, bossY - 36.dp.toPx()))
+            // Fiery Eyes
+            drawCircle(color = Color(0xFFFEF08A), radius = 3.5.dp.toPx(), center = Offset(bossX - 5.dp.toPx(), bossY - 36.dp.toPx()))
+            drawCircle(color = Color(0xFFFEF08A), radius = 3.5.dp.toPx(), center = Offset(bossX + 5.dp.toPx(), bossY - 36.dp.toPx()))
+        }
+
+        BossType.CYBER_GOLEM -> {
+            // Sci-Fi Mecha Boss with Neon Pulse Visor
+            // Mecha Chassis
+            drawRoundRect(
+                color = Color(0xFF0F172A),
+                topLeft = Offset(bossX - 18.dp.toPx(), bossY - 20.dp.toPx()),
+                size = Size(36.dp.toPx(), 42.dp.toPx()),
+                cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx())
+            )
+            // Cyan Reactor Core
+            val corePulse = (sin(time * 10f) * 0.25f + 0.75f)
+            drawCircle(color = primaryColor.copy(alpha = corePulse), radius = 7.dp.toPx(), center = Offset(bossX, bossY))
+            // Mecha Visor Head
+            drawRoundRect(
+                color = Color(0xFF1E293B),
+                topLeft = Offset(bossX - 14.dp.toPx(), bossY - 42.dp.toPx()),
+                size = Size(28.dp.toPx(), 20.dp.toPx()),
+                cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+            )
+            // Laser Visor Line
+            drawLine(
+                color = primaryColor,
+                start = Offset(bossX - 10.dp.toPx(), bossY - 32.dp.toPx()),
+                end = Offset(bossX + 10.dp.toPx(), bossY - 32.dp.toPx()),
+                strokeWidth = 3.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
+
+        BossType.VOID_REAPER -> {
+            // Ethereal Shadow Phantom Warlock
+            // Dark Shadow Cloak
+            val cloakPath = Path().apply {
+                moveTo(bossX, bossY - 45.dp.toPx())
+                cubicTo(bossX - 25.dp.toPx(), bossY - 20.dp.toPx(), bossX - 22.dp.toPx(), bossY + 25.dp.toPx(), bossX - 15.dp.toPx(), bossY + 30.dp.toPx())
+                cubicTo(bossX, bossY + 18.dp.toPx(), bossX + 15.dp.toPx(), bossY + 30.dp.toPx(), bossX + 22.dp.toPx(), bossY + 25.dp.toPx())
+                cubicTo(bossX + 25.dp.toPx(), bossY - 20.dp.toPx(), bossX + 15.dp.toPx(), bossY - 40.dp.toPx(), bossX, bossY - 45.dp.toPx())
+                close()
+            }
+            drawPath(path = cloakPath, color = Color(0xDD09090B))
+            // Purple Void Aura
+            drawCircle(color = primaryColor.copy(alpha = 0.35f), radius = 28.dp.toPx(), center = Offset(bossX, bossY - 10.dp.toPx()))
+            // Phantom Skull Eyes
+            drawCircle(color = Color(0xFFC084FC), radius = 3.5.dp.toPx(), center = Offset(bossX - 6.dp.toPx(), bossY - 30.dp.toPx()))
+            drawCircle(color = Color(0xFFC084FC), radius = 3.5.dp.toPx(), center = Offset(bossX + 6.dp.toPx(), bossY - 30.dp.toPx()))
+        }
+    }
+}
+
+private fun DrawScope.drawBossProjectiles(engine: StickmanGameEngine, time: Float) {
+    val boss = engine.activeBossState.value ?: return
+    if (boss.isDefeated) return
+
+    for (proj in boss.projectiles) {
+        val projColor = Color(proj.colorHex)
+        val pulse = (sin(time * 16f) * 0.2f + 0.8f)
+
+        // Outer energy aura
+        drawCircle(
+            color = projColor.copy(alpha = 0.45f * pulse),
+            radius = proj.radius * 2.2f,
+            center = Offset(proj.x, proj.y)
+        )
+        // Core orb
+        drawCircle(
+            color = projColor,
+            radius = proj.radius * 1.2f,
+            center = Offset(proj.x, proj.y)
+        )
+        // White hot center
+        drawCircle(
+            color = Color.White,
+            radius = proj.radius * 0.55f,
+            center = Offset(proj.x, proj.y)
+        )
+    }
+}
+
+private fun DrawScope.drawBossHud(
+    engine: StickmanGameEngine,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    time: Float
+) {
+    val boss = engine.activeBossState.value ?: return
+    if (boss.isDefeated) return
+
+    val barWidth = 220.dp.toPx()
+    val barHeight = 12.dp.toPx()
+    val barX = (size.width - barWidth) / 2f
+    val barY = 90.dp.toPx()
+
+    // Boss Name Label
+    val nameText = "⚔️ ${boss.type.bossName} - ${boss.type.title}"
+    val nameStyle = TextStyle(
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Black,
+        color = Color(boss.type.primaryColorHex),
+        shadow = Shadow(color = Color.Black, offset = Offset(1.5f, 1.5f), blurRadius = 3f)
+    )
+    val nameLayout = textMeasurer.measure(nameText, nameStyle)
+    drawText(
+        textLayoutResult = nameLayout,
+        topLeft = Offset((size.width - nameLayout.size.width) / 2f, barY - 18.dp.toPx())
+    )
+
+    // Boss Health Bar Background
+    drawRoundRect(
+        color = Color(0xCC0F172A),
+        topLeft = Offset(barX, barY),
+        size = Size(barWidth, barHeight),
+        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+    )
+    drawRoundRect(
+        color = Color(0xFF475569),
+        topLeft = Offset(barX, barY),
+        size = Size(barWidth, barHeight),
+        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+        style = Stroke(width = 1.5.dp.toPx())
+    )
+
+    // Boss Current HP fill
+    val hpFraction = (boss.currentHp.toFloat() / boss.maxHp.toFloat()).coerceIn(0f, 1f)
+    if (hpFraction > 0f) {
+        drawRoundRect(
+            brush = Brush.horizontalGradient(
+                listOf(Color(0xFFEF4444), Color(boss.type.primaryColorHex))
+            ),
+            topLeft = Offset(barX + 2.dp.toPx(), barY + 2.dp.toPx()),
+            size = Size((barWidth - 4.dp.toPx()) * hpFraction, barHeight - 4.dp.toPx()),
+            cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+        )
+    }
+
+    // HP Text (e.g. 3 / 3 HP)
+    val hpText = "HP: ${boss.currentHp} / ${boss.maxHp}"
+    val hpStyle = TextStyle(
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color.White,
+        shadow = Shadow(color = Color.Black, offset = Offset(1f, 1f), blurRadius = 2f)
+    )
+    val hpLayout = textMeasurer.measure(hpText, hpStyle)
+    drawText(
+        textLayoutResult = hpLayout,
+        topLeft = Offset((size.width - hpLayout.size.width) / 2f, barY + (barHeight - hpLayout.size.height) / 2f)
+    )
+}
+
 private fun DrawScope.drawBridge(engine: StickmanGameEngine, stickSkin: AccessoryItem) {
     if (engine.stickLength <= 0f) return
 
     val startX = engine.bridgeStartX
-    val startY = engine.floorY
+    val startY = engine.floorY + engine.currentPlatform.heightOffset
     val angle = engine.bridgeAngle + engine.bridgeBounceOffset
 
     rotate(degrees = angle, pivot = Offset(startX, startY)) {
