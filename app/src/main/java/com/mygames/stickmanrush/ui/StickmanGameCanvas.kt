@@ -1922,6 +1922,25 @@ private fun DrawScope.drawParticles(particles: List<Particle>) {
                     )
                 }
             }
+            ParticleShape.GLOW_TRAIL -> {
+                // Dual-layer glowing speed trail particle: soft outer diffuse halo + bright energetic core
+                val currentRadius = p.radius * (0.4f + 0.6f * p.alpha)
+                drawCircle(
+                    color = pColor.copy(alpha = (p.alpha * 0.35f).coerceIn(0f, 1f)),
+                    radius = currentRadius * 2.4f,
+                    center = Offset(p.x, p.y)
+                )
+                drawCircle(
+                    color = pColor.copy(alpha = (p.alpha * 0.75f).coerceIn(0f, 1f)),
+                    radius = currentRadius * 1.3f,
+                    center = Offset(p.x, p.y)
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = (p.alpha * 0.95f).coerceIn(0f, 1f)),
+                    radius = currentRadius * 0.5f,
+                    center = Offset(p.x, p.y)
+                )
+            }
             ParticleShape.RIBBON -> {
                 // Spiraling celebratory streamer ribbon
                 rotate(degrees = p.rotation, pivot = Offset(p.x, p.y)) {

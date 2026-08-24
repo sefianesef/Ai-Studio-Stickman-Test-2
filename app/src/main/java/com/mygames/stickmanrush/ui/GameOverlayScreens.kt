@@ -242,11 +242,37 @@ fun GameHud(
                 }
             }
 
-            // RIGHT SIDE: Colorful Weekly Trials + Leaderboard / Pause
+            // RIGHT SIDE: Colorful Weekly Trials + Global Leaderboard + Master Menu
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // 🏆 GLOBAL LEADERBOARD BUTTON (Right Side)
+                Surface(
+                    onClick = { viewModel.openLeaderboard(true) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xDD78350F),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFBBF24)),
+                    modifier = Modifier
+                        .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFFFBBF24))
+                        .testTag("hud_global_leaderboard_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "🏆", fontSize = 14.sp)
+                        Text(
+                            text = "RANKS",
+                            color = Color(0xFFFDE68A),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+
                 // ⚡ COLORFUL WEEKLY MISSION BUTTON (Right Side)
                 Surface(
                     onClick = { viewModel.openWeeklyMissions(true) },
@@ -258,11 +284,11 @@ fun GameHud(
                         .testTag("hud_weekly_missions_colorful_button")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = "⚡", fontSize = 15.sp)
+                        Text(text = "⚡", fontSize = 14.sp)
                         Text(
                             text = "WEEKLY",
                             color = Color(0xFFA5B4FC),

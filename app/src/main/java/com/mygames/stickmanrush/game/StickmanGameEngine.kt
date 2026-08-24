@@ -679,10 +679,20 @@ class StickmanGameEngine(
                 val targetY = floorY + (if (isSuccessfulLanding) nextPlatform.heightOffset else currentPlatform.heightOffset)
                 stickmanY = startY + (walkProgress * (targetY - startY)) + bridgeSagOffset
 
-                // Footstep sound & subtle dust puff
+                // Footstep sound, dust puff & glowing speed trail behind stickman
+                if (particles.size < 120) {
+                    spawnRunningTrail(
+                        stickmanX = stickmanX,
+                        stickmanY = stickmanY,
+                        isUpsideDown = isUpsideDown,
+                        isSlipping = isSlipping,
+                        skinId = repository.selectedSkin.value
+                    )
+                }
+
                 if (sin(walkPhase) > 0.95f) {
                     soundManager.playWalkStep()
-                    if (particles.size < 70) {
+                    if (particles.size < 90) {
                         spawnFootstepDust(stickmanX, if (isUpsideDown) stickmanY - 20f else stickmanY)
                     }
                 }
@@ -1129,6 +1139,69 @@ class StickmanGameEngine(
         )
     }
 
+    private fun spawnRunningTrail(
+        stickmanX: Float,
+        stickmanY: Float,
+        isUpsideDown: Boolean,
+        isSlipping: Boolean,
+        skinId: String = "skin_white"
+    ) {
+        val trailColors = when {
+            isSlipping -> listOf(Color(0xFF38BDF8), Color(0xFFE0F2FE), Color(0xFF67E8F9), Color.White)
+            isUpsideDown -> listOf(Color(0xFFEC4899), Color(0xFFF472B6), Color(0xFFC084FC), Color.White)
+            else -> when {
+                skinId.contains("laser") || skinId.contains("neon") -> listOf(Color(0xFF00E5FF), Color(0xFF38BDF8), Color(0xFF67E8F9), Color.White)
+                skinId.contains("lava") || skinId.contains("fire") -> listOf(Color(0xFFFF6B00), Color(0xFFEA580C), Color(0xFFFBBF24), Color(0xFFEF4444))
+                skinId.contains("dark") || skinId.contains("ninja") || skinId.contains("shadow") -> listOf(Color(0xFFA855F7), Color(0xFF818CF8), Color(0xFFC084FC), Color(0xFFDDD6FE))
+                skinId.contains("rainbow") -> listOf(Color(0xFFEC4899), Color(0xFFFBBF24), Color(0xFF38BDF8), Color(0xFF4ADE80))
+                skinId.contains("gold") || skinId.contains("king") || skinId.contains("champion") -> listOf(Color(0xFFFFD700), Color(0xFFFDE047), Color(0xFFF59E0B), Color.White)
+                skinId.contains("cyber") || skinId.contains("matrix") -> listOf(Color(0xFF10B981), Color(0xFF34D399), Color(0xFF6EE7B7), Color.White)
+                else -> listOf(Color(0xFF38BDF8), Color(0xFF60A5FA), Color(0xFF93C5FD), Color.White)
+            }
+        }
+
+        val offsetY = if (isUpsideDown) -12f else -8f
+        val particleShape = when {
+            isSlipping -> if (Random.nextBoolean()) ParticleShape.STAR else ParticleShape.GLOW_TRAIL
+            isUpsideDown -> if (Random.nextBoolean()) ParticleShape.SPARKLE else ParticleShape.GLOW_TRAIL
+            else -> ParticleShape.GLOW_TRAIL
+        }
+
+        // Primary glowing speed trail orb
+        particles.add(
+            Particle(
+                x = stickmanX - 12f + (Random.nextFloat() * 6f - 3f),
+                y = stickmanY + offsetY + (Random.nextFloat() * 10f - 5f),
+                vx = -Random.nextFloat() * 45f - 15f,
+                vy = (Random.nextFloat() * 24f - 12f) + (if (isUpsideDown) -18f else 6f),
+                color = trailColors[Random.nextInt(trailColors.size)],
+                radius = if (isSlipping) Random.nextFloat() * 3.5f + 2.5f else Random.nextFloat() * 3.0f + 1.8f,
+                maxLife = 0.32f,
+                life = 0.32f,
+                shape = particleShape,
+                rotation = Random.nextFloat() * 360f,
+                vRot = Random.nextFloat() * 240f - 120f
+            )
+        )
+
+        // Micro sparkle fleck
+        if (Random.nextFloat() < 0.45f) {
+            particles.add(
+                Particle(
+                    x = stickmanX - 10f,
+                    y = stickmanY + offsetY,
+                    vx = -Random.nextFloat() * 55f - 20f,
+                    vy = Random.nextFloat() * 30f - 15f,
+                    color = Color.White,
+                    radius = Random.nextFloat() * 1.8f + 1.0f,
+                    maxLife = 0.22f,
+                    life = 0.22f,
+                    shape = ParticleShape.SPARKLE
+                )
+            )
+        }
+    }
+
     private fun spawnFootstepDust(x: Float, y: Float) {
         particles.add(
             Particle(
@@ -1241,58 +1314,74 @@ class StickmanGameEngine(
     }
 
     private fun spawnLandingEffects(x: Float, y: Float, isBullseye: Boolean) {
-        spawnDust(x, y, count = if (isBullseye) 18 else 10)
+        spawnDust(x, y, count = if (isBullseye) 20 else 12)
 
-        // Ring shockwave
+        // Primary Ring Shockwave
         particles.add(
             Particle(
                 x = x,
                 y = y,
                 vx = 0f,
                 vy = 0f,
-                color = if (isBullseye) Color(0xFFFFD700) else Color(0xFF60A5FA),
-                radius = if (isBullseye) 10f else 5f,
-                maxLife = 0.42f,
-                life = 0.42f,
+                color = if (isBullseye) Color(0xFFFFD700) else Color(0xFF38BDF8),
+                radius = if (isBullseye) 12f else 6f,
+                maxLife = 0.44f,
+                life = 0.44f,
                 shape = ParticleShape.RING_WAVE
             )
         )
 
-        if (isBullseye) {
-            // Secondary Crimson shockwave ring
-            particles.add(
-                Particle(
-                    x = x,
-                    y = y,
-                    vx = 0f,
-                    vy = 0f,
-                    color = Color(0xFFEF4444),
-                    radius = 5f,
-                    maxLife = 0.32f,
-                    life = 0.32f,
-                    shape = ParticleShape.RING_WAVE
-                )
+        // Secondary inner shockwave ring
+        particles.add(
+            Particle(
+                x = x,
+                y = y,
+                vx = 0f,
+                vy = 0f,
+                color = if (isBullseye) Color(0xFFEF4444) else Color(0xFFE0F2FE),
+                radius = if (isBullseye) 6f else 3f,
+                maxLife = 0.32f,
+                life = 0.32f,
+                shape = ParticleShape.RING_WAVE
             )
+        )
+
+        // Brilliant burst of sparks with upward velocity, radial spray, and rotational flare
+        val sparkColors = if (isBullseye) {
+            listOf(Color(0xFFFFD700), Color(0xFFFDE047), Color(0xFFFF6B00), Color(0xFFEF4444), Color.White)
+        } else {
+            listOf(Color(0xFFFFD700), Color(0xFFF59E0B), Color(0xFF38BDF8), Color(0xFF67E8F9), Color.White)
         }
 
-        val burstCount = if (isBullseye) 36 else 16
-        val burstColor = if (isBullseye) Color(0xFFFFD700) else Color(0xFF93C5FD)
+        val burstCount = if (isBullseye) 44 else 28
         for (i in 0 until burstCount) {
-            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.85f + 0.08f)
-            val speed = Random.nextFloat() * 240f + 60f
+            // Upward arcing fountain angles (-170 deg to -10 deg)
+            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.88f + 0.06f)
+            val speed = if (isBullseye) Random.nextFloat() * 280f + 80f else Random.nextFloat() * 220f + 60f
+            val shape = when {
+                i % 4 == 0 -> ParticleShape.SPARKLE
+                i % 4 == 1 -> ParticleShape.STAR
+                i % 4 == 2 -> ParticleShape.GLOW_TRAIL
+                else -> ParticleShape.FIRE_EMBER
+            }
+
             particles.add(
                 Particle(
-                    x = x,
-                    y = y,
+                    x = x + (Random.nextFloat() * 10f - 5f),
+                    y = y + (Random.nextFloat() * 6f - 3f),
                     vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed,
-                    color = if (isBullseye && i % 2 == 0) Color(0xFFEF4444) else burstColor,
-                    radius = Random.nextFloat() * 4.5f + 2f,
+                    vy = kotlin.math.sin(angle) * speed - (Random.nextFloat() * 50f + 20f),
+                    color = sparkColors[Random.nextInt(sparkColors.size)],
+                    radius = if (shape == ParticleShape.STAR || shape == ParticleShape.SPARKLE) {
+                        Random.nextFloat() * 4.2f + 2.0f
+                    } else {
+                        Random.nextFloat() * 3.0f + 1.5f
+                    },
                     maxLife = Random.nextFloat() * 0.35f + 0.45f,
                     life = 0.8f,
-                    shape = if (isBullseye) (if (i % 3 == 0) ParticleShape.STAR else ParticleShape.SPARKLE) else ParticleShape.CIRCLE,
+                    shape = shape,
                     rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 450f - 225f
+                    vRot = Random.nextFloat() * 500f - 250f
                 )
             )
         }

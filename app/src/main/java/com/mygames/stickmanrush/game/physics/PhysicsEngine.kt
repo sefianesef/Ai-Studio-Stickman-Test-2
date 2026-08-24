@@ -285,6 +285,11 @@ class PhysicsEngine {
                     p.vx *= (1f - 1.0f * dt).coerceAtLeast(0f)
                     p.vy *= (1f - 1.0f * dt).coerceAtLeast(0f)
                 }
+                ParticleShape.GLOW_TRAIL -> {
+                    // Smooth luminous deceleration with minimal gravity
+                    p.vx *= (1f - 3.2f * dt).coerceAtLeast(0f)
+                    p.vy *= (1f - 2.8f * dt).coerceAtLeast(0f)
+                }
                 ParticleShape.DUST -> {
                     p.vx *= (1f - 3.0f * dt).coerceAtLeast(0f)
                     p.vy *= (1f - 2.0f * dt).coerceAtLeast(0f)
