@@ -12,7 +12,7 @@ android {
   compileSdk = 36
 
   defaultConfig {
-    applicationId = "com.aistudio.stickmanhero.vjkwpz"
+    applicationId = "com.mygames.stickmanrush"
     minSdk = 24
     targetSdk = 35
     versionCode = 1
