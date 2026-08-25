@@ -188,10 +188,18 @@ enum class GameState {
     WALKING,
     COLLECTING_GEM,
     DROPPING_FAIL,
+    SECOND_CHANCE_REVIVE,
     SCROLLING,
     GAMEOVER,
     PAUSED
 }
+
+data class LuckyWheelSpinResult(
+    val gemsAwarded: Int,
+    val trialItem: AccessoryItem? = null,
+    val isTrialUnlocked: Boolean = false,
+    val message: String
+)
 
 enum class ObstacleType(val label: String, val icon: String, val dodgeHint: String) {
     SPINNING_BLADE("Buzzsaw", "🪚", "JUMP OVER OR FLIP TO DODGE! 🦘🥷"),

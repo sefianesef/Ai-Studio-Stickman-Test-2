@@ -371,6 +371,55 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         engine.dismissLevelVictory()
     }
 
+    fun claim3xLevelBonus(baseGems: Int): Int {
+        val extra = repository.claim3xLevelBonus(baseGems)
+        soundManager.playVictoryMusic()
+        soundManager.playBuyGemsSuccess()
+        hapticManager.levelUp()
+        return extra
+    }
+
+    fun acceptSecondChanceRevive() {
+        engine.acceptSecondChanceRevive(isRewardedAd = true)
+        soundManager.playVictoryMusic()
+        hapticManager.levelUp()
+    }
+
+    fun declineSecondChanceRevive() {
+        engine.declineSecondChanceRevive()
+    }
+
+    fun rentItemForTestDrive(item: AccessoryItem) {
+        repository.rentItemForTestDrive(item, 3)
+        soundManager.playBuyGemsSuccess()
+        soundManager.playVictoryMusic()
+        hapticManager.levelUp()
+    }
+
+    val rentedSkinId: StateFlow<String?> = repository.rentedSkinId
+    val rentedSkinRunsRemaining: StateFlow<Int> = repository.rentedSkinRunsRemaining
+    val rentedStickId: StateFlow<String?> = repository.rentedStickId
+    val rentedStickRunsRemaining: StateFlow<Int> = repository.rentedStickRunsRemaining
+
+    fun getDailyRewardedSpinsRemaining(): Int = repository.getDailyRewardedSpinsRemaining()
+
+    fun watchAdForLuckySpin(onComplete: (Boolean) -> Unit = {}) {
+        val watched = repository.watchAdForLuckySpin()
+        if (watched) {
+            soundManager.playBuyGemsSuccess()
+            hapticManager.levelUp()
+        }
+        onComplete(watched)
+    }
+
+    fun spinLuckyWheelDetailed(): com.mygames.stickmanrush.model.LuckyWheelSpinResult {
+        val result = repository.spinLuckyWheelDetailed()
+        soundManager.playBuyGemsSuccess()
+        soundManager.playVictoryMusic()
+        hapticManager.levelUp()
+        return result
+    }
+
     fun revivePlayer(): Boolean {
         val cost = engine.getReviveCost()
         if (repository.spendGems(cost)) {

@@ -13,6 +13,7 @@ import com.mygames.stickmanrush.model.GameSettingsState
 import com.mygames.stickmanrush.model.GemPack
 import com.mygames.stickmanrush.model.ItemRarity
 import com.mygames.stickmanrush.model.LeaderboardEntry
+import com.mygames.stickmanrush.model.LuckyWheelSpinResult
 import com.mygames.stickmanrush.model.PlayerCareerStats
 import com.mygames.stickmanrush.model.RivalGhost
 import com.mygames.stickmanrush.model.TournamentLeague
@@ -752,6 +753,32 @@ class GameRepository(
 
     private val _selectedTheme = MutableStateFlow(prefs.getString(KEY_SELECTED_THEME, "theme_emerald") ?: "theme_emerald")
     val selectedTheme: StateFlow<String> = _selectedTheme.asStateFlow()
+
+    // 🏎️ Skin & Bridge "Test Drive" / Rented Cosmetics State (3-run free trial via Rewarded Ad)
+    private val _rentedSkinId = MutableStateFlow<String?>(null)
+    val rentedSkinId: StateFlow<String?> = _rentedSkinId.asStateFlow()
+
+    private val _rentedSkinRunsRemaining = MutableStateFlow(0)
+    val rentedSkinRunsRemaining: StateFlow<Int> = _rentedSkinRunsRemaining.asStateFlow()
+
+    private val _rentedStickId = MutableStateFlow<String?>(null)
+    val rentedStickId: StateFlow<String?> = _rentedStickId.asStateFlow()
+
+    private val _rentedStickRunsRemaining = MutableStateFlow(0)
+    val rentedStickRunsRemaining: StateFlow<Int> = _rentedStickRunsRemaining.asStateFlow()
+
+    private var previousOwnedSkinId: String = _selectedSkin.value
+    private var previousOwnedStickId: String = _selectedStick.value
+
+    // 🛡️ Monetization Guardrails: Forced Interstitial Capping & Rewarded Ad Tracking
+    private val _levelAttemptsCount = MutableStateFlow(prefs.getInt("LEVEL_ATTEMPTS_COUNT", 0))
+    val levelAttemptsCount: StateFlow<Int> = _levelAttemptsCount.asStateFlow()
+
+    private val _lastRewardedAdTime = MutableStateFlow(prefs.getLong("LAST_REWARDED_AD_TIME", 0L))
+    val lastRewardedAdTime: StateFlow<Long> = _lastRewardedAdTime.asStateFlow()
+
+    private val _dailyRewardedSpinsUsedToday = MutableStateFlow(0)
+    val dailyRewardedSpinsUsedToday: StateFlow<Int> = _dailyRewardedSpinsUsedToday.asStateFlow()
 
     private val _soundEnabled = MutableStateFlow(prefs.getBoolean(KEY_SOUND_ENABLED, true))
     val soundEnabled: StateFlow<Boolean> = _soundEnabled.asStateFlow()
@@ -1851,7 +1878,111 @@ class GameRepository(
         grantAdRewardSpin(spinsCount)
     }
 
-    fun spinLuckyWheel(): Int {
+    fun rentItemForTestDrive(item: AccessoryItem, runs: Int = 3) {
+        recordRewardedAdWatched()
+        if (item.type == AccessoryType.BODY_SKIN) {
+            if (isItemUnlocked(_selectedSkin.value)) {
+                previousOwnedSkinId = _selectedSkin.value
+            } else {
+                previousOwnedSkinId = "skin_white"
+            }
+            _rentedSkinId.value = item.id
+            _rentedSkinRunsRemaining.value = runs
+            _selectedSkin.value = item.id
+            prefs.edit().putString(KEY_SELECTED_SKIN, item.id).apply()
+        } else if (item.type == AccessoryType.STICK) {
+            if (isItemUnlocked(_selectedStick.value)) {
+                previousOwnedStickId = _selectedStick.value
+            } else {
+                previousOwnedStickId = "stick_wood"
+            }
+            _rentedStickId.value = item.id
+            _rentedStickRunsRemaining.value = runs
+            _selectedStick.value = item.id
+            prefs.edit().putString(KEY_SELECTED_STICK, item.id).apply()
+        }
+    }
+
+    fun onRunCompleted() {
+        recordLevelAttempt()
+        if (_rentedSkinRunsRemaining.value > 0) {
+            val next = _rentedSkinRunsRemaining.value - 1
+            _rentedSkinRunsRemaining.value = next
+            if (next == 0) {
+                _rentedSkinId.value = null
+                if (!isItemUnlocked(_selectedSkin.value)) {
+                    _selectedSkin.value = previousOwnedSkinId
+                    prefs.edit().putString(KEY_SELECTED_SKIN, previousOwnedSkinId).apply()
+                }
+            }
+        }
+        if (_rentedStickRunsRemaining.value > 0) {
+            val next = _rentedStickRunsRemaining.value - 1
+            _rentedStickRunsRemaining.value = next
+            if (next == 0) {
+                _rentedStickId.value = null
+                if (!isItemUnlocked(_selectedStick.value)) {
+                    _selectedStick.value = previousOwnedStickId
+                    prefs.edit().putString(KEY_SELECTED_STICK, previousOwnedStickId).apply()
+                }
+            }
+        }
+    }
+
+    fun recordLevelAttempt() {
+        val count = _levelAttemptsCount.value + 1
+        _levelAttemptsCount.value = count
+        prefs.edit().putInt("LEVEL_ATTEMPTS_COUNT", count).apply()
+    }
+
+    fun recordRewardedAdWatched() {
+        val now = System.currentTimeMillis()
+        _lastRewardedAdTime.value = now
+        prefs.edit().putLong("LAST_REWARDED_AD_TIME", now).apply()
+    }
+
+    fun canShowForcedInterstitial(): Boolean {
+        val attempts = _levelAttemptsCount.value
+        val timeSinceRewarded = System.currentTimeMillis() - _lastRewardedAdTime.value
+        // Show max 1 interstitial every 3-4 attempts, and NEVER if player recently watched a rewarded ad within 2 minutes (120s)
+        return (attempts > 0 && attempts % 4 == 0) && (timeSinceRewarded > 120_000L)
+    }
+
+    fun getDailyRewardedSpinsRemaining(): Int {
+        val today = getTodayEpochDay()
+        val lastAdSpinsDay = prefs.getLong("LAST_AD_SPINS_DAY", 0L)
+        if (lastAdSpinsDay != today) {
+            prefs.edit().putLong("LAST_AD_SPINS_DAY", today).putInt("DAILY_AD_SPINS_USED", 0).apply()
+            _dailyRewardedSpinsUsedToday.value = 0
+        } else {
+            _dailyRewardedSpinsUsedToday.value = prefs.getInt("DAILY_AD_SPINS_USED", 0)
+        }
+        return (2 - _dailyRewardedSpinsUsedToday.value).coerceAtLeast(0)
+    }
+
+    fun canWatchAdForLuckySpin(): Boolean = getDailyRewardedSpinsRemaining() > 0
+
+    fun watchAdForLuckySpin(): Boolean {
+        val remaining = getDailyRewardedSpinsRemaining()
+        if (remaining > 0) {
+            val used = _dailyRewardedSpinsUsedToday.value + 1
+            _dailyRewardedSpinsUsedToday.value = used
+            prefs.edit().putInt("DAILY_AD_SPINS_USED", used).apply()
+            grantAdRewardSpin(1)
+            recordRewardedAdWatched()
+            return true
+        }
+        return false
+    }
+
+    fun claim3xLevelBonus(baseBonusGems: Int): Int {
+        val extraGems = baseBonusGems * 2
+        addGems(extraGems, CurrencySource.DAILY_REWARD)
+        recordRewardedAdWatched()
+        return extraGems
+    }
+
+    fun spinLuckyWheelDetailed(): LuckyWheelSpinResult {
         val today = getTodayEpochDay()
         if (checkDailyFreeSpinAvailable()) {
             prefs.edit().putLong("LAST_DAILY_FREE_SPIN", today).apply()
@@ -1862,16 +1993,52 @@ class GameRepository(
             prefs.edit().putInt("AD_EARNED_SPINS", remaining).apply()
         }
 
-        // Competitive Balanced Rewards: 3, 5, 10, 20 gems
         val roll = (1..100).random()
-        val reward = when {
-            roll <= 45 -> 3
-            roll <= 75 -> 5
-            roll <= 92 -> 10
-            else -> 20 // Grand Lucky Prize
+        return when {
+            roll <= 35 -> {
+                val gems = 15
+                addGems(gems, CurrencySource.LUCKY_SPIN)
+                LuckyWheelSpinResult(gemsAwarded = gems, message = "+15 GEMS WON! 💎")
+            }
+            roll <= 65 -> {
+                val gems = 30
+                addGems(gems, CurrencySource.LUCKY_SPIN)
+                LuckyWheelSpinResult(gemsAwarded = gems, message = "+30 GEMS WON! ✨")
+            }
+            roll <= 82 -> {
+                val gems = 60
+                addGems(gems, CurrencySource.LUCKY_SPIN)
+                LuckyWheelSpinResult(gemsAwarded = gems, message = "MEGA PRIZE: +60 GEMS! 🔥")
+            }
+            roll <= 92 -> {
+                val gems = 100
+                addGems(gems, CurrencySource.LUCKY_SPIN)
+                LuckyWheelSpinResult(gemsAwarded = gems, message = "JACKPOT! +100 GEMS! 👑")
+            }
+            else -> {
+                // Trial Epic Skin / Bridge for 3 games!
+                val trialSkin = availableAccessories.filter { it.type == AccessoryType.BODY_SKIN && it.rarity == ItemRarity.EPIC }.randomOrNull()
+                if (trialSkin != null && !isItemUnlocked(trialSkin.id)) {
+                    rentItemForTestDrive(trialSkin, 3)
+                    addGems(20, CurrencySource.LUCKY_SPIN)
+                    LuckyWheelSpinResult(
+                        gemsAwarded = 20,
+                        trialItem = trialSkin,
+                        isTrialUnlocked = true,
+                        message = "UNLOCKED 3-GAME TRIAL: ${trialSkin.name}! 🥷"
+                    )
+                } else {
+                    val gems = 50
+                    addGems(gems, CurrencySource.LUCKY_SPIN)
+                    LuckyWheelSpinResult(gemsAwarded = gems, message = "+50 GEMS PRIZE! 💎")
+                }
+            }
         }
-        addGems(reward, CurrencySource.LUCKY_SPIN)
-        return reward
+    }
+
+    fun spinLuckyWheel(): Int {
+        val detailed = spinLuckyWheelDetailed()
+        return detailed.gemsAwarded
     }
 
     fun getUserTournamentLeague(): TournamentLeague {

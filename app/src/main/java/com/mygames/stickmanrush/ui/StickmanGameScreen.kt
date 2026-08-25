@@ -35,6 +35,8 @@ fun StickmanGameScreen(
     val activeChallengeDialog by viewModel.activeChallengeDialog.collectAsState()
     val activeLevelVictory by viewModel.activeLevelVictory.collectAsState()
     val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
+    val activeSecondChancePrompt by viewModel.engine.activeSecondChancePrompt.collectAsState()
+    val secondChanceProgressPercent by viewModel.engine.secondChanceProgressPercent.collectAsState()
 
     val isPlaying = gameState != GameState.START && gameState != GameState.GAMEOVER
     val isStart = gameState == GameState.START
@@ -195,6 +197,7 @@ fun StickmanGameScreen(
             LevelVictoryCelebrationDialog(
                 celebrationText = celebrationText,
                 levelNumber = activeLevelVictory?.levelNumber,
+                viewModel = viewModel,
                 onDismiss = { viewModel.engine.dismissVictoryCelebration() }
             )
         }
@@ -212,6 +215,16 @@ fun StickmanGameScreen(
             ChallengePsychologyDialog(
                 challenge = challenge,
                 onAccept = { viewModel.dismissChallengeDialog() }
+            )
+        }
+
+        // 22. High-Retention Second-Chance Revive Dialog (1 per run on near-clears >70%)
+        if (activeSecondChancePrompt) {
+            SecondChanceReviveDialog(
+                viewModel = viewModel,
+                progressPercent = secondChanceProgressPercent,
+                onRevive = { viewModel.acceptSecondChanceRevive() },
+                onDecline = { viewModel.declineSecondChanceRevive() }
             )
         }
     }

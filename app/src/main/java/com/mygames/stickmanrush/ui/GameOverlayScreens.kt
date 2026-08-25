@@ -1396,6 +1396,179 @@ private fun BottomRoyalNavTab(
 }
 
 @Composable
+fun SecondChanceReviveDialog(
+    viewModel: GameViewModel,
+    progressPercent: Int,
+    onRevive: () -> Unit,
+    onDecline: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var countdownSeconds by remember { mutableIntStateOf(3) }
+    LaunchedEffect(Unit) {
+        while (countdownSeconds > 0) {
+            kotlinx.coroutines.delay(1000L)
+            countdownSeconds--
+        }
+        if (countdownSeconds <= 0) {
+            onDecline()
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "second_chance_pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.97f,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xDD000000))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {}
+            )
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(3.dp, Brush.horizontalGradient(listOf(Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFFF59E0B)))),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .scale(pulseScale)
+                .shadow(32.dp, RoundedCornerShape(28.dp), ambientColor = Color(0xFFF59E0B), spotColor = Color(0xFFEF4444))
+                .testTag("second_chance_revive_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF31101E),
+                                Color(0xFF0F172A),
+                                Color(0xFF020617)
+                            )
+                        )
+                    )
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Urgent Warning Icon with Countdown Ring
+                Box(contentAlignment = Alignment.Center) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF7F1D1D),
+                        border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFFF87171)),
+                        modifier = Modifier
+                            .size(76.dp)
+                            .shadow(16.dp, CircleShape, ambientColor = Color(0xFFEF4444))
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = "$countdownSeconds", color = Color(0xFFFDE047), fontSize = 36.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "SO CLOSE! (${progressPercent}% TRACK REACHED) 🏃‍♂️💨",
+                        color = Color(0xFFFDE047),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.5.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "SECOND-CHANCE REVIVE",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Resume immediately at the edge of your last platform with your full combo intact!",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 11.5.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                }
+
+                // 1-Tap Rewarded Ad Revive Button
+                Button(
+                    onClick = onRevive,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981)
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .shadow(12.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFF10B981))
+                        .testTag("second_chance_watch_ad_revive_button")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "🎬", fontSize = 20.sp)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "WATCH AD TO REVIVE (FREE)",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "1 Per Run • Preserves All Progress",
+                                color = Color(0xFFD1FAE5),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.sp
+                            )
+                        }
+                    }
+                }
+
+                // No Thanks Button
+                OutlinedButton(
+                    onClick = onDecline,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                        .testTag("second_chance_decline_button")
+                ) {
+                    Text(
+                        text = "NO THANKS / GIVE UP",
+                        color = Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun GameOverDialog(
     viewModel: GameViewModel,
     modifier: Modifier = Modifier
@@ -1751,7 +1924,7 @@ fun GameOverDialog(
 }
 
 @Composable
-private fun LegacyShopDialog(
+private fun LegacyOverlayShopDialog(
     viewModel: GameViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -1766,6 +1939,10 @@ private fun LegacyShopDialog(
     val selectedSkinId by viewModel.selectedSkinId.collectAsState()
     val selectedThemeId by viewModel.selectedThemeId.collectAsState()
     val isDailyAvailable by viewModel.isDailyRewardAvailable.collectAsState()
+    val rentedSkinId by viewModel.rentedSkinId.collectAsState()
+    val rentedSkinRuns by viewModel.rentedSkinRunsRemaining.collectAsState()
+    val rentedStickId by viewModel.rentedStickId.collectAsState()
+    val rentedStickRuns by viewModel.rentedStickRunsRemaining.collectAsState()
 
     // Temporary previewed item for interactive top showcase
     var previewedItem by remember(selectedTab) {
@@ -2511,6 +2688,62 @@ private fun LegacyShopDialog(
                                             fontWeight = FontWeight.Black,
                                             fontSize = 11.sp
                                         )
+                                    }
+                                }
+
+                                // Skin "Test Drive" / Trial Option for unowned Skins & Bridges
+                                val isRentedActive = when (item.type) {
+                                    AccessoryType.BODY_SKIN -> rentedSkinId == item.id && rentedSkinRuns > 0
+                                    AccessoryType.STICK -> rentedStickId == item.id && rentedStickRuns > 0
+                                    else -> false
+                                }
+                                val rentedRunsRemaining = when (item.type) {
+                                    AccessoryType.BODY_SKIN -> rentedSkinRuns
+                                    AccessoryType.STICK -> rentedStickRuns
+                                    else -> 0
+                                }
+
+                                if (!isUnlocked && (item.type == AccessoryType.BODY_SKIN || item.type == AccessoryType.STICK)) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    if (isRentedActive) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFF6B21A8),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC084FC)),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(26.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    text = "⚡ TRIAL: $rentedRunsRemaining RUNS",
+                                                    color = Color(0xFFFDE047),
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                previewedItem = item
+                                                viewModel.rentItemForTestDrive(item)
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7E22CE)),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(26.dp)
+                                                .testTag("shop_item_test_drive_${item.id}")
+                                        ) {
+                                            Text(
+                                                text = "🎬 TEST DRIVE (3 RUNS)",
+                                                color = Color(0xFFF3E8FF),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 8.5.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -4796,6 +5029,7 @@ fun LuckySpinWheelDialog(
 fun LevelVictoryCelebrationDialog(
     celebrationText: String,
     levelNumber: Int? = null,
+    viewModel: GameViewModel? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -4809,6 +5043,11 @@ fun LevelVictoryCelebrationDialog(
         ),
         label = "victory_scale"
     )
+
+    val coroutineScope = rememberCoroutineScope()
+    var hasClaimed3x by remember { mutableStateOf(false) }
+    var isWatching3xAd by remember { mutableStateOf(false) }
+    val baseGems = 10 + ((levelNumber ?: 1) * 2)
 
     val headingText = if (levelNumber != null && levelNumber > 0) {
         "LEVEL $levelNumber COMPLETED! 🎉"
@@ -4843,7 +5082,7 @@ fun LevelVictoryCelebrationDialog(
                     )
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Popping Crown & Sparkles Icon
                 Surface(
@@ -4851,18 +5090,18 @@ fun LevelVictoryCelebrationDialog(
                     color = Color(0xFF312E81),
                     border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFFFFD700)),
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(76.dp)
                         .shadow(16.dp, CircleShape, ambientColor = Color(0xFFFFD700))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(text = "👑", fontSize = 42.sp)
+                        Text(text = "👑", fontSize = 40.sp)
                     }
                 }
 
                 Text(
                     text = headingText,
                     color = Color(0xFFFFD700),
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.5.sp,
                     textAlign = TextAlign.Center,
@@ -4877,7 +5116,7 @@ fun LevelVictoryCelebrationDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier.padding(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -4892,7 +5131,7 @@ fun LevelVictoryCelebrationDialog(
                         Text(
                             text = celebrationText,
                             color = Color.White,
-                            fontSize = 14.sp,
+                            fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
@@ -4900,42 +5139,105 @@ fun LevelVictoryCelebrationDialog(
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = Color(0xFF065F46),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF34D399)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "🎁 Bonus Level Gems Claimed! 💎",
+                            text = "🎁 Base Level Reward: +$baseGems 💎",
                             color = Color(0xFF6EE7B7),
                             fontWeight = FontWeight.Black,
-                            fontSize = 14.sp
+                            fontSize = 13.5.sp
                         )
                     }
                 }
 
+                // 3x Win Multiplier Rewarded Placement
+                if (!hasClaimed3x) {
+                    Button(
+                        onClick = {
+                            if (!isWatching3xAd) {
+                                isWatching3xAd = true
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(1600)
+                                    viewModel?.claim3xLevelBonus(baseGems)
+                                    hasClaimed3x = true
+                                    isWatching3xAd = false
+                                }
+                            }
+                        },
+                        enabled = !isWatching3xAd,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .shadow(12.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFFF59E0B))
+                            .testTag("claim_3x_win_multiplier_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "🎬", fontSize = 18.sp)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = if (isWatching3xAd) "CLAIMING 3X REWARD..." else "WATCH AD FOR 3X GEMS (+${baseGems * 3} 💎)",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    text = "Triple Your Level Victory Gems",
+                                    color = Color(0xFF78350F),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 8.5.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF78350F),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFBBF24)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "✨ 3X REWARD CLAIMED! (+${baseGems * 3} 💎) ✨",
+                            color = Color(0xFFFDE047),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                }
+
+                // Immediate Continue Button (NO ARTIFICIAL DELAY - BUILDS TRUST)
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF10B981)
                     ),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
-                        .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF10B981))
+                        .height(48.dp)
+                        .shadow(10.dp, RoundedCornerShape(16.dp), ambientColor = Color(0xFF10B981))
                         .testTag("continue_next_level_button")
                 ) {
                     Text(
-                        text = "CONTINUE TO NEXT LEVEL 🚀",
+                        text = if (!hasClaimed3x) "CONTINUE TO NEXT LEVEL 🚀" else "NEXT LEVEL 🚀",
                         color = Color.White,
                         fontWeight = FontWeight.Black,
-                        fontSize = 15.sp
+                        fontSize = 14.5.sp
                     )
                 }
             }

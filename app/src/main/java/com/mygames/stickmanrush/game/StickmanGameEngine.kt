@@ -85,6 +85,15 @@ class StickmanGameEngine(
     private val _activeMagnetTime = MutableStateFlow(0f)
     val activeMagnetTime: StateFlow<Float> = _activeMagnetTime.asStateFlow()
 
+    // Second-Chance Revive (1 per run when falling near goal >70% track progress)
+    private val _activeSecondChancePrompt = MutableStateFlow(false)
+    val activeSecondChancePrompt: StateFlow<Boolean> = _activeSecondChancePrompt.asStateFlow()
+
+    private val _secondChanceProgressPercent = MutableStateFlow(75)
+    val secondChanceProgressPercent: StateFlow<Int> = _secondChanceProgressPercent.asStateFlow()
+
+    private var secondChancePromptUsedThisRun = false
+
     private val _hasInvincibilityShield = MutableStateFlow(false)
     val hasInvincibilityShield: StateFlow<Boolean> = _hasInvincibilityShield.asStateFlow()
 
@@ -190,6 +199,9 @@ class StickmanGameEngine(
     }
 
     fun resetGame(initial: Boolean = false, startLevel: Int = 1) {
+        if (!initial) {
+            repository.onRunCompleted()
+        }
         soundManager.stopFallingSound()
         val targetStartLevel = startLevel.coerceAtLeast(1)
         val initialScore = ((targetStartLevel - 1) * 3).coerceAtLeast(0)
@@ -197,6 +209,8 @@ class StickmanGameEngine(
         _currentLevel.value = targetStartLevel
         _isNewHighScore.value = false
         _revivalsUsed.value = 0
+        secondChancePromptUsedThisRun = false
+        _activeSecondChancePrompt.value = false
         justLeveledUp = false
         _difficultyTier.value = difficultyManager.getTier(initialScore)
         val equippedTheme = repository.selectedTheme.value
@@ -324,6 +338,22 @@ class StickmanGameEngine(
         addFloatingText("SECOND CHANCE! ✨", stickmanX, floorY - 100f, Color(0xFFFFD700), scale = 1.4f)
 
         _gameState.value = GameState.IDLE
+    }
+
+    fun acceptSecondChanceRevive(isRewardedAd: Boolean = true) {
+        if (isRewardedAd) {
+            repository.recordRewardedAdWatched()
+        }
+        secondChancePromptUsedThisRun = true
+        _activeSecondChancePrompt.value = false
+        reviveRun()
+    }
+
+    fun declineSecondChanceRevive() {
+        _activeSecondChancePrompt.value = false
+        soundManager.playStickmanFall()
+        hapticManager?.gameOver()
+        _gameState.value = GameState.DROPPING_FAIL
     }
 
     /**
@@ -1227,21 +1257,37 @@ class StickmanGameEngine(
                         stickmanFallVel = 0f
                         fallElapsedTime = 0f
                         hasSpawnedMidFallReaction = false
-                        soundManager.playStickmanFall()
-                        hapticManager?.gameOver()
-                        val funnyQuotes = listOf(
-                            "OH NO! OH NO! 😱",
-                            "OH NO NO NO NO! 🏃‍♂️💨",
-                            "WHOOOPS! 🍌",
-                            "AALLL THE WAY DOWNNN! 😱",
-                            "GRAVITY: 1, STICKMAN: 0 💀",
-                            "WHEEEEEEE! 🪂",
-                            "MY ANKLES! 💥",
-                            "SEE YA! 🕳️",
-                            "I CAN'T FLY! 🦅"
-                        )
-                        addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
-                        _gameState.value = GameState.DROPPING_FAIL
+
+                        // Calculate bridge progress towards next platform gap
+                        val gapDist = (nextPlatform.leftX - bridgeStartX).coerceAtLeast(1f)
+                        val stickProgress = (stickLength / gapDist).coerceIn(0f, 1.5f)
+                        val walkProgress = ((stickmanX - bridgeStartX) / gapDist).coerceIn(0f, 1.5f)
+                        val maxProg = maxOf(stickProgress, walkProgress)
+                        val progressPercent = (maxProg * 100).toInt().coerceIn(0, 99)
+
+                        if (maxProg >= 0.70f && !secondChancePromptUsedThisRun && _revivalsUsed.value == 0) {
+                            _secondChanceProgressPercent.value = progressPercent
+                            _activeSecondChancePrompt.value = true
+                            _gameState.value = GameState.SECOND_CHANCE_REVIVE
+                            soundManager.playButton()
+                            hapticManager?.nearMiss()
+                        } else {
+                            soundManager.playStickmanFall()
+                            hapticManager?.gameOver()
+                            val funnyQuotes = listOf(
+                                "OH NO! OH NO! 😱",
+                                "OH NO NO NO NO! 🏃‍♂️💨",
+                                "WHOOOPS! 🍌",
+                                "AALLL THE WAY DOWNNN! 😱",
+                                "GRAVITY: 1, STICKMAN: 0 💀",
+                                "WHEEEEEEE! 🪂",
+                                "MY ANKLES! 💥",
+                                "SEE YA! 🕳️",
+                                "I CAN'T FLY! 🦅"
+                            )
+                            addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
+                            _gameState.value = GameState.DROPPING_FAIL
+                        }
                     }
                 }
             }
