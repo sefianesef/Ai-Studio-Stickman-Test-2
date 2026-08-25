@@ -578,6 +578,7 @@ class StickmanGameEngine(
                                 val label = if (multiplier > 1) "🧲 2X 💎 +$finalAmt" else "🧲 💎 +$finalAmt"
                                 addFloatingText(label, stickmanX, stickmanY - 35f, Color(0xFF38BDF8), scale = 1.3f)
                                 spawnGemCollectEffects(stickmanX, stickmanY)
+                                spawnHeroGemCollectAura(stickmanX, stickmanY, multiplier > 1, 1)
                             }
                         }
                     }
@@ -915,6 +916,7 @@ class StickmanGameEngine(
                             }
                             addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1 || multiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1 || multiplier > 1) 1.25f else 1.0f)
                             spawnGemCollectEffects(event.x, event.y)
+                            spawnHeroGemCollectAura(stickmanX, stickmanY, multiplier > 1, event.comboMultiplier)
                         }
                     }
                 }
@@ -1075,6 +1077,13 @@ class StickmanGameEngine(
                             tierLevel = currentTier.tierLevel,
                             isElevated = nextPlatform.heightOffset != currentPlatform.heightOffset,
                             isSliding = isSlipping
+                        )
+                        spawnHeroCrossingLandingEffects(
+                            x = stickmanX,
+                            y = stickmanY,
+                            isBullseye = isPerfectHit,
+                            score = _score.value,
+                            skinId = repository.selectedSkin.value
                         )
 
                         // Turn complete
@@ -1941,6 +1950,140 @@ class StickmanGameEngine(
                     shape = ParticleShape.CONFETTI,
                     rotation = Random.nextFloat() * 360f,
                     vRot = Random.nextFloat() * 500f - 250f
+                )
+            )
+        }
+    }
+
+    private fun spawnHeroGemCollectAura(heroX: Float, heroY: Float, isDoubler: Boolean, comboMultiplier: Int) {
+        val heroCenterY = heroY - 18f
+        val auraColors = if (isDoubler || comboMultiplier >= 3) {
+            listOf(Color(0xFFFFD700), Color(0xFFFDE047), Color(0xFF38BDF8), Color(0xFF00E5FF), Color(0xFFEC4899), Color.White)
+        } else {
+            listOf(Color(0xFF38BDF8), Color(0xFF00E5FF), Color(0xFF67E8F9), Color(0xFFE0F2FE), Color.White)
+        }
+
+        // Torso shockwave pulse ring
+        particles.add(
+            Particle(
+                x = heroX,
+                y = heroCenterY,
+                vx = 0f,
+                vy = 0f,
+                color = if (isDoubler) Color(0xFFFFD700) else Color(0xFF38BDF8),
+                radius = 10f,
+                maxLife = 0.38f,
+                life = 0.38f,
+                shape = ParticleShape.RING_WAVE
+            )
+        )
+
+        // Radiant upward burst of sparkles, diamond stars, and glowing gem shards
+        val particleCount = if (isDoubler || comboMultiplier >= 3) 22 else 14
+        for (i in 0 until particleCount) {
+            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.90f + 0.05f) // Upward fountain arc
+            val speed = Random.nextFloat() * 160f + 50f
+            val shape = when {
+                i % 3 == 0 -> ParticleShape.GEM_BURST
+                i % 3 == 1 -> ParticleShape.STAR
+                else -> ParticleShape.SPARKLE
+            }
+            particles.add(
+                Particle(
+                    x = heroX + (Random.nextFloat() * 12f - 6f),
+                    y = heroCenterY + (Random.nextFloat() * 10f - 5f),
+                    vx = kotlin.math.cos(angle) * speed,
+                    vy = kotlin.math.sin(angle) * speed - (Random.nextFloat() * 60f + 30f),
+                    color = auraColors[Random.nextInt(auraColors.size)],
+                    radius = Random.nextFloat() * 3.8f + 1.8f,
+                    maxLife = Random.nextFloat() * 0.3f + 0.45f,
+                    life = 0.75f,
+                    shape = shape,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 450f - 225f
+                )
+            )
+        }
+
+        // Ascending neon orbs
+        for (i in 0 until 4) {
+            particles.add(
+                Particle(
+                    x = heroX + (Random.nextFloat() * 16f - 8f),
+                    y = heroCenterY + (Random.nextFloat() * 8f - 4f),
+                    vx = Random.nextFloat() * 20f - 10f,
+                    vy = -Random.nextFloat() * 70f - 30f,
+                    color = if (isDoubler) Color(0xFFFFD700) else Color(0xFF38BDF8),
+                    radius = Random.nextFloat() * 2.5f + 1.2f,
+                    maxLife = 0.45f,
+                    life = 0.45f,
+                    shape = ParticleShape.NEON_ORB
+                )
+            )
+        }
+    }
+
+    private fun spawnHeroCrossingLandingEffects(
+        x: Float,
+        y: Float,
+        isBullseye: Boolean,
+        score: Int,
+        skinId: String
+    ) {
+        // 1. Bilateral footstep dust plumes
+        spawnDust(x - 8f, y, count = 6)
+        spawnDust(x + 8f, y, count = 6)
+
+        // 2. Ground impact expanding shockwaves at stickman's feet
+        particles.add(
+            Particle(
+                x = x,
+                y = y,
+                vx = 0f,
+                vy = 0f,
+                color = if (isBullseye) Color(0xFFFFD700) else Color(0xFF38BDF8),
+                radius = if (isBullseye) 14f else 8f,
+                maxLife = 0.42f,
+                life = 0.42f,
+                shape = ParticleShape.RING_WAVE
+            )
+        )
+
+        // 3. Themed skin victory burst colors
+        val themeColors = when {
+            skinId.contains("laser") || skinId.contains("neon") -> listOf(Color(0xFF00E5FF), Color(0xFF38BDF8), Color(0xFF67E8F9), Color.White)
+            skinId.contains("lava") || skinId.contains("fire") -> listOf(Color(0xFFFF6B00), Color(0xFFEA580C), Color(0xFFFBBF24), Color(0xFFEF4444))
+            skinId.contains("dark") || skinId.contains("ninja") || skinId.contains("shadow") -> listOf(Color(0xFFA855F7), Color(0xFF818CF8), Color(0xFFC084FC), Color(0xFFDDD6FE))
+            skinId.contains("rainbow") -> listOf(Color(0xFFEC4899), Color(0xFFFBBF24), Color(0xFF38BDF8), Color(0xFF4ADE80))
+            skinId.contains("gold") || skinId.contains("king") || skinId.contains("champion") -> listOf(Color(0xFFFFD700), Color(0xFFFDE047), Color(0xFFF59E0B), Color.White)
+            skinId.contains("cyber") || skinId.contains("matrix") -> listOf(Color(0xFF10B981), Color(0xFF34D399), Color(0xFF6EE7B7), Color.White)
+            else -> listOf(Color(0xFFFFD700), Color(0xFF38BDF8), Color(0xFF4ADE80), Color(0xFFFBBF24), Color.White)
+        }
+
+        // 4. Upward victory fountain burst of stars, sparkles, and ribbons around hero
+        val burstCount = if (isBullseye) 28 else 18
+        for (i in 0 until burstCount) {
+            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.85f + 0.08f)
+            val speed = Random.nextFloat() * 200f + 60f
+            val shape = when {
+                i % 4 == 0 -> ParticleShape.STAR
+                i % 4 == 1 -> ParticleShape.SPARKLE
+                i % 4 == 2 -> ParticleShape.RIBBON
+                else -> ParticleShape.CONFETTI
+            }
+            particles.add(
+                Particle(
+                    x = x + (Random.nextFloat() * 10f - 5f),
+                    y = y - 10f + (Random.nextFloat() * 8f - 4f),
+                    vx = kotlin.math.cos(angle) * speed,
+                    vy = kotlin.math.sin(angle) * speed - (Random.nextFloat() * 80f + 30f),
+                    color = themeColors[Random.nextInt(themeColors.size)],
+                    radius = Random.nextFloat() * 4.2f + 2.0f,
+                    maxLife = Random.nextFloat() * 0.4f + 0.55f,
+                    life = 0.95f,
+                    shape = shape,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 480f - 240f
                 )
             )
         }
