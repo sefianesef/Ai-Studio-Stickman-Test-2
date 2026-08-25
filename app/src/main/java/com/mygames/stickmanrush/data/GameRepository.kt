@@ -101,7 +101,7 @@ class GameRepository(
         val DAILY_REWARD_AMOUNTS = listOf(3, 5, 8, 10, 15, 20, 35)
     }
 
-    // Default catalog of shop items
+    // Default catalog of shop items with balanced long-term progressive sinks (500 to 5,000 Gems)
     val availableAccessories: List<AccessoryItem> = listOf(
         // Hats (Standard Gems & Exclusive Contest Gems)
         AccessoryItem(
@@ -119,7 +119,7 @@ class GameRepository(
             id = "hat_crown",
             name = "Royal Crown",
             type = AccessoryType.HAT,
-            cost = 80,
+            cost = 1000,
             primaryColor = 0xFFFFD700,
             secondaryColor = 0xFFB45309,
             description = "Fit for the true stick ruler",
@@ -130,7 +130,7 @@ class GameRepository(
             id = "hat_wizard",
             name = "Wizard Hat",
             type = AccessoryType.HAT,
-            cost = 120,
+            cost = 2200,
             primaryColor = 0xFF6366F1,
             secondaryColor = 0xFF4338CA,
             description = "Channel magic bridge energy",
@@ -141,7 +141,7 @@ class GameRepository(
             id = "hat_ninja",
             name = "Ninja Mask",
             type = AccessoryType.HAT,
-            cost = 95,
+            cost = 1200,
             primaryColor = 0xFF0F172A,
             secondaryColor = 0xFFEF4444,
             description = "Silent step shadow ribbons",
@@ -152,7 +152,7 @@ class GameRepository(
             id = "hat_viking",
             name = "Viking Horns",
             type = AccessoryType.HAT,
-            cost = 150,
+            cost = 2500,
             primaryColor = 0xFF92400E,
             secondaryColor = 0xFFF59E0B,
             description = "Fearless Nordic warrior horns",
@@ -163,7 +163,7 @@ class GameRepository(
             id = "hat_cyber",
             name = "Cyber Visor",
             type = AccessoryType.HAT,
-            cost = 220,
+            cost = 4500,
             primaryColor = 0xFF06B6D4,
             secondaryColor = 0xFFEC4899,
             description = "Neon augmented reality HUD",
@@ -174,7 +174,7 @@ class GameRepository(
             id = "hat_halo",
             name = "Angelic Halo",
             type = AccessoryType.HAT,
-            cost = 180,
+            cost = 3800,
             primaryColor = 0xFFFDE047,
             secondaryColor = 0xFFF59E0B,
             description = "Divine ring of celestial light",
@@ -185,7 +185,7 @@ class GameRepository(
             id = "hat_pirate",
             name = "Pirate Tricorn",
             type = AccessoryType.HAT,
-            cost = 135,
+            cost = 2000,
             primaryColor = 0xFF1E293B,
             secondaryColor = 0xFFFBBF24,
             description = "High seas buccaneer cap",
@@ -236,7 +236,7 @@ class GameRepository(
             id = "scarf_hero_cape",
             name = "Crimson Cape",
             type = AccessoryType.SCARF,
-            cost = 70,
+            cost = 750,
             primaryColor = 0xFFDC2626,
             secondaryColor = 0xFF991B1B,
             description = "Flows boldly in high winds",
@@ -247,7 +247,7 @@ class GameRepository(
             id = "scarf_emerald",
             name = "Emerald Cloak",
             type = AccessoryType.SCARF,
-            cost = 110,
+            cost = 1400,
             primaryColor = 0xFF10B981,
             secondaryColor = 0xFF047857,
             description = "Infused with forest wind",
@@ -258,7 +258,7 @@ class GameRepository(
             id = "scarf_void",
             name = "Shadow Cloak",
             type = AccessoryType.SCARF,
-            cost = 175,
+            cost = 2800,
             primaryColor = 0xFF8B5CF6,
             secondaryColor = 0xFF4C1D95,
             description = "Woven from midnight starlight",
@@ -269,7 +269,7 @@ class GameRepository(
             id = "scarf_neon_pulse",
             name = "Neon Streamer",
             type = AccessoryType.SCARF,
-            cost = 240,
+            cost = 4800,
             primaryColor = 0xFFF43F5E,
             secondaryColor = 0xFFBE185D,
             description = "Vibrant synthwave energy tail",
@@ -280,7 +280,7 @@ class GameRepository(
             id = "scarf_flame",
             name = "Phoenix Wings",
             type = AccessoryType.SCARF,
-            cost = 200,
+            cost = 3500,
             primaryColor = 0xFFF97316,
             secondaryColor = 0xFFDC2626,
             description = "Blazing solar ember plumage",
@@ -331,7 +331,7 @@ class GameRepository(
             id = "stick_laser",
             name = "Cyan Laser Beam",
             type = AccessoryType.STICK,
-            cost = 85,
+            cost = 950,
             primaryColor = 0xFF22D3EE,
             secondaryColor = 0xFF0284C7,
             description = "Glowing high-tech plasma bridge",
@@ -342,7 +342,7 @@ class GameRepository(
             id = "stick_gold",
             name = "Golden Scepter",
             type = AccessoryType.STICK,
-            cost = 140,
+            cost = 2000,
             primaryColor = 0xFFFBBF24,
             secondaryColor = 0xFFD97706,
             description = "Shimmering opulent gold bar",
@@ -353,7 +353,7 @@ class GameRepository(
             id = "stick_candy",
             name = "Candy Cane",
             type = AccessoryType.STICK,
-            cost = 115,
+            cost = 1300,
             primaryColor = 0xFFEF4444,
             secondaryColor = 0xFFFFFFFF,
             description = "Festive peppermint bridge",
@@ -364,7 +364,7 @@ class GameRepository(
             id = "stick_dark",
             name = "Void Matter Beam",
             type = AccessoryType.STICK,
-            cost = 190,
+            cost = 3200,
             primaryColor = 0xFFA855F7,
             secondaryColor = 0xFF3B0764,
             description = "Pulsing purple antimatter bridge",
@@ -375,7 +375,7 @@ class GameRepository(
             id = "stick_lava",
             name = "Molten Magma",
             type = AccessoryType.STICK,
-            cost = 160,
+            cost = 2600,
             primaryColor = 0xFFEA580C,
             secondaryColor = 0xFFFBBF24,
             description = "Superheated molten lava girder",
@@ -386,7 +386,7 @@ class GameRepository(
             id = "stick_rainbow",
             name = "Prism Spectrum",
             type = AccessoryType.STICK,
-            cost = 230,
+            cost = 5000,
             primaryColor = 0xFFEC4899,
             secondaryColor = 0xFF38BDF8,
             description = "Shifting rainbow light bridge",
@@ -397,7 +397,7 @@ class GameRepository(
             id = "stick_cyber",
             name = "Matrix Grid Rail",
             type = AccessoryType.STICK,
-            cost = 175,
+            cost = 2900,
             primaryColor = 0xFF10B981,
             secondaryColor = 0xFF059669,
             description = "Cybernetic emerald data stream",
@@ -434,7 +434,7 @@ class GameRepository(
             realMoneyPriceUsd = "$4.99"
         ),
 
-        // Body Skins / Outfits
+        // Body Skins / Outfits (500 to 5,000 Gems)
         AccessoryItem(
             id = "skin_white",
             name = "Classic Pure",
@@ -450,7 +450,7 @@ class GameRepository(
             id = "skin_shadow",
             name = "Shadow Shinobi",
             type = AccessoryType.BODY_SKIN,
-            cost = 85,
+            cost = 1000,
             primaryColor = 0xFF334155,
             secondaryColor = 0xFF0F172A,
             description = "Dark sleek ninja silhouette",
@@ -461,7 +461,7 @@ class GameRepository(
             id = "skin_frost",
             name = "Frost Spectre",
             type = AccessoryType.BODY_SKIN,
-            cost = 135,
+            cost = 1500,
             primaryColor = 0xFF38BDF8,
             secondaryColor = 0xFF0284C7,
             description = "Chilling arctic cyan warrior",
@@ -472,7 +472,7 @@ class GameRepository(
             id = "skin_gold",
             name = "Solar Aura",
             type = AccessoryType.BODY_SKIN,
-            cost = 180,
+            cost = 3000,
             primaryColor = 0xFFFBBF24,
             secondaryColor = 0xFFF59E0B,
             description = "Radiant golden sun champion",
@@ -483,7 +483,7 @@ class GameRepository(
             id = "skin_neon_pink",
             name = "Synth Cyberpunk",
             type = AccessoryType.BODY_SKIN,
-            cost = 120,
+            cost = 1800,
             primaryColor = 0xFFF43F5E,
             secondaryColor = 0xFFBE185D,
             description = "High-voltage neon pink speedster",
@@ -494,7 +494,7 @@ class GameRepository(
             id = "skin_emerald",
             name = "Emerald Archer",
             type = AccessoryType.BODY_SKIN,
-            cost = 100,
+            cost = 1200,
             primaryColor = 0xFF10B981,
             secondaryColor = 0xFF047857,
             description = "Agile forest woodland tracker",
@@ -505,7 +505,7 @@ class GameRepository(
             id = "skin_crimson",
             name = "Inferno Knight",
             type = AccessoryType.BODY_SKIN,
-            cost = 160,
+            cost = 2800,
             primaryColor = 0xFFDC2626,
             secondaryColor = 0xFF991B1B,
             description = "Fiery red battle-hardened hero",
@@ -516,7 +516,7 @@ class GameRepository(
             id = "skin_galaxy",
             name = "Cosmic Voyager",
             type = AccessoryType.BODY_SKIN,
-            cost = 250,
+            cost = 5000,
             primaryColor = 0xFFC084FC,
             secondaryColor = 0xFF6366F1,
             description = "Astral stardust deep space traveler",
@@ -2201,84 +2201,156 @@ class GameRepository(
         return totalGems to totalBlue
     }
 
-    // --- EXPANDED TOURNAMENTS & CONTESTS ---
+    // --- WEEKLY MILESTONE COMPLETION CHESTS (3, 7, 12 GOALS) ---
+    private val KEY_WEEKLY_CHEST_PREFIX = "pref_weekly_chest_claimed_"
+
+    fun getCompletedWeeklyGoalsCount(): Int {
+        return getWeeklyMissions().count { it.isCompleted }
+    }
+
+    fun isWeeklyChestClaimed(chestTier: Int): Boolean {
+        return prefs.getBoolean(KEY_WEEKLY_CHEST_PREFIX + chestTier, false)
+    }
+
+    fun claimWeeklyMilestoneChest(chestTier: Int): Triple<Int, Int, Int> {
+        val completedCount = getCompletedWeeklyGoalsCount()
+        val requiredCount = when (chestTier) {
+            1 -> 3
+            2 -> 7
+            3 -> 12
+            else -> 999
+        }
+
+        if (completedCount < requiredCount || isWeeklyChestClaimed(chestTier)) {
+            return Triple(0, 0, 0)
+        }
+
+        prefs.edit().putBoolean(KEY_WEEKLY_CHEST_PREFIX + chestTier, true).apply()
+
+        val rewards = when (chestTier) {
+            1 -> Triple(50, 0, 0)    // Tier 1 Bronze: +50 Gems
+            2 -> Triple(120, 2, 0)   // Tier 2 Silver: +120 Gems, +2 Blue Gems
+            3 -> Triple(300, 5, 1)   // Tier 3 Royal Gold: +300 Gems, +5 Blue Gems, +1 Red Gem
+            else -> Triple(0, 0, 0)
+        }
+
+        if (rewards.first > 0) addGems(rewards.first, CurrencySource.WEEKLY_MISSION)
+        if (rewards.second > 0) addBlueGems(rewards.second)
+        if (rewards.third > 0) addRedGems(rewards.third)
+
+        return rewards
+    }
+
+    // --- EXPANDED TOURNAMENTS & CONTESTS WITH TIERED BUY-IN STAKES ---
+    private val KEY_CONTEST_JOINED_PREFIX = "pref_contest_joined_"
+
+    fun isContestJoined(contestId: String): Boolean {
+        return prefs.getBoolean(KEY_CONTEST_JOINED_PREFIX + contestId, false)
+    }
+
+    fun joinContestWithStake(contestId: String, feeGems: Int): Boolean {
+        if (isContestJoined(contestId)) return true
+        if (feeGems <= 0) {
+            prefs.edit().putBoolean(KEY_CONTEST_JOINED_PREFIX + contestId, true).apply()
+            return true
+        }
+
+        if (spendGems(feeGems)) {
+            prefs.edit().putBoolean(KEY_CONTEST_JOINED_PREFIX + contestId, true).apply()
+            return true
+        }
+        return false
+    }
+
     fun getContestTournaments(): List<ContestTournament> {
         val list = listOf(
             ContestTournament(
                 id = "contest_bridge_rush",
-                title = "Weekend Bridge Rush",
+                title = "Bronze Bridge Marathon",
                 subtitle = "Fast-paced bridge building marathon",
-                iconEmoji = "🌟",
-                bannerColorHex = 0xFF4F46E5,
+                iconEmoji = "🥉",
+                bannerColorHex = 0xFFCD7F32,
                 timeRemainingStr = "2d 14h",
                 participantsCount = "14,820",
-                prizePoolGems = 45,
-                prizePoolBlueGems = 5,
-                prizePoolRedGems = 2,
-                targetGoal = 25,
+                prizePoolGems = 150,
+                prizePoolBlueGems = 0,
+                prizePoolRedGems = 0,
+                targetGoal = 15,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bridge_rush", 0),
                 goalUnit = "Bridges",
-                isJoined = true,
-                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bridge_rush", 0) >= 25,
+                isJoined = isContestJoined("contest_bridge_rush"),
+                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bridge_rush", 0) >= 15,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_bridge_rush", false),
-                rewardPerk = "45 💎 + 5 🔷 + 2 🔴"
+                rewardPerk = "150 💎 Prize Pot",
+                entryFeeGems = 20,
+                divisionTier = "BRONZE",
+                prizePoolSplit = "Top 1: 50% • Top 2: 30% • Top 3: 20%"
             ),
             ContestTournament(
                 id = "contest_bullseye_cup",
-                title = "Sniper Bullseye Masters",
-                subtitle = "Chain consecutive red dot perfect bullseyes",
-                iconEmoji = "🎯",
-                bannerColorHex = 0xFFD97706,
+                title = "Silver Bullseye Masters",
+                subtitle = "Chain consecutive red dot precision bullseyes",
+                iconEmoji = "🥈",
+                bannerColorHex = 0xFF94A3B8,
                 timeRemainingStr = "1d 08h",
                 participantsCount = "9,430",
-                prizePoolGems = 35,
-                prizePoolBlueGems = 6,
-                prizePoolRedGems = 3,
-                targetGoal = 10,
+                prizePoolGems = 600,
+                prizePoolBlueGems = 10,
+                prizePoolRedGems = 0,
+                targetGoal = 25,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bullseye_cup", 0),
                 goalUnit = "Bullseyes",
-                isJoined = true,
-                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bullseye_cup", 0) >= 10,
+                isJoined = isContestJoined("contest_bullseye_cup"),
+                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_bullseye_cup", 0) >= 25,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_bullseye_cup", false),
-                rewardPerk = "35 💎 + 6 🔷 + 3 🔴"
+                rewardPerk = "600 💎 + 10 🔷 Prize Pot",
+                entryFeeGems = 100,
+                divisionTier = "SILVER",
+                prizePoolSplit = "Top 1: 50% • Top 2: 30% • Top 3: 20%"
             ),
             ContestTournament(
                 id = "contest_gem_hunt",
-                title = "Gem Canyon Scavenger",
-                subtitle = "Collect upside-down gems in high-risk zones",
-                iconEmoji = "💎",
-                bannerColorHex = 0xFF059669,
+                title = "Gold Master Royal Cup",
+                subtitle = "High stakes survival and diamond scavenge",
+                iconEmoji = "🥇",
+                bannerColorHex = 0xFFF59E0B,
                 timeRemainingStr = "3d 21h",
                 participantsCount = "18,120",
-                prizePoolGems = 30,
-                prizePoolBlueGems = 4,
-                prizePoolRedGems = 2,
-                targetGoal = 15,
+                prizePoolGems = 2000,
+                prizePoolBlueGems = 25,
+                prizePoolRedGems = 5,
+                targetGoal = 40,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_gem_hunt", 0),
                 goalUnit = "Gems",
-                isJoined = true,
-                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_gem_hunt", 0) >= 15,
+                isJoined = isContestJoined("contest_gem_hunt"),
+                isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_gem_hunt", 0) >= 40,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_gem_hunt", false),
-                rewardPerk = "30 💎 + 4 🔷 + 2 🔴"
+                rewardPerk = "2,000 💎 + 25 🔷 + 5 🔴 Grand Pot",
+                entryFeeGems = 300,
+                divisionTier = "GOLD",
+                prizePoolSplit = "Top 1: 50% • Top 2: 30% • Top 3: 20%"
             ),
             ContestTournament(
                 id = "contest_speed_blitz",
-                title = "Daily Survival Marathon",
-                subtitle = "Global endurance division speed ladder",
+                title = "Daily Free Blitz Ladder",
+                subtitle = "Global community speed endurance challenge",
                 iconEmoji = "⚡",
-                bannerColorHex = 0xFF9333EA,
+                bannerColorHex = 0xFF8B5CF6,
                 timeRemainingStr = "18h 30m",
                 participantsCount = "24,500",
                 prizePoolGems = 60,
-                prizePoolBlueGems = 8,
-                prizePoolRedGems = 4,
+                prizePoolBlueGems = 4,
+                prizePoolRedGems = 1,
                 targetGoal = 8,
                 currentProgress = prefs.getInt(KEY_CONTEST_PREFIX + "contest_speed_blitz", 0),
                 goalUnit = "Score",
                 isJoined = true,
                 isCompleted = prefs.getInt(KEY_CONTEST_PREFIX + "contest_speed_blitz", 0) >= 8,
                 isClaimed = prefs.getBoolean(KEY_CONTEST_CLAIM_PREFIX + "contest_speed_blitz", false),
-                rewardPerk = "60 💎 + 8 🔷 + 4 🔴"
+                rewardPerk = "60 💎 + 4 🔷 + 1 🔴",
+                entryFeeGems = 0,
+                divisionTier = "FREE",
+                prizePoolSplit = "100% Guaranteed Payout"
             )
         )
         return list
@@ -2293,6 +2365,7 @@ class GameRepository(
             else -> null
         }
         mapping?.let { contestId ->
+            if (!isContestJoined(contestId) && contestId != "contest_speed_blitz") return
             val curr = prefs.getInt(KEY_CONTEST_PREFIX + contestId, 0)
             val newProg = if (type == "REACH_SCORE") maxOf(curr, delta) else curr + delta
             prefs.edit().putInt(KEY_CONTEST_PREFIX + contestId, newProg).apply()

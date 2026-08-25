@@ -2,6 +2,7 @@ package com.mygames.stickmanrush.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -150,7 +151,7 @@ fun WeeklyMissionsDialog(
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Up to 345 💎 Total Bounty",
+                                text = "Up to 815 💎 + 7 🔷 + 1 🔴 Total",
                                 color = Color(0xFFFBBF24),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Black
@@ -184,7 +185,89 @@ fun WeeklyMissionsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // --- TIERED WEEKLY MILESTONE CHESTS (3, 7, 12 GOALS) ---
+                val completedGoalsCount = viewModel.getCompletedWeeklyGoalsCount()
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E1B4B).copy(alpha = 0.7f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🏆 Milestone Chests ($completedGoalsCount/12 Completed)",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // Chest 1: 3 Goals
+                            WeeklyChestItem(
+                                title = "Bronze (3)",
+                                emoji = "🥉",
+                                rewardStr = "50 💎",
+                                requiredCount = 3,
+                                currentCount = completedGoalsCount,
+                                isClaimed = viewModel.isWeeklyChestClaimed(1),
+                                onClaim = {
+                                    viewModel.claimWeeklyMilestoneChest(1)
+                                    refreshMissions()
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            // Chest 2: 7 Goals
+                            WeeklyChestItem(
+                                title = "Silver (7)",
+                                emoji = "🥈",
+                                rewardStr = "120 💎+2🔷",
+                                requiredCount = 7,
+                                currentCount = completedGoalsCount,
+                                isClaimed = viewModel.isWeeklyChestClaimed(2),
+                                onClaim = {
+                                    viewModel.claimWeeklyMilestoneChest(2)
+                                    refreshMissions()
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            // Chest 3: 12 Goals
+                            WeeklyChestItem(
+                                title = "Royal (12)",
+                                emoji = "👑",
+                                rewardStr = "300💎+5🔷+1🔴",
+                                requiredCount = 12,
+                                currentCount = completedGoalsCount,
+                                isClaimed = viewModel.isWeeklyChestClaimed(3),
+                                onClaim = {
+                                    viewModel.claimWeeklyMilestoneChest(3)
+                                    refreshMissions()
+                                },
+                                modifier = Modifier.weight(1.1f)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // List of Weekly Missions
                 LazyColumn(
@@ -373,3 +456,90 @@ private fun WeeklyMissionCard(
         }
     }
 }
+
+@Composable
+private fun WeeklyChestItem(
+    title: String,
+    emoji: String,
+    rewardStr: String,
+    requiredCount: Int,
+    currentCount: Int,
+    isClaimed: Boolean,
+    onClaim: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isReady = currentCount >= requiredCount && !isClaimed
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = when {
+            isClaimed -> Color(0xFF1E293B).copy(alpha = 0.6f)
+            isReady -> Color(0xFF065F46)
+            else -> Color(0xFF0F172A)
+        },
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isReady) 1.5.dp else 1.dp,
+            color = when {
+                isClaimed -> Color(0xFF475569)
+                isReady -> Color(0xFF34D399)
+                else -> Color(0xFF334155)
+            }
+        ),
+        modifier = modifier.clickable(enabled = isReady, onClick = onClaim)
+    ) {
+        Column(
+            modifier = Modifier.padding(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(text = emoji, fontSize = 20.sp)
+            Text(
+                text = title,
+                color = if (isClaimed) Color(0xFF94A3B8) else Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp
+            )
+            Text(
+                text = rewardStr,
+                color = if (isClaimed) Color(0xFF64748B) else Color(0xFFFBBF24),
+                fontWeight = FontWeight.Black,
+                fontSize = 9.sp,
+                textAlign = TextAlign.Center
+            )
+
+            when {
+                isClaimed -> {
+                    Text(
+                        text = "CLAIMED ✓",
+                        color = Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 8.sp
+                    )
+                }
+                isReady -> {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF22C55E)
+                    ) {
+                        Text(
+                            text = "CLAIM! 🎁",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 9.sp,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                else -> {
+                    Text(
+                        text = "$currentCount/$requiredCount",
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 9.sp
+                    )
+                }
+            }
+        }
+    }
+}
+

@@ -356,6 +356,9 @@ class StickmanGameEngine(
         _gameState.value = GameState.DROPPING_FAIL
     }
 
+    private val _currentWindDrift = MutableStateFlow(0f)
+    val currentWindDrift: StateFlow<Float> = _currentWindDrift.asStateFlow()
+
     /**
      * Procedurally generates the next platform using DifficultyManager.
      */
@@ -368,8 +371,12 @@ class StickmanGameEngine(
         val gap = difficultyManager.generatePlatformGap(currentScore, level, screenW, isFirstBridgeOfLevel = justLeveledUp)
         justLeveledUp = false
 
-        val width = difficultyManager.generatePlatformWidth(currentScore).coerceIn(35f, 160f)
+        val streak = currentScore
+        val width = difficultyManager.generatePlatformWidth(currentScore, streak = streak).coerceIn(28f, 160f)
         val nextLeft = currentPlatform.leftX + currentPlatform.width + gap
+
+        // Streak Milestone 30+: Update Wind Drift Force
+        _currentWindDrift.value = difficultyManager.getWindDriftForce(streak)
 
         // Procedural Height Variation (Elevations & Depressions)
         val heightOffset = difficultyManager.generatePlatformHeightOffset(currentScore, level)
@@ -385,8 +392,8 @@ class StickmanGameEngine(
         // Procedural Tactical Power-Up (Magnet, Aegis Shield, Gem Doubler, Chrono Slow-Mo)
         val powerUp = difficultyManager.generatePowerUp(spanStart, spanEnd, currentScore, level, hasObstacle = (obstacle != null))
 
-        // Procedural Moving Platform Config
-        val movingConfig = difficultyManager.generateMovingConfig(currentScore, level)
+        // Procedural Moving Platform Config with Streak Escalation
+        val movingConfig = difficultyManager.generateMovingConfig(currentScore, level, streak = streak)
 
         return PlatformData(
             id = nextPlatform.id + 1,
@@ -1119,9 +1126,30 @@ class StickmanGameEngine(
                         // Turn complete
                         val previousLevel = computeLevelForScore(_score.value)
                         _score.value += 1
+                        val currentStreak = _score.value
                         repository.trackMissionProgress("REACH_SCORE", _score.value)
                         repository.trackWeeklyMissionProgress("REACH_SCORE", _score.value)
                         repository.trackContestProgress("REACH_SCORE", _score.value)
+
+                        // Environmental Streak Milestones
+                        when (currentStreak) {
+                            10 -> {
+                                addFloatingText("🔥 10 STREAK: NARROW PLATFORMS!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFFF59E0B), scale = 1.35f)
+                                soundManager.playPerfectHit()
+                                hapticManager?.streakBonus(10)
+                            }
+                            20 -> {
+                                addFloatingText("🌪️ 20 STREAK: MOVING PILLARS!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFFA855F7), scale = 1.4f)
+                                soundManager.playPerfectHit()
+                                hapticManager?.streakBonus(20)
+                            }
+                            30 -> {
+                                addFloatingText("💨 30 STREAK: WIND DRIFT GALE!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFF38BDF8), scale = 1.45f)
+                                soundManager.playPerfectHit()
+                                hapticManager?.streakBonus(30)
+                            }
+                        }
+
                         val newLevel = computeLevelForScore(_score.value)
                         val updatedHigh = repository.updateHighScore(_score.value)
                         if (updatedHigh && _score.value > 1) {

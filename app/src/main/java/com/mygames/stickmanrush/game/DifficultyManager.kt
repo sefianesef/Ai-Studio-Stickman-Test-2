@@ -16,7 +16,7 @@ enum class DifficultyTier(
     val growthSpeedFactor: Float,
     val badgeColorHex: Long
 ) {
-    // Levels 1 to 2 (Scores 0-7): Friendly onboarding, comfortable platforms
+    // Levels 1 to 2 (Scores 0-7): Friendly onboarding, comfortable platforms (scarce 1 in 4-5 platforms)
     NOVICE_TRAINING(
         tierLevel = 1,
         title = "RECRUIT",
@@ -25,7 +25,7 @@ enum class DifficultyTier(
         minWidth = 120f,
         maxWidth = 155f,
         bullseyeTolerance = 22f,
-        gemSpawnRate = 0.50f,
+        gemSpawnRate = 0.28f,
         doubleGemChance = 0.05f,
         movingPlatformChance = 0.0f,
         growthSpeedFactor = 0.88f,
@@ -40,8 +40,8 @@ enum class DifficultyTier(
         minWidth = 85f,
         maxWidth = 115f,
         bullseyeTolerance = 16f,
-        gemSpawnRate = 0.40f,
-        doubleGemChance = 0.10f,
+        gemSpawnRate = 0.26f,
+        doubleGemChance = 0.08f,
         movingPlatformChance = 0.0f,
         growthSpeedFactor = 0.96f,
         badgeColorHex = 0xFF38BDF8 // Sky Blue
@@ -55,8 +55,8 @@ enum class DifficultyTier(
         minWidth = 70f,
         maxWidth = 95f,
         bullseyeTolerance = 13f,
-        gemSpawnRate = 0.35f,
-        doubleGemChance = 0.15f,
+        gemSpawnRate = 0.24f,
+        doubleGemChance = 0.12f,
         movingPlatformChance = 0.08f,
         growthSpeedFactor = 1.02f,
         badgeColorHex = 0xFFA855F7 // Purple
@@ -70,8 +70,8 @@ enum class DifficultyTier(
         minWidth = 55f,
         maxWidth = 78f,
         bullseyeTolerance = 10f,
-        gemSpawnRate = 0.30f,
-        doubleGemChance = 0.20f,
+        gemSpawnRate = 0.22f,
+        doubleGemChance = 0.15f,
         movingPlatformChance = 0.14f,
         growthSpeedFactor = 1.08f,
         badgeColorHex = 0xFFF59E0B // Amber
@@ -85,8 +85,8 @@ enum class DifficultyTier(
         minWidth = 44f,
         maxWidth = 65f,
         bullseyeTolerance = 8f,
-        gemSpawnRate = 0.26f,
-        doubleGemChance = 0.25f,
+        gemSpawnRate = 0.20f,
+        doubleGemChance = 0.20f,
         movingPlatformChance = 0.20f,
         growthSpeedFactor = 1.14f,
         badgeColorHex = 0xFFEC4899 // Pink Neon
@@ -100,8 +100,8 @@ enum class DifficultyTier(
         minWidth = 35f,
         maxWidth = 52f,
         bullseyeTolerance = 6f,
-        gemSpawnRate = 0.22f,
-        doubleGemChance = 0.30f,
+        gemSpawnRate = 0.18f,
+        doubleGemChance = 0.25f,
         movingPlatformChance = 0.28f,
         growthSpeedFactor = 1.20f,
         badgeColorHex = 0xFFEF4444 // Crimson Red
@@ -127,9 +127,17 @@ class DifficultyManager {
 
     fun getTier(score: Int): DifficultyTier = DifficultyTier.getTierForScore(score)
 
-    fun generatePlatformWidth(score: Int): Float {
+    fun generatePlatformWidth(score: Int, streak: Int = 0): Float {
         val tier = getTier(score)
-        return Random.nextFloat() * (tier.maxWidth - tier.minWidth) + tier.minWidth
+        val baseWidth = Random.nextFloat() * (tier.maxWidth - tier.minWidth) + tier.minWidth
+        // Streak Milestone 10+: Narrower target platforms to widen skill ceiling
+        val streakWidthMultiplier = when {
+            streak >= 30 -> 0.70f
+            streak >= 20 -> 0.75f
+            streak >= 10 -> 0.82f
+            else -> 1.0f
+        }
+        return (baseWidth * streakWidthMultiplier).coerceAtLeast(28f)
     }
 
     /**
@@ -303,7 +311,15 @@ class DifficultyManager {
         return Random.nextFloat() < tier.gemSpawnRate
     }
 
-    fun isMovingPlatform(score: Int, level: Int): Boolean {
+    fun isMovingPlatform(score: Int, level: Int, streak: Int = 0): Boolean {
+        // Streak Milestone 20+: Moving target pillars become much more active & dynamic
+        if (streak >= 20) {
+            val movingChance = when {
+                streak >= 30 -> 0.70f
+                else -> 0.55f
+            }
+            return Random.nextFloat() < movingChance
+        }
         if (level <= 2) return false
         val tier = getTier(score)
         val chance = when {
@@ -321,13 +337,30 @@ class DifficultyManager {
         val isVertical: Boolean
     )
 
-    fun generateMovingConfig(score: Int, level: Int): MovingPlatformConfig {
-        if (!isMovingPlatform(score, level)) {
+    fun generateMovingConfig(score: Int, level: Int, streak: Int = 0): MovingPlatformConfig {
+        if (!isMovingPlatform(score, level, streak)) {
             return MovingPlatformConfig(isMoving = false, amplitude = 0f, speed = 0f, isVertical = false)
         }
         val isVertical = Random.nextFloat() < 0.40f
-        val amplitude = if (isVertical) Random.nextFloat() * 18f + 14f else Random.nextFloat() * 24f + 16f
-        val speed = Random.nextFloat() * 1.2f + 1.6f
+        val baseAmp = if (isVertical) Random.nextFloat() * 18f + 14f else Random.nextFloat() * 24f + 16f
+        val extraStreakAmp = if (streak >= 20) (streak - 20) * 0.5f else 0f
+        val amplitude = (baseAmp + extraStreakAmp).coerceAtMost(36f)
+        val speed = (Random.nextFloat() * 1.2f + 1.6f) * (if (streak >= 25) 1.25f else 1.0f)
         return MovingPlatformConfig(isMoving = true, amplitude = amplitude, speed = speed, isVertical = isVertical)
     }
+
+    /**
+     * Streak Milestone 30+: Wind Drift Force (-40f to +40f)
+     * Introduces dynamic lateral wind currents that test advanced bridge length calibration.
+     */
+    fun getWindDriftForce(streak: Int): Float {
+        if (streak < 30) return 0f
+        val intensity = ((streak - 30) * 2f + 15f).coerceIn(15f, 42f)
+        val dir = if (Random.nextBoolean()) 1f else -1f
+        return dir * (Random.nextFloat() * (intensity - 10f) + 10f)
+    }
+
+    fun hasNarrowPlatformStreak(streak: Int): Boolean = streak >= 10
+    fun hasMovingPillarStreak(streak: Int): Boolean = streak >= 20
+    fun hasWindDriftStreak(streak: Int): Boolean = streak >= 30
 }

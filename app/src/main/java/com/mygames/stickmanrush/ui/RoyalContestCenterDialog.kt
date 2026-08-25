@@ -281,18 +281,46 @@ fun RoyalContestCenterDialog(
                                             }
 
                                             Column {
-                                                Text(
-                                                    text = contest.title,
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 15.sp
-                                                )
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    Text(
+                                                        text = contest.title,
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 15.sp
+                                                    )
+                                                    if (contest.divisionTier.isNotEmpty()) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            color = when (contest.divisionTier) {
+                                                                "GOLD" -> Color(0xFFD97706)
+                                                                "SILVER" -> Color(0xFF64748B)
+                                                                "BRONZE" -> Color(0xFFB45309)
+                                                                else -> Color(0xFF4F46E5)
+                                                            }
+                                                        ) {
+                                                            Text(
+                                                                text = contest.divisionTier,
+                                                                color = Color.White,
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Black,
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                                 Text(
                                                     text = contest.subtitle,
                                                     color = Color(0xFFFEF08A),
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 11.sp
                                                 )
+                                                if (contest.entryFeeGems > 0) {
+                                                    Text(
+                                                        text = "Buy-in Stake: ${contest.entryFeeGems} 💎 • ${contest.prizePoolSplit}",
+                                                        color = Color(0xFFCBD5E1),
+                                                        fontSize = 10.sp
+                                                    )
+                                                }
                                             }
                                         }
 
@@ -318,38 +346,40 @@ fun RoyalContestCenterDialog(
                                         }
                                     }
 
-                                    // Progress Bar
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(10.dp)
-                                                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                                    // Progress Bar (if joined)
+                                    if (contest.isJoined) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            val frac = (contest.currentProgress.toFloat() / contest.targetGoal.toFloat()).coerceIn(0f, 1f)
                                             Box(
                                                 modifier = Modifier
-                                                    .fillMaxWidth(fraction = frac.coerceAtLeast(0.08f))
-                                                    .fillMaxHeight()
-                                                    .background(
-                                                        Brush.horizontalGradient(
-                                                            listOf(Color(0xFFFEF08A), Color(0xFF4ADE80))
-                                                        ),
-                                                        CircleShape
-                                                    )
+                                                    .weight(1f)
+                                                    .height(10.dp)
+                                                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                                            ) {
+                                                val frac = (contest.currentProgress.toFloat() / contest.targetGoal.toFloat()).coerceIn(0f, 1f)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth(fraction = frac.coerceAtLeast(0.08f))
+                                                        .fillMaxHeight()
+                                                        .background(
+                                                            Brush.horizontalGradient(
+                                                                listOf(Color(0xFFFEF08A), Color(0xFF4ADE80))
+                                                            ),
+                                                            CircleShape
+                                                        )
+                                                )
+                                            }
+
+                                            Text(
+                                                text = "${contest.currentProgress}/${contest.targetGoal} ${contest.goalUnit}",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 11.sp
                                             )
                                         }
-
-                                        Text(
-                                            text = "${contest.currentProgress}/${contest.targetGoal} ${contest.goalUnit}",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 11.sp
-                                        )
                                     }
 
                                     // Prize & Action
@@ -365,37 +395,59 @@ fun RoyalContestCenterDialog(
                                         }
 
                                         Text(
-                                            text = "Reward: $prizeText",
+                                            text = "Prize Pot: $prizeText",
                                             color = Color(0xFFFEF08A),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp
                                         )
 
-                                        if (canClaim) {
-                                            Button(
-                                                onClick = {
-                                                    viewModel.claimContest(contest.id)
-                                                    refreshContests()
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E)),
-                                                shape = RoundedCornerShape(10.dp),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(32.dp)
-                                            ) {
-                                                Text(text = "CLAIM", color = Color.White, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                        when {
+                                            !contest.isJoined -> {
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.joinContest(contest.id, contest.entryFeeGems)
+                                                        refreshContests()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (contest.entryFeeGems > 0) "JOIN (${contest.entryFeeGems} 💎)" else "JOIN FREE",
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 11.sp
+                                                    )
+                                                }
                                             }
-                                        } else {
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = Color.Black.copy(alpha = 0.3f)
-                                            ) {
-                                                Text(
-                                                    text = if (contest.isClaimed) "CLAIMED ✓" else "PLAYING",
-                                                    color = Color.White.copy(alpha = 0.8f),
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 10.sp,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                                )
+                                            canClaim -> {
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.claimContest(contest.id)
+                                                        refreshContests()
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E)),
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text(text = "CLAIM 🏆", color = Color.White, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                                }
+                                            }
+                                            else -> {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = Color.Black.copy(alpha = 0.3f)
+                                                ) {
+                                                    Text(
+                                                        text = if (contest.isClaimed) "CLAIMED ✓" else "COMPETING ⚔️",
+                                                        color = Color.White.copy(alpha = 0.8f),
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 10.sp,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }

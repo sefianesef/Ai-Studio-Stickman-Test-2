@@ -250,6 +250,31 @@ class HapticManager(private val context: Context) {
     }
 
     /**
+     * Epic celebratory multi-burst pulse when reaching high streak milestones (10, 20, 30+).
+     */
+    fun streakBonus(streak: Int) {
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = when {
+                    streak >= 30 -> longArrayOf(0, 30, 20, 40, 20, 60, 20, 90)
+                    streak >= 20 -> longArrayOf(0, 25, 20, 35, 20, 50)
+                    else -> longArrayOf(0, 20, 20, 30)
+                }
+                val amplitudes = when {
+                    streak >= 30 -> intArrayOf(0, 160, 0, 200, 0, 230, 0, 255)
+                    streak >= 20 -> intArrayOf(0, 140, 0, 190, 0, 240)
+                    else -> intArrayOf(0, 120, 0, 180)
+                }
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 30, 30, 50, 30, 80), -1)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
      * Light UI interaction click
      */
     fun uiClick() {

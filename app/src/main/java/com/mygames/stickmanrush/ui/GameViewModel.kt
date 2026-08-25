@@ -514,6 +514,33 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getContests() = repository.getContestTournaments()
 
+    fun joinContest(contestId: String, feeGems: Int): Boolean {
+        val success = repository.joinContestWithStake(contestId, feeGems)
+        if (success) {
+            soundManager.playBuyGemsSuccess()
+            hapticManager.missionClaim()
+        } else {
+            soundManager.playButton()
+            hapticManager.uiClick()
+        }
+        return success
+    }
+
+    fun getCompletedWeeklyGoalsCount() = repository.getCompletedWeeklyGoalsCount()
+
+    fun isWeeklyChestClaimed(chestTier: Int) = repository.isWeeklyChestClaimed(chestTier)
+
+    fun claimWeeklyMilestoneChest(chestTier: Int): Triple<Int, Int, Int> {
+        val rewards = repository.claimWeeklyMilestoneChest(chestTier)
+        if (rewards.first > 0 || rewards.second > 0 || rewards.third > 0) {
+            soundManager.playVictoryMusic()
+            soundManager.playGemCollect()
+            soundManager.playBuyGemsSuccess()
+            hapticManager.levelUp()
+        }
+        return rewards
+    }
+
     fun claimContest(contestId: String): Triple<Int, Int, Int> {
         val (totalGems, totalBlue, totalRed) = repository.claimContestReward(contestId)
         if (totalGems > 0 || totalBlue > 0 || totalRed > 0) {
