@@ -170,12 +170,34 @@ object StageThemes {
         }
     }
 
+    fun getThemeForLevel(level: Int, equippedThemeId: String? = null): StageTheme {
+        if (!equippedThemeId.isNullOrEmpty()) {
+            val custom = getThemeById(equippedThemeId)
+            if (custom != null) return custom
+        }
+        // Level is 1-indexed (Level 1 -> stages[0], Level 2 -> stages[1], etc.)
+        val stageIndex = ((level - 1).coerceAtLeast(0)) % stages.size
+        return stages[stageIndex]
+    }
+
     fun getThemeForScore(score: Int, equippedThemeId: String? = null): StageTheme {
         if (!equippedThemeId.isNullOrEmpty()) {
             val custom = getThemeById(equippedThemeId)
             if (custom != null) return custom
         }
-        val stageIndex = (score / 5) % stages.size
-        return stages[stageIndex]
+        val level = when {
+            score < 4 -> 1
+            score < 8 -> 2
+            score < 12 -> 3
+            score < 17 -> 4
+            score < 22 -> 5
+            score < 28 -> 6
+            score < 35 -> 7
+            score < 43 -> 8
+            score < 52 -> 9
+            score < 62 -> 10
+            else -> 10 + ((score - 62) / 10) + 1
+        }
+        return getThemeForLevel(level, equippedThemeId)
     }
 }

@@ -12,14 +12,24 @@ import org.junit.Test
 class ExampleUnitTest {
   @Test
   fun testStageThemesProgression() {
-    val stage0 = StageThemes.getThemeForScore(0)
-    assertEquals(1, stage0.stageNumber)
+    val stageLevel1 = StageThemes.getThemeForLevel(1)
+    assertEquals(1, stageLevel1.stageNumber)
 
-    val stage5 = StageThemes.getThemeForScore(5)
-    assertEquals(2, stage5.stageNumber)
+    val stageLevel2 = StageThemes.getThemeForLevel(2)
+    assertEquals(2, stageLevel2.stageNumber)
 
-    val stage12 = StageThemes.getThemeForScore(12)
-    assertEquals(3, stage12.stageNumber)
+    val stageLevel7 = StageThemes.getThemeForLevel(7)
+    assertEquals(7, stageLevel7.stageNumber)
+
+    val stageLevel13 = StageThemes.getThemeForLevel(13)
+    assertEquals(13, stageLevel13.stageNumber)
+
+    // Score-based mappings to levels
+    val stageScore0 = StageThemes.getThemeForScore(0) // Level 1
+    assertEquals(1, stageScore0.stageNumber)
+
+    val stageScore5 = StageThemes.getThemeForScore(5) // Level 2
+    assertEquals(2, stageScore5.stageNumber)
   }
 
   @Test
@@ -63,6 +73,18 @@ class ExampleUnitTest {
     // Overshoot: tip = 430
     val overshoot = physics.evaluateBridgeLanding(150f, 0f, 280f, targetPlatform)
     assertFalse(overshoot.isSuccessful)
+
+    // Elevated Platform Landing (e.g. Level 7 height variation)
+    val elevatedPlatform = PlatformData(id = 3L, leftX = 300f, width = 100f, heightOffset = -30f) // higher cliff
+    val elevatedHit = physics.evaluateBridgeLanding(150f, 0f, 202.24f, elevatedPlatform)
+    assertTrue(elevatedHit.isSuccessful)
+    assertTrue(elevatedHit.landingSlopeAngle < 0f) // negative slope upwards
+
+    // Depressed Platform Landing
+    val depressedPlatform = PlatformData(id = 4L, leftX = 300f, width = 100f, heightOffset = 30f) // lower ledge
+    val depressedHit = physics.evaluateBridgeLanding(150f, 0f, 202.24f, depressedPlatform)
+    assertTrue(depressedHit.isSuccessful)
+    assertTrue(depressedHit.landingSlopeAngle > 0f) // positive slope downwards
   }
 
   @Test

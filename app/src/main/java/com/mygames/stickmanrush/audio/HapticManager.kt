@@ -25,12 +25,10 @@ class HapticManager(private val context: Context) {
         null
     }
 
-    private val hasHardwareVibrator: Boolean by lazy {
-        try {
-            vibrator != null && vibrator.hasVibrator()
-        } catch (_: Throwable) {
-            false
-        }
+    private val hasHardwareVibrator: Boolean = try {
+        vibrator?.hasVibrator() == true
+    } catch (_: Throwable) {
+        false
     }
 
     var isEnabled: Boolean = true

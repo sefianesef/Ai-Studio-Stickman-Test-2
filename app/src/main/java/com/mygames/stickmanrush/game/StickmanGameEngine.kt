@@ -109,6 +109,7 @@ class StickmanGameEngine(
     var stickLength = 0f
     var bridgeAngle = 0f // 0 = straight up, 90 = horizontal flat, 180 = dropped down
     var bridgeLandingSlope = 0f // Incline or decline angle for sloped platforms
+    var targetBridgeTipX = 0f
     var bridgeAngularVel = 0f
     var bridgeImpactTime = 0f // Timer tracking spring oscillation wobble
     var bridgeBounceOffset = 0f
@@ -183,7 +184,8 @@ class StickmanGameEngine(
         justLeveledUp = false
         _difficultyTier.value = difficultyManager.getTier(initialScore)
         val equippedTheme = repository.selectedTheme.value
-        _currentStage.value = StageThemes.getThemeForScore(initialScore, equippedTheme)
+        val startLevel = computeLevelForScore(initialScore)
+        _currentStage.value = StageThemes.getThemeForLevel(startLevel, equippedTheme)
         _levelVictoryCelebration.value = null
         _activeLevelVictory.value = null
         gemStateManager.resetRun()
@@ -196,6 +198,7 @@ class StickmanGameEngine(
         stickLength = 0f
         bridgeAngle = 0f
         bridgeLandingSlope = 0f
+        targetBridgeTipX = 0f
         bridgeAngularVel = 0f
         bridgeImpactTime = 0f
         bridgeBounceOffset = 0f
@@ -277,6 +280,7 @@ class StickmanGameEngine(
         stickLength = 0f
         bridgeAngle = 0f
         bridgeLandingSlope = 0f
+        targetBridgeTipX = 0f
         bridgeAngularVel = 0f
         bridgeImpactTime = 0f
         bridgeBounceOffset = 0f
@@ -455,7 +459,7 @@ class StickmanGameEngine(
                     bullseyeTolerance = tier.bullseyeTolerance
                 )
                 // If the bridge will successfully land on the target platform, land at the slope angle
-                bridgeLandingSlope = if (landingResult.isSuccessful) landingResult.landingSlopeAngle else 0f
+                bridgeLandingSlope = landingResult.landingSlopeAngle
 
                 soundManager.playBridgeFall()
                 repository.recordBridgeBuilt()
@@ -618,7 +622,7 @@ class StickmanGameEngine(
                     targetPlatform = nextPlatform,
                     bullseyeTolerance = tier.bullseyeTolerance
                 )
-                bridgeLandingSlope = if (landingResult.isSuccessful) landingResult.landingSlopeAngle else 0f
+                bridgeLandingSlope = landingResult.landingSlopeAngle
                 val targetLandingAngle = PhysicsEngine.MAX_BRIDGE_ANGLE + bridgeLandingSlope
 
                 if (bridgeAngle >= targetLandingAngle) {
@@ -632,6 +636,7 @@ class StickmanGameEngine(
                     isSuccessfulLanding = landingResult.isSuccessful
                     isPerfectHit = landingResult.isBullseye
                     targetStickmanWalkX = landingResult.targetWalkX
+                    targetBridgeTipX = landingResult.bridgeTipX
                     bridgeLandingSlope = landingResult.landingSlopeAngle
                     _lastNearMiss.value = landingResult.nearMiss
 
@@ -751,13 +756,27 @@ class StickmanGameEngine(
                 walkPhase += clampedDt * (if (isSlipping) 26f else 16f)
 
                 // Bridge sag & slope calculation when walking on span
-                val spanWidth = (targetStickmanWalkX - bridgeStartX).coerceAtLeast(10f)
-                val walkProgress = ((stickmanX - bridgeStartX) / spanWidth).coerceIn(0f, 1f)
-                bridgeSagOffset = physicsEngine.computeBridgeSag(walkProgress, stickLength)
-
                 val startY = floorY + currentPlatform.heightOffset
                 val targetY = floorY + (if (isSuccessfulLanding) nextPlatform.heightOffset else currentPlatform.heightOffset)
-                stickmanY = startY + (walkProgress * (targetY - startY)) + bridgeSagOffset
+
+                if (isSuccessfulLanding) {
+                    val bridgeTip = if (targetBridgeTipX > bridgeStartX) targetBridgeTipX else nextPlatform.leftX
+                    if (stickmanX < nextPlatform.leftX) {
+                        val bridgeSpan = (bridgeTip - bridgeStartX).coerceAtLeast(10f)
+                        val bridgeProgress = ((stickmanX - bridgeStartX) / bridgeSpan).coerceIn(0f, 1f)
+                        bridgeSagOffset = physicsEngine.computeBridgeSag(bridgeProgress, stickLength)
+                        stickmanY = startY + (bridgeProgress * (targetY - startY)) + bridgeSagOffset
+                    } else {
+                        bridgeSagOffset = 0f
+                        stickmanY = targetY
+                    }
+                } else {
+                    val spanWidth = (targetStickmanWalkX - bridgeStartX).coerceAtLeast(10f)
+                    val walkProgress = ((stickmanX - bridgeStartX) / spanWidth).coerceIn(0f, 1f)
+                    bridgeSagOffset = physicsEngine.computeBridgeSag(walkProgress, stickLength)
+                    val endY = if (bridgeLandingSlope != 0f) targetY else startY
+                    stickmanY = startY + (walkProgress * (endY - startY)) + bridgeSagOffset
+                }
 
                 // Footstep sound, dust puff & glowing speed trail behind stickman
                 if (!isJumping && particles.size < 120) {
@@ -1018,11 +1037,11 @@ class StickmanGameEngine(
                         }
 
                         val equippedTheme = repository.selectedTheme.value
-                        val newStage = StageThemes.getThemeForScore(_score.value, equippedTheme)
+                        val newStage = StageThemes.getThemeForLevel(newLevel, equippedTheme)
                         if (newStage.stageNumber != _currentStage.value.stageNumber || _currentStage.value.name != newStage.name) {
                             _currentStage.value = newStage
                             addFloatingText(
-                                "STAGE ${newStage.stageNumber}: ${newStage.name.uppercase()}",
+                                "LEVEL $newLevel: ${newStage.name.uppercase()}",
                                 screenWidth / 2f,
                                 screenHeight * 0.35f,
                                 Color.White,
@@ -1156,6 +1175,7 @@ class StickmanGameEngine(
                     stickLength = 0f
                     bridgeAngle = 0f
                     bridgeLandingSlope = 0f
+                    targetBridgeTipX = 0f
                     bridgeAngularVel = 0f
                     bridgeImpactTime = 0f
                     bridgeBounceOffset = 0f

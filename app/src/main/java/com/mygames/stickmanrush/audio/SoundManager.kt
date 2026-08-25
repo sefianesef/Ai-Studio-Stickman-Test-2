@@ -65,25 +65,13 @@ class SoundManager(private val context: Context) {
 
         thread(name = "SoundPoolInit", isDaemon = true) {
             try {
-                // Ensure system media volume is not muted in emulator safely without triggering OEM permission warnings
-                try {
-                    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-                    audioManager?.let { am ->
-                        val maxVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        val currentVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                        if (currentVol == 0 && maxVol > 0) {
-                            am.setStreamVolume(AudioManager.STREAM_MUSIC, (maxVol * 0.85f).toInt().coerceAtLeast(1), 0)
-                        }
-                    }
-                } catch (_: Throwable) {}
-
                 val audioAttributes = AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_GAME)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
 
                 val pool = SoundPool.Builder()
-                    .setMaxStreams(12)
+                    .setMaxStreams(16)
                     .setAudioAttributes(audioAttributes)
                     .build()
 
@@ -111,9 +99,6 @@ class SoundManager(private val context: Context) {
                     }
                 }
 
-                registerSound("oh_no_voice", pcmOhNoVoice)
-                soundIdMap["funny_voice_over"] = soundIdMap["oh_no_voice"] ?: 0
-
                 registerSound("tick1", pcmTick1)
                 registerSound("tick2", pcmTick2)
                 registerSound("tick3", pcmTick3)
@@ -127,6 +112,8 @@ class SoundManager(private val context: Context) {
                 registerSound("fall", pcmFall)
                 registerSound("falling", pcmFall)
                 registerSound("funny_fall", pcmFunnyFallingMusic)
+                registerSound("oh_no_voice", pcmOhNoVoice)
+                soundIdMap["funny_voice_over"] = soundIdMap["oh_no_voice"] ?: 0
                 registerSound("game_over", pcmGameOver)
                 registerSound("button", pcmButton)
                 registerSound("victory", pcmVictory)
@@ -138,6 +125,8 @@ class SoundManager(private val context: Context) {
             }
         }
     }
+
+    private val isAudioTrackPlaying = AtomicBoolean(false)
 
     private fun play(key: String, fallbackSamples: ShortArray, volume: Float = 0.95f, priority: Int = 1, rate: Float = 1.0f) {
         if (!soundEnabled) return
@@ -156,18 +145,24 @@ class SoundManager(private val context: Context) {
             }
         }
 
-        // Direct AudioTrack Instant Playback Fallback
-        playViaAudioTrack(fallbackSamples, volume)
+        // Only use single fallback AudioTrack if not already busy to prevent HAL resource exhaustion
+        if (key != "tick1" && key != "tick2" && key != "tick3" && key != "tick4") {
+            playViaAudioTrack(fallbackSamples, volume)
+        }
     }
 
     private fun playViaAudioTrack(samples: ShortArray, volume: Float) {
+        if (!isAudioTrackPlaying.compareAndSet(false, true)) return
+
         thread(name = "DirectAudioTrack", isDaemon = true) {
+            var track: AudioTrack? = null
             try {
                 val minBuf = AudioTrack.getMinBufferSize(
                     SAMPLE_RATE,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_16BIT
                 )
+                if (minBuf <= 0) return@thread
                 val bufSize = maxOf(minBuf, samples.size * 2)
 
                 val attributes = AudioAttributes.Builder()
@@ -181,7 +176,7 @@ class SoundManager(private val context: Context) {
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build()
 
-                val track = AudioTrack.Builder()
+                track = AudioTrack.Builder()
                     .setAudioAttributes(attributes)
                     .setAudioFormat(format)
                     .setBufferSizeInBytes(bufSize)
@@ -200,12 +195,16 @@ class SoundManager(private val context: Context) {
 
                 track.play()
 
-                // Wait until playback completes, then release
-                val durationMs = (samples.size * 1000L) / SAMPLE_RATE + 50
+                val durationMs = (samples.size * 1000L) / SAMPLE_RATE + 30
                 Thread.sleep(durationMs)
-                track.stop()
-                track.release()
-            } catch (_: Throwable) {}
+            } catch (_: Throwable) {
+            } finally {
+                try {
+                    track?.stop()
+                    track?.release()
+                } catch (_: Throwable) {}
+                isAudioTrackPlaying.set(false)
+            }
         }
     }
 
