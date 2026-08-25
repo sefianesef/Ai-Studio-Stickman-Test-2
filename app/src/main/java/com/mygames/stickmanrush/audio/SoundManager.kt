@@ -5,35 +5,42 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.SoundPool
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
-import java.io.File
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
 
 /**
- * Ultra-Reliable Dual-Engine Game Audio Manager:
- * 1. SoundPool Primary Engine: Standard Android SoundPool with generated WAV files on local disk
- *    - Guarantees 100% audio compatibility with browser emulator, WebRTC streaming, and Android devices.
- * 2. Static AudioTrack Fallback: Direct hardware PCM streaming if SoundPool is loading.
+ * Ultra-Low-Latency Multi-Voice PCM Streaming Audio Engine
+ *
+ * Uses a single dedicated AudioTrack stream mixer that blends sound waveforms in real-time.
+ * Eliminates disk I/O, WAV encoders, and Codec2 hardware HAL queries completely.
  */
 class SoundManager(private val context: Context) {
 
     var soundEnabled: Boolean = true
     var hapticsEnabled: Boolean = true
 
-    // SoundPool resources
-    private var soundPool: SoundPool? = null
-    private val soundIdMap = ConcurrentHashMap<String, Int>()
-    private val isLoadedMap = ConcurrentHashMap<Int, Boolean>()
-    private val isInitialized = AtomicBoolean(false)
+    private class ActiveVoice(
+        val samples: ShortArray,
+        var position: Float = 0f,
+        var volume: Float = 1.0f,
+        var rate: Float = 1.0f,
+        val isLooping: Boolean = false,
+        val id: Long = nextVoiceId.incrementAndGet()
+    )
+
+    private val activeVoices = CopyOnWriteArrayList<ActiveVoice>()
+    private val lock = Object()
+    private val isRunning = AtomicBoolean(false)
+    private var audioTrack: AudioTrack? = null
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     // Pre-computed raw waveform samples
     private val pcmTick1 by lazy { generateTone(freq = 440f, durationSec = 0.045f, decayRate = 50f) }
@@ -60,293 +67,214 @@ class SoundManager(private val context: Context) {
     private val pcmMagnetHum by lazy { generateTone(freq = 440f, durationSec = 0.12f, decayRate = 18f) }
 
     init {
-        initAudioEngines()
+        startMixerEngine()
     }
 
-    private fun initAudioEngines() {
-        if (!isInitialized.compareAndSet(false, true)) return
+    private fun startMixerEngine() {
+        if (isRunning.getAndSet(true)) return
 
-        thread(name = "SoundPoolInit", isDaemon = true) {
+        thread(name = "StickmanAudioMixer", isDaemon = true, priority = Thread.MAX_PRIORITY) {
+            val minBuf = AudioTrack.getMinBufferSize(
+                SAMPLE_RATE,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
+            )
+            val chunkSize = 512
+            val bufSize = maxOf(minBuf, chunkSize * 4)
+
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+
+            val format = AudioFormat.Builder()
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setSampleRate(SAMPLE_RATE)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .build()
+
             try {
-                val audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-
-                val pool = SoundPool.Builder()
-                    .setMaxStreams(16)
-                    .setAudioAttributes(audioAttributes)
-                    .build()
-
-                pool.setOnLoadCompleteListener { _, sampleId, status ->
-                    if (status == 0) {
-                        isLoadedMap[sampleId] = true
-                    }
-                }
-
-                soundPool = pool
-
-                // Pre-generate and cache WAV files for SoundPool instant playback
-                val audioDir = File(context.cacheDir, "game_sounds").apply { mkdirs() }
-
-                fun registerSound(key: String, samples: ShortArray) {
-                    try {
-                        val file = File(audioDir, "$key.wav")
-                        if (!file.exists() || file.length() == 0L) {
-                            writePcmToWav(file, samples, SAMPLE_RATE)
-                        }
-                        val soundId = pool.load(file.absolutePath, 1)
-                        soundIdMap[key] = soundId
-                    } catch (e: Throwable) {
-                        Log.w("SoundManager", "Error caching sound $key", e)
-                    }
-                }
-
-                registerSound("tick1", pcmTick1)
-                registerSound("tick2", pcmTick2)
-                registerSound("tick3", pcmTick3)
-                registerSound("tick4", pcmTick4)
-                registerSound("bridge_land", pcmBridgeLand)
-                registerSound("stickman_land", pcmStickmanLand)
-                registerSound("gem", pcmGem)
-                registerSound("perfect", pcmPerfect)
-                registerSound("flip", pcmFlip)
-                registerSound("jump", pcmJump)
-                registerSound("fall", pcmFall)
-                registerSound("falling", pcmFall)
-                registerSound("funny_fall", pcmFunnyFallingMusic)
-                registerSound("oh_no_voice", pcmOhNoVoice)
-                soundIdMap["funny_voice_over"] = soundIdMap["oh_no_voice"] ?: 0
-                registerSound("game_over", pcmGameOver)
-                registerSound("button", pcmButton)
-                registerSound("victory", pcmVictory)
-                registerSound("buy_success", pcmBuySuccess)
-                registerSound("startup", pcmStartupMelody)
-                registerSound("powerup", pcmPowerUp)
-                registerSound("shield_shatter", pcmShieldShatter)
-                registerSound("magnet_hum", pcmMagnetHum)
-
-            } catch (t: Throwable) {
-                Log.w("SoundManager", "SoundPool initialization error", t)
-            }
-        }
-    }
-
-    private val isAudioTrackPlaying = AtomicBoolean(false)
-
-    private fun play(key: String, fallbackSamples: ShortArray, volume: Float = 0.95f, priority: Int = 1, rate: Float = 1.0f) {
-        if (!soundEnabled) return
-
-        initAudioEngines()
-
-        val pool = soundPool
-        val soundId = soundIdMap[key]
-
-        if (pool != null && soundId != null && (isLoadedMap[soundId] == true)) {
-            try {
-                val streamId = pool.play(soundId, volume, volume, priority, 0, rate)
-                if (streamId != 0) return
-            } catch (t: Throwable) {
-                Log.w("SoundManager", "SoundPool play error for $key", t)
-            }
-        }
-
-        // Only use single fallback AudioTrack if not already busy to prevent HAL resource exhaustion
-        if (key != "tick1" && key != "tick2" && key != "tick3" && key != "tick4") {
-            playViaAudioTrack(fallbackSamples, volume)
-        }
-    }
-
-    private fun playViaAudioTrack(samples: ShortArray, volume: Float) {
-        if (!isAudioTrackPlaying.compareAndSet(false, true)) return
-
-        thread(name = "DirectAudioTrack", isDaemon = true) {
-            var track: AudioTrack? = null
-            try {
-                val minBuf = AudioTrack.getMinBufferSize(
-                    SAMPLE_RATE,
-                    AudioFormat.CHANNEL_OUT_MONO,
-                    AudioFormat.ENCODING_PCM_16BIT
-                )
-                if (minBuf <= 0) return@thread
-                val bufSize = maxOf(minBuf, samples.size * 2)
-
-                val attributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-
-                val format = AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(SAMPLE_RATE)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                    .build()
-
-                track = AudioTrack.Builder()
+                val track = AudioTrack.Builder()
                     .setAudioAttributes(attributes)
                     .setAudioFormat(format)
                     .setBufferSizeInBytes(bufSize)
-                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
 
-                if (volume < 1.0f) {
-                    val scaledSamples = ShortArray(samples.size)
-                    for (i in samples.indices) {
-                        scaledSamples[i] = (samples[i] * volume).toInt().coerceIn(-32767, 32767).toShort()
+                track.play()
+                audioTrack = track
+
+                val floatBuffer = FloatArray(chunkSize)
+                val outBuffer = ShortArray(chunkSize)
+
+                while (isRunning.get()) {
+                    if (activeVoices.isEmpty()) {
+                        synchronized(lock) {
+                            if (activeVoices.isEmpty()) {
+                                lock.wait(100)
+                            }
+                        }
+                        continue
                     }
-                    track.write(scaledSamples, 0, scaledSamples.size)
-                } else {
-                    track.write(samples, 0, samples.size)
+
+                    floatBuffer.fill(0f)
+
+                    for (voice in activeVoices) {
+                        val samples = voice.samples
+                        val len = samples.size
+                        var pos = voice.position
+                        val vol = voice.volume
+                        val rate = voice.rate
+
+                        var samplesRendered = 0
+                        for (i in 0 until chunkSize) {
+                            val intPos = pos.toInt()
+                            if (intPos >= len) {
+                                if (voice.isLooping) {
+                                    pos = 0f
+                                } else {
+                                    break
+                                }
+                            }
+                            floatBuffer[i] += samples[intPos] * vol
+                            pos += rate
+                            samplesRendered++
+                        }
+
+                        voice.position = pos
+                        if (pos.toInt() >= len && !voice.isLooping) {
+                            activeVoices.remove(voice)
+                        }
+                    }
+
+                    // Soft-clipping into 16-bit short output buffer
+                    for (i in 0 until chunkSize) {
+                        val s = floatBuffer[i]
+                        val clipped = when {
+                            s > 32767f -> 32767f
+                            s < -32768f -> -32768f
+                            else -> s
+                        }
+                        outBuffer[i] = clipped.toInt().toShort()
+                    }
+
+                    track.write(outBuffer, 0, chunkSize)
                 }
 
-                track.play()
-
-                val durationMs = (samples.size * 1000L) / SAMPLE_RATE + 30
-                Thread.sleep(durationMs)
-            } catch (_: Throwable) {
+                track.stop()
+                track.release()
+            } catch (t: Throwable) {
+                Log.w("SoundManager", "Audio mixer terminated", t)
             } finally {
-                try {
-                    track?.stop()
-                    track?.release()
-                } catch (_: Throwable) {}
-                isAudioTrackPlaying.set(false)
+                audioTrack = null
+                isRunning.set(false)
             }
         }
     }
 
-    // --- High-Quality Game Sound FX Callbacks ---
+    private fun play(samples: ShortArray, volume: Float = 0.95f, rate: Float = 1.0f, isLooping: Boolean = false): ActiveVoice? {
+        if (!soundEnabled) return null
+        startMixerEngine()
 
-    fun playGrowTick(pitchIndex: Int) {
-        when (pitchIndex % 4) {
-            0 -> play("tick1", pcmTick1, volume = 0.65f)
-            1 -> play("tick2", pcmTick2, volume = 0.65f)
-            2 -> play("tick3", pcmTick3, volume = 0.65f)
-            else -> play("tick4", pcmTick4, volume = 0.65f)
+        val voice = ActiveVoice(
+            samples = samples,
+            volume = volume.coerceIn(0f, 1.2f),
+            rate = rate.coerceIn(0.2f, 3.0f),
+            isLooping = isLooping
+        )
+        activeVoices.add(voice)
+        synchronized(lock) {
+            lock.notifyAll()
         }
+        return voice
     }
 
-    // Falling sound pitch animation state
-    private var fallingStreamId: Int = 0
-    private var fallStartRate = 1.4f   // starts higher pitch
-    private var fallEndRate = 0.7f     // ends lower pitch — sells "falling away"
-    private val mainHandler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+    // Falling pitch Doppler animation voice
+    private var fallingVoice: ActiveVoice? = null
+    private val fallStartRate = 1.35f
+    private val fallEndRate = 0.70f
+
+    fun playGrowTick(pitchIndex: Int) {
+        val samples = when (pitchIndex % 4) {
+            0 -> pcmTick1
+            1 -> pcmTick2
+            2 -> pcmTick3
+            else -> pcmTick4
+        }
+        play(samples, volume = 0.65f)
+    }
 
     fun playFallingSound(fallDurationMs: Long = 1800L) {
         if (!soundEnabled) return
-        initAudioEngines()
-
-        val fallingSoundId = soundIdMap["falling"] ?: soundIdMap["fall"] ?: return
-        val pool = soundPool ?: return
-
         stopFallingSound()
 
-        fallingStreamId = pool.play(fallingSoundId, 0.85f, 0.85f, 1, 0, fallStartRate)
+        val voice = play(pcmFall, volume = 0.90f, rate = fallStartRate) ?: return
+        fallingVoice = voice
 
-        // Animate the pitch down over the fall duration for a Doppler-like effect
         val steps = 12
         val stepDelay = (fallDurationMs / steps).coerceAtLeast(10L)
         val rateStep = (fallStartRate - fallEndRate) / steps
         repeat(steps) { i ->
             mainHandler.postDelayed({
-                try {
-                    soundPool?.setRate(fallingStreamId, (fallStartRate - (rateStep * i)).coerceIn(0.5f, 2.0f))
-                } catch (_: Throwable) {}
+                if (fallingVoice === voice) {
+                    voice.rate = (fallStartRate - (rateStep * i)).coerceIn(0.5f, 2.0f)
+                }
             }, stepDelay * i)
         }
     }
 
     fun stopFallingSound() {
-        try {
-            if (fallingStreamId != 0) {
-                soundPool?.stop(fallingStreamId)
-                fallingStreamId = 0
-            }
-        } catch (_: Throwable) {}
+        fallingVoice?.let { voice ->
+            activeVoices.remove(voice)
+            fallingVoice = null
+        }
     }
 
-    fun playBridgePlaced() = play("bridge_land", pcmBridgeLand, volume = 0.90f)
-    fun playBridgeLand() = play("bridge_land", pcmBridgeLand, volume = 0.90f)
+    fun playBridgePlaced() { play(pcmBridgeLand, volume = 0.90f) }
+    fun playBridgeLand() { play(pcmBridgeLand, volume = 0.90f) }
     fun playStickmanLand() {
         stopFallingSound()
-        play("stickman_land", pcmStickmanLand, volume = 0.85f)
+        play(pcmStickmanLand, volume = 0.85f)
     }
-    fun playGemCollect() = play("gem", pcmGem, volume = 0.95f)
-    fun playPerfectHit() = play("perfect", pcmPerfect, volume = 1.00f)
-    fun playFlip() = play("flip", pcmFlip, volume = 0.85f)
-    fun playJump() = play("jump", pcmJump, volume = 0.92f)
-    fun playBridgeFall() = play("fall", pcmFall, volume = 0.90f)
+    fun playGemCollect() { play(pcmGem, volume = 0.95f) }
+    fun playPerfectHit() { play(pcmPerfect, volume = 1.00f) }
+    fun playFlip() { play(pcmFlip, volume = 0.85f) }
+    fun playJump() { play(pcmJump, volume = 0.92f) }
+    fun playBridgeFall() { play(pcmFall, volume = 0.90f) }
     fun playStickmanFall(fallDurationMs: Long = 2000L) {
         playFallingSound(fallDurationMs)
-        play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
+        play(pcmFunnyFallingMusic, volume = 1.00f)
     }
-    fun playFunnyFallingMusic() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
-    fun playFunnyVoiceOver() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
-    fun playOhNoVoice() = play("funny_fall", pcmFunnyFallingMusic, volume = 1.00f, priority = 10)
+    fun playFunnyFallingMusic() { play(pcmFunnyFallingMusic, volume = 1.00f) }
+    fun playFunnyVoiceOver() { play(pcmFunnyFallingMusic, volume = 1.00f) }
+    fun playOhNoVoice() { play(pcmFunnyFallingMusic, volume = 1.00f) }
     fun playGameOver() {
         stopFallingSound()
-        play("game_over", pcmGameOver, volume = 0.95f)
+        play(pcmGameOver, volume = 0.95f)
     }
-    fun playWalkStep() = play("tick1", pcmTick1, volume = 0.35f)
-    fun playButton() = play("button", pcmButton, volume = 0.80f)
-    fun playVictoryMusic() = play("victory", pcmVictory, volume = 1.00f)
-    fun playBuyGemsSuccess() = play("buy_success", pcmBuySuccess, volume = 0.95f)
-    fun playComboStreak() = play("perfect", pcmPerfect, volume = 0.95f)
-    fun playStartupMelody() = play("startup", pcmStartupMelody, volume = 0.90f)
-    fun playPowerUpPickup() = play("powerup", pcmPowerUp, volume = 1.00f)
-    fun playShieldShatter() = play("shield_shatter", pcmShieldShatter, volume = 1.00f, priority = 8)
-    fun playMagnetAttract() = play("magnet_hum", pcmMagnetHum, volume = 0.65f)
+    fun playWalkStep() { play(pcmTick1, volume = 0.35f) }
+    fun playButton() { play(pcmButton, volume = 0.80f) }
+    fun playVictoryMusic() { play(pcmVictory, volume = 1.00f) }
+    fun playBuyGemsSuccess() { play(pcmBuySuccess, volume = 0.95f) }
+    fun playComboStreak() { play(pcmPerfect, volume = 0.95f) }
+    fun playStartupMelody() { play(pcmStartupMelody, volume = 0.90f) }
+    fun playPowerUpPickup() { play(pcmPowerUp, volume = 1.00f) }
+    fun playShieldShatter() { play(pcmShieldShatter, volume = 1.00f) }
+    fun playMagnetAttract() { play(pcmMagnetHum, volume = 0.65f) }
 
     fun release() {
-        try {
-            stopFallingSound()
-            soundPool?.release()
-            soundPool = null
-        } catch (_: Throwable) {}
+        stopFallingSound()
+        activeVoices.clear()
+        isRunning.set(false)
+        synchronized(lock) {
+            lock.notifyAll()
+        }
     }
 
     companion object {
         private const val SAMPLE_RATE = 44100
+        private val nextVoiceId = AtomicLong(0)
 
-        private fun writePcmToWav(wavFile: File, pcmData: ShortArray, sampleRate: Int) {
-            val totalAudioLen = pcmData.size * 2
-            val totalDataLen = totalAudioLen + 36
-            val byteRate = sampleRate * 2 // 16 bit mono = 2 bytes per sample
-
-            FileOutputStream(wavFile).use { out ->
-                val header = ByteArray(44)
-                val buffer = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
-
-                // RIFF chunk descriptor
-                buffer.put("RIFF".toByteArray(Charsets.US_ASCII))
-                buffer.putInt(totalDataLen)
-                buffer.put("WAVE".toByteArray(Charsets.US_ASCII))
-
-                // "fmt " sub-chunk
-                buffer.put("fmt ".toByteArray(Charsets.US_ASCII))
-                buffer.putInt(16) // SubChunk1Size for PCM
-                buffer.putShort(1.toShort()) // AudioFormat (1 = PCM)
-                buffer.putShort(1.toShort()) // NumChannels (1 = Mono)
-                buffer.putInt(sampleRate)
-                buffer.putInt(byteRate)
-                buffer.putShort(2.toShort()) // BlockAlign (NumChannels * BitsPerSample/8)
-                buffer.putShort(16.toShort()) // BitsPerSample
-
-                // "data" sub-chunk
-                buffer.put("data".toByteArray(Charsets.US_ASCII))
-                buffer.putInt(totalAudioLen)
-
-                out.write(header)
-
-                // Write raw PCM byte buffer
-                val pcmBytes = ByteArray(pcmData.size * 2)
-                ByteBuffer.wrap(pcmBytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(pcmData)
-                out.write(pcmBytes)
-                out.flush()
-                try {
-                    out.fd.sync()
-                } catch (_: Throwable) {}
-            }
-        }
 
         private fun generateTone(
             freq: Float,
