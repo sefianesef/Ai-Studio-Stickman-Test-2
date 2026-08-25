@@ -123,6 +123,9 @@ fun StickmanGameCanvas(
             // 5. Draw gems
             drawGems(engine, gameTimeSeconds)
 
+            // 5b. Draw tactical power-up items (Magnet, Aegis Shield, Gem Doubler, Chrono Slow-Mo)
+            drawPowerUps(engine, gameTimeSeconds)
+
             // 6. Draw Bridge / Stick
             drawBridge(engine, equippedStick)
 
@@ -140,6 +143,9 @@ fun StickmanGameCanvas(
 
             // 9. Draw Boss Health HUD on top
             drawBossHud(engine, textMeasurer, gameTimeSeconds)
+
+            // 9b. Draw Active Tactical Power-Up Status HUD & Timers
+            drawActivePowerUpHud(engine, textMeasurer, gameTimeSeconds)
 
             // 10. Draw particles
             drawParticles(engine.particles)
@@ -744,6 +750,201 @@ private fun DrawScope.drawGems(engine: StickmanGameEngine, time: Float) {
         close()
     }
     drawPath(path = facetPath, color = Color(0xFFBAE6FD))
+}
+
+private fun DrawScope.drawPowerUps(engine: StickmanGameEngine, time: Float) {
+    val pUp = engine.nextPlatform.powerUp ?: return
+    if (pUp.collected) return
+    if (pUp.x < -50f || pUp.x > size.width + 50f) return
+
+    val bobbing = sin(time * 5f) * 4.dp.toPx()
+    val spanW = (engine.nextPlatform.leftX - engine.bridgeStartX).coerceAtLeast(10f)
+    val prog = ((pUp.x - engine.bridgeStartX) / spanW).coerceIn(0f, 1f)
+    val startY = engine.floorY + engine.currentPlatform.heightOffset
+    val endY = engine.floorY + engine.nextPlatform.heightOffset
+    val baseY = startY + prog * (endY - startY)
+    val pUpY = baseY + pUp.floatOffset + bobbing
+
+    val pColor = Color(pUp.type.primaryColorHex)
+    val sColor = Color(pUp.type.secondaryColorHex)
+    val pulse = (sin(time * 6f) * 0.2f + 0.8f)
+
+    when (pUp.type) {
+        PowerUpType.MAGNET -> {
+            // 🧲 Horseshoe Magnet with Magnetic Flux Waves
+            val magnetRadius = 14.dp.toPx()
+
+            // Outer magnetic field wave
+            drawCircle(
+                color = pColor.copy(alpha = 0.25f * pulse),
+                radius = magnetRadius * 1.8f,
+                center = Offset(pUp.x, pUpY)
+            )
+            drawCircle(
+                color = sColor.copy(alpha = 0.35f),
+                radius = magnetRadius * 1.35f,
+                center = Offset(pUp.x, pUpY),
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+
+            // Red/Blue Horseshoe U-Shape
+            val uPath = Path().apply {
+                arcTo(
+                    rect = androidx.compose.ui.geometry.Rect(
+                        left = pUp.x - magnetRadius,
+                        top = pUpY - magnetRadius,
+                        right = pUp.x + magnetRadius,
+                        bottom = pUpY + magnetRadius
+                    ),
+                    startAngleDegrees = 180f,
+                    sweepAngleDegrees = 180f,
+                    forceMoveTo = true
+                )
+            }
+            drawPath(
+                path = uPath,
+                color = pColor,
+                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // Silver pole tips
+            drawRect(
+                color = Color(0xFFE2E8F0),
+                topLeft = Offset(pUp.x - magnetRadius - 3.dp.toPx(), pUpY - 1.dp.toPx()),
+                size = Size(6.dp.toPx(), 6.dp.toPx())
+            )
+            drawRect(
+                color = Color(0xFFE2E8F0),
+                topLeft = Offset(pUp.x + magnetRadius - 3.dp.toPx(), pUpY - 1.dp.toPx()),
+                size = Size(6.dp.toPx(), 6.dp.toPx())
+            )
+
+            // Sparkle lightning arcs
+            val sparkAng = (time * 8f) % (2f * PI.toFloat())
+            drawCircle(
+                color = Color(0xFFFDE047),
+                radius = 2.dp.toPx(),
+                center = Offset(pUp.x + cos(sparkAng) * magnetRadius * 1.2f, pUpY + sin(sparkAng) * magnetRadius * 1.2f)
+            )
+        }
+
+        PowerUpType.INVINCIBILITY_SHIELD -> {
+            // 🛡️ Aegis Radiant Crest Shield
+            val shieldRadius = 15.dp.toPx()
+
+            // Energy aura
+            drawCircle(
+                color = pColor.copy(alpha = 0.3f * pulse),
+                radius = shieldRadius * 1.6f,
+                center = Offset(pUp.x, pUpY)
+            )
+
+            // Heraldic Shield Crest Path
+            val shieldPath = Path().apply {
+                moveTo(pUp.x, pUpY - shieldRadius)
+                lineTo(pUp.x + shieldRadius * 0.85f, pUpY - shieldRadius * 0.6f)
+                cubicTo(
+                    pUp.x + shieldRadius * 0.9f, pUpY + shieldRadius * 0.2f,
+                    pUp.x + shieldRadius * 0.4f, pUpY + shieldRadius * 0.85f,
+                    pUp.x, pUpY + shieldRadius
+                )
+                cubicTo(
+                    pUp.x - shieldRadius * 0.4f, pUpY + shieldRadius * 0.85f,
+                    pUp.x - shieldRadius * 0.9f, pUpY + shieldRadius * 0.2f,
+                    pUp.x - shieldRadius * 0.85f, pUpY - shieldRadius * 0.6f
+                )
+                close()
+            }
+            drawPath(path = shieldPath, color = pColor)
+
+            // Inner heraldic inlay
+            val innerPath = Path().apply {
+                moveTo(pUp.x, pUpY - shieldRadius * 0.65f)
+                lineTo(pUp.x + shieldRadius * 0.55f, pUpY - shieldRadius * 0.35f)
+                lineTo(pUp.x, pUpY + shieldRadius * 0.65f)
+                lineTo(pUp.x - shieldRadius * 0.55f, pUpY - shieldRadius * 0.35f)
+                close()
+            }
+            drawPath(path = innerPath, color = sColor)
+
+            // Golden star emblem
+            drawCircle(color = Color(0xFFFFD700), radius = 3.dp.toPx(), center = Offset(pUp.x, pUpY - 1.dp.toPx()))
+        }
+
+        PowerUpType.GEM_DOUBLER -> {
+            // ✨ Dual Glowing 2X Crystals
+            val crystalRadius = 13.dp.toPx()
+
+            drawCircle(
+                color = pColor.copy(alpha = 0.35f * pulse),
+                radius = crystalRadius * 1.7f,
+                center = Offset(pUp.x, pUpY)
+            )
+
+            // Left Emerald Diamond
+            val leftDiamond = Path().apply {
+                moveTo(pUp.x - 5.dp.toPx(), pUpY - crystalRadius)
+                lineTo(pUp.x + 1.dp.toPx(), pUpY)
+                lineTo(pUp.x - 5.dp.toPx(), pUpY + crystalRadius)
+                lineTo(pUp.x - 11.dp.toPx(), pUpY)
+                close()
+            }
+            drawPath(path = leftDiamond, color = pColor)
+
+            // Right Amber Diamond
+            val rightDiamond = Path().apply {
+                moveTo(pUp.x + 5.dp.toPx(), pUpY - crystalRadius * 0.9f)
+                lineTo(pUp.x + 11.dp.toPx(), pUpY)
+                lineTo(pUp.x + 5.dp.toPx(), pUpY + crystalRadius * 0.9f)
+                lineTo(pUp.x - 1.dp.toPx(), pUpY)
+                close()
+            }
+            drawPath(path = rightDiamond, color = sColor)
+
+            // Center golden "2" spark glint
+            drawCircle(color = Color.White, radius = 2.5.dp.toPx(), center = Offset(pUp.x, pUpY))
+        }
+
+        PowerUpType.SLOW_MOTION -> {
+            // ⏱️ Chrono Hourglass & Temporal Waves
+            val clockRadius = 14.dp.toPx()
+
+            // Temporal distortion rings
+            drawCircle(
+                color = pColor.copy(alpha = 0.28f * pulse),
+                radius = clockRadius * 1.6f,
+                center = Offset(pUp.x, pUpY)
+            )
+            drawCircle(
+                color = sColor.copy(alpha = 0.6f),
+                radius = clockRadius,
+                center = Offset(pUp.x, pUpY),
+                style = Stroke(width = 2.5.dp.toPx())
+            )
+
+            // Hourglass silhouette
+            val hgPath = Path().apply {
+                moveTo(pUp.x - 6.dp.toPx(), pUpY - 8.dp.toPx())
+                lineTo(pUp.x + 6.dp.toPx(), pUpY - 8.dp.toPx())
+                lineTo(pUp.x, pUpY)
+                lineTo(pUp.x + 6.dp.toPx(), pUpY + 8.dp.toPx())
+                lineTo(pUp.x - 6.dp.toPx(), pUpY + 8.dp.toPx())
+                lineTo(pUp.x, pUpY)
+                close()
+            }
+            drawPath(path = hgPath, color = pColor)
+
+            // Chrono ticking hand
+            val handAng = (time * 4f)
+            drawLine(
+                color = Color.White,
+                start = Offset(pUp.x, pUpY),
+                end = Offset(pUp.x + cos(handAng) * 6.dp.toPx(), pUpY + sin(handAng) * 6.dp.toPx()),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
+    }
 }
 
 private fun DrawScope.drawObstacles(engine: StickmanGameEngine, time: Float) {
@@ -1649,6 +1850,99 @@ private fun DrawScope.drawHeroStickman(
             center = Offset(x + torsoLean - 1.dp.toPx(), currentNeckY)
         )
     }
+
+    // Dynamic Hero Power-Up Auras & Forcefields
+    val heroCenterY = y - 16.dp.toPx() - jumpOffsetY
+
+    // 1. 🛡️ Aegis Invincibility Shield Forcefield Bubble
+    if (engine.hasInvincibilityShield.value) {
+        val shieldRadius = 26.dp.toPx()
+        val pulse = (sin(gameTime * 6f) * 0.15f + 0.85f)
+
+        // Forcefield dome glow
+        drawCircle(
+            color = Color(0x3338BDF8),
+            radius = shieldRadius,
+            center = Offset(x, heroCenterY)
+        )
+        // Shimmering outer energy barrier
+        drawCircle(
+            color = Color(0xFF38BDF8).copy(alpha = 0.85f * pulse),
+            radius = shieldRadius,
+            center = Offset(x, heroCenterY),
+            style = Stroke(width = 2.2.dp.toPx())
+        )
+        // Orbiting defensive Aegis runes
+        for (i in 0 until 3) {
+            val rAng = (i * 120.0 + gameTime * 160.0) * PI / 180.0
+            val rx = x + cos(rAng).toFloat() * shieldRadius
+            val ry = heroCenterY + sin(rAng).toFloat() * shieldRadius
+            drawCircle(
+                color = Color(0xFFE0F2FE),
+                radius = 2.5.dp.toPx(),
+                center = Offset(rx, ry)
+            )
+        }
+    }
+
+    // 2. 🧲 Magnetic Attraction Field Lines
+    if (engine.activeMagnetTime.value > 0f) {
+        val magRadius = 28.dp.toPx()
+        val magPulse = (sin(gameTime * 8f) * 0.2f + 0.8f)
+
+        drawCircle(
+            color = Color(0x22EF4444),
+            radius = magRadius * magPulse,
+            center = Offset(x, heroCenterY)
+        )
+        // Rotating magnetic flux arcs
+        for (i in 0 until 2) {
+            val startAng = (i * 180f + gameTime * 220f) % 360f
+            val arcPath = Path().apply {
+                arcTo(
+                    rect = androidx.compose.ui.geometry.Rect(
+                        left = x - magRadius,
+                        top = heroCenterY - magRadius,
+                        right = x + magRadius,
+                        bottom = heroCenterY + magRadius
+                    ),
+                    startAngleDegrees = startAng,
+                    sweepAngleDegrees = 90f,
+                    forceMoveTo = true
+                )
+            }
+            drawPath(
+                path = arcPath,
+                color = if (i == 0) Color(0xFFEF4444).copy(alpha = 0.8f) else Color(0xFF38BDF8).copy(alpha = 0.8f),
+                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+    }
+
+    // 3. ✨ 2X Gem Multiplier Golden Sparkles
+    if (engine.activeGemDoublerTime.value > 0f) {
+        for (i in 0 until 4) {
+            val sparkY = heroCenterY + ((i * 14f - gameTime * 40f).mod(36.dp.toPx())) - 18.dp.toPx()
+            val sparkX = x + sin(gameTime * 6f + i * 2f) * 14.dp.toPx()
+            drawCircle(
+                color = if (i % 2 == 0) Color(0xFFFFD700) else Color(0xFFFDE047),
+                radius = 2.dp.toPx(),
+                center = Offset(sparkX, sparkY)
+            )
+        }
+    }
+
+    // 4. ⚡ Shield Shatter Electrical Shockwave Flash
+    if (engine.shieldShatterFx.value > 0f) {
+        val shatterRadius = (1f - engine.shieldShatterFx.value) * 45.dp.toPx() + 20.dp.toPx()
+        val shatterAlpha = engine.shieldShatterFx.value.coerceIn(0f, 1f)
+        drawCircle(
+            color = Color(0xFF38BDF8).copy(alpha = shatterAlpha * 0.7f),
+            radius = shatterRadius,
+            center = Offset(x, heroCenterY),
+            style = Stroke(width = 3.dp.toPx())
+        )
+    }
 }
 
 private fun DrawScope.drawHeroCape(
@@ -2128,5 +2422,85 @@ private fun DrawScope.drawInvertedFlipPrompt(
         textLayoutResult = textLayout,
         topLeft = Offset(promptX - (textLayout.size.width / 2f), promptY)
     )
+}
+
+private fun DrawScope.drawActivePowerUpHud(
+    engine: StickmanGameEngine,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    time: Float
+) {
+    val activeBadges = mutableListOf<Triple<String, Float, Color>>()
+
+    if (engine.hasInvincibilityShield.value) {
+        activeBadges.add(Triple("🛡️ AEGIS SHIELD", -1f, Color(0xFF38BDF8)))
+    }
+    if (engine.activeMagnetTime.value > 0f) {
+        val rem = engine.activeMagnetTime.value
+        activeBadges.add(Triple("🧲 MAGNET ${"%.1f".format(rem)}s", rem / 14f, Color(0xFFEF4444)))
+    }
+    if (engine.activeGemDoublerTime.value > 0f) {
+        val rem = engine.activeGemDoublerTime.value
+        activeBadges.add(Triple("✨ 2X GEMS ${"%.1f".format(rem)}s", rem / 15f, Color(0xFFFFD700)))
+    }
+    if (engine.activeSlowMoTime.value > 0f) {
+        val rem = engine.activeSlowMoTime.value
+        activeBadges.add(Triple("⏱️ SLOW-MO ${"%.1f".format(rem)}s", rem / 12f, Color(0xFF818CF8)))
+    }
+
+    if (activeBadges.isEmpty()) return
+
+    val startX = 16.dp.toPx()
+    var currentY = 110.dp.toPx()
+
+    activeBadges.forEach { (label, progress, color) ->
+        val textStyle = TextStyle(
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            shadow = Shadow(
+                color = Color.Black.copy(alpha = 0.8f),
+                offset = Offset(1f, 1f),
+                blurRadius = 2f
+            )
+        )
+        val textLayout = textMeasurer.measure(label, textStyle)
+        val badgeW = (textLayout.size.width + 24.dp.toPx()).coerceAtLeast(110.dp.toPx())
+        val badgeH = 24.dp.toPx()
+
+        // Background chip
+        drawRoundRect(
+            color = Color(0xCC0F172A),
+            topLeft = Offset(startX, currentY),
+            size = Size(badgeW, badgeH),
+            cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx())
+        )
+        // Neon border
+        drawRoundRect(
+            color = color.copy(alpha = 0.85f),
+            topLeft = Offset(startX, currentY),
+            size = Size(badgeW, badgeH),
+            cornerRadius = CornerRadius(12.dp.toPx(), 12.dp.toPx()),
+            style = Stroke(width = 1.5.dp.toPx())
+        )
+
+        // Progress bar if timed
+        if (progress in 0f..1f) {
+            val barW = (badgeW - 4.dp.toPx()) * progress
+            drawRoundRect(
+                color = color.copy(alpha = 0.35f),
+                topLeft = Offset(startX + 2.dp.toPx(), currentY + 2.dp.toPx()),
+                size = Size(barW, badgeH - 4.dp.toPx()),
+                cornerRadius = CornerRadius(10.dp.toPx(), 10.dp.toPx())
+            )
+        }
+
+        // Label text
+        drawText(
+            textLayoutResult = textLayout,
+            topLeft = Offset(startX + 12.dp.toPx(), currentY + (badgeH - textLayout.size.height) / 2f)
+        )
+
+        currentY += badgeH + 6.dp.toPx()
+    }
 }
 

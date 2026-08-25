@@ -316,4 +316,53 @@ class HapticManager(private val context: Context) {
             }
         } catch (_: Throwable) {}
     }
+
+    /**
+     * Crispy rhythmic surge when collecting a tactical Power-Up item (Magnet / Shield / 2X)
+     */
+    fun powerUpPickup() {
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 30, 25, 30, 25, 60)
+                val amplitudes = intArrayOf(0, 180, 0, 220, 0, 255)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 30, 25, 30, 25, 60), -1)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Heavy shockwave tactile punch when Invincibility Shield shatters and absorbs a fatal collision
+     */
+    fun shieldShatter() {
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 60, 40, 90)
+                val amplitudes = intArrayOf(0, 255, 0, 220)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(80)
+            }
+        } catch (_: Throwable) {}
+    }
+
+    /**
+     * Subtle magnetic vibration pulse as gems are attracted into the stickman vortex
+     */
+    fun magnetPulse() {
+        if (!isEnabled || !hasHardwareVibrator || vibrator == null) return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(14L, 110))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(14L)
+            }
+        } catch (_: Throwable) {}
+    }
 }

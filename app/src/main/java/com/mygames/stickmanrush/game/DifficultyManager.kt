@@ -248,6 +248,56 @@ class DifficultyManager {
         )
     }
 
+    /**
+     * Procedurally generates tactical power-up items (Magnet, Aegis Shield, Gem Doubler, Chrono Slow-Mo).
+     * - Magnet automatically vacuums gems along the bridge.
+     * - Invincibility Shield absorbs 1 fatal collision with hazards or boss projectiles per run.
+     */
+    fun generatePowerUp(
+        spanStart: Float,
+        spanEnd: Float,
+        score: Int,
+        level: Int,
+        hasObstacle: Boolean
+    ): com.mygames.stickmanrush.model.PowerUpItem? {
+        val spanWidth = spanEnd - spanStart
+        if (spanWidth < 95f) return null
+
+        // Power-up spawn chance (~24% base, slightly higher on boss or high obstacle spans)
+        val powerUpChance = when {
+            level % 5 == 0 -> 0.40f // Boss levels provide tactical support pickups
+            hasObstacle -> 0.30f
+            level <= 2 -> 0.28f // Introduce early powerups
+            else -> 0.22f
+        }
+
+        if (Random.nextFloat() > powerUpChance) return null
+
+        val minX = spanStart + (spanWidth * 0.25f)
+        val maxX = spanStart + (spanWidth * 0.75f)
+        val posX = minX + Random.nextFloat() * (maxX - minX)
+
+        val chosenType = when (Random.nextFloat()) {
+            in 0.0f..0.38f -> com.mygames.stickmanrush.model.PowerUpType.MAGNET
+            in 0.38f..0.72f -> com.mygames.stickmanrush.model.PowerUpType.INVINCIBILITY_SHIELD
+            in 0.72f..0.88f -> com.mygames.stickmanrush.model.PowerUpType.GEM_DOUBLER
+            else -> com.mygames.stickmanrush.model.PowerUpType.SLOW_MOTION
+        }
+
+        // 75% on top, 25% under bridge
+        val isUnder = Random.nextFloat() < 0.25f
+
+        return com.mygames.stickmanrush.model.PowerUpItem(
+            id = System.nanoTime() + Random.nextInt(500),
+            x = posX,
+            y = 0f,
+            type = chosenType,
+            isUnderBridge = isUnder,
+            collected = false,
+            floatOffset = 0f
+        )
+    }
+
     fun shouldSpawnGem(score: Int): Boolean {
         val tier = getTier(score)
         return Random.nextFloat() < tier.gemSpawnRate

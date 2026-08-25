@@ -81,6 +81,22 @@ class StickmanGameEngine(
     private val _revivalsUsed = MutableStateFlow(0)
     val revivalsUsed: StateFlow<Int> = _revivalsUsed.asStateFlow()
 
+    // Active Tactical Power-Up State
+    private val _activeMagnetTime = MutableStateFlow(0f)
+    val activeMagnetTime: StateFlow<Float> = _activeMagnetTime.asStateFlow()
+
+    private val _hasInvincibilityShield = MutableStateFlow(false)
+    val hasInvincibilityShield: StateFlow<Boolean> = _hasInvincibilityShield.asStateFlow()
+
+    private val _activeGemDoublerTime = MutableStateFlow(0f)
+    val activeGemDoublerTime: StateFlow<Float> = _activeGemDoublerTime.asStateFlow()
+
+    private val _activeSlowMoTime = MutableStateFlow(0f)
+    val activeSlowMoTime: StateFlow<Float> = _activeSlowMoTime.asStateFlow()
+
+    private val _shieldShatterFx = MutableStateFlow(0f)
+    val shieldShatterFx: StateFlow<Float> = _shieldShatterFx.asStateFlow()
+
     private val _activeBossState = MutableStateFlow<BossState?>(null)
     val activeBossState: StateFlow<BossState?> = _activeBossState.asStateFlow()
 
@@ -189,6 +205,12 @@ class StickmanGameEngine(
         _levelVictoryCelebration.value = null
         _activeLevelVictory.value = null
         gemStateManager.resetRun()
+
+        _activeMagnetTime.value = 0f
+        _hasInvincibilityShield.value = false
+        _activeGemDoublerTime.value = 0f
+        _activeSlowMoTime.value = 0f
+        _shieldShatterFx.value = 0f
 
         currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f, heightOffset = 0f)
         checkOrSpawnBoss(targetStartLevel)
@@ -330,6 +352,9 @@ class StickmanGameEngine(
         // Procedural Physical Obstacle Hazard (Buzzsaws, Spike Mines, Laser Barriers, Ice Slip)
         val obstacle = difficultyManager.generateObstacle(spanStart, spanEnd, currentScore, level, isBossLevel = isBoss)
 
+        // Procedural Tactical Power-Up (Magnet, Aegis Shield, Gem Doubler, Chrono Slow-Mo)
+        val powerUp = difficultyManager.generatePowerUp(spanStart, spanEnd, currentScore, level, hasObstacle = (obstacle != null))
+
         // Procedural Moving Platform Config
         val movingConfig = difficultyManager.generateMovingConfig(currentScore, level)
 
@@ -340,6 +365,7 @@ class StickmanGameEngine(
             hasRedDot = true,
             heightOffset = heightOffset,
             gem = gem,
+            powerUp = powerUp,
             obstacle = obstacle,
             isMoving = movingConfig.isMoving,
             moveAmplitude = movingConfig.amplitude,
@@ -506,11 +532,77 @@ class StickmanGameEngine(
         // Update active particles & floating texts
         updateEffects(clampedDt)
 
+        // Update Power-Up Active Timers
+        if (_activeMagnetTime.value > 0f) {
+            _activeMagnetTime.value = (_activeMagnetTime.value - clampedDt).coerceAtLeast(0f)
+        }
+        if (_activeGemDoublerTime.value > 0f) {
+            _activeGemDoublerTime.value = (_activeGemDoublerTime.value - clampedDt).coerceAtLeast(0f)
+        }
+        if (_activeSlowMoTime.value > 0f) {
+            _activeSlowMoTime.value = (_activeSlowMoTime.value - clampedDt).coerceAtLeast(0f)
+        }
+        if (_shieldShatterFx.value > 0f) {
+            _shieldShatterFx.value = (_shieldShatterFx.value - clampedDt * 2.5f).coerceAtLeast(0f)
+        }
+
+        // Active Magnet Dynamic Attraction of Bridge Gems
+        if (_activeMagnetTime.value > 0f) {
+            nextPlatform.gem?.let { gem ->
+                if (!gem.collected) {
+                    val dist = kotlin.math.abs(stickmanX - gem.x)
+                    if (dist < 600f) {
+                        val dir = if (stickmanX > gem.x) 1f else -1f
+                        val pullSpeed = (450f + (600f - dist) * 0.9f) * clampedDt
+                        gem.x += dir * pullSpeed
+
+                        if (particles.size < 120 && kotlin.random.Random.nextFloat() < 0.25f) {
+                            spawnMagnetAttractSparks(gem.x, stickmanY - 20f, stickmanX, stickmanY - 20f)
+                        }
+
+                        if (dist < 36f) {
+                            gem.collected = true
+                            val multiplier = if (_activeGemDoublerTime.value > 0f) 2 else 1
+                            gemStateManager.onGemCollected(gem, stickmanY)?.let { event ->
+                                val finalAmt = event.amount * multiplier
+                                if (multiplier > 1) {
+                                    repository.addGems(event.amount, com.mygames.stickmanrush.security.CurrencySource.GAMEPLAY_COLLECT)
+                                }
+                                soundManager.playGemCollect()
+                                soundManager.playMagnetAttract()
+                                hapticManager?.magnetPulse()
+                                repository.trackMissionProgress("COLLECT_GEMS", finalAmt)
+                                repository.trackWeeklyMissionProgress("COLLECT_GEMS", finalAmt)
+                                repository.trackContestProgress("COLLECT_GEMS", finalAmt)
+                                repository.recordGemsHarvested(finalAmt)
+                                val label = if (multiplier > 1) "🧲 2X 💎 +$finalAmt" else "🧲 💎 +$finalAmt"
+                                addFloatingText(label, stickmanX, stickmanY - 35f, Color(0xFF38BDF8), scale = 1.3f)
+                                spawnGemCollectEffects(stickmanX, stickmanY)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Update Obstacle animations
         nextPlatform.obstacle?.let { obs ->
             obs.animPhase += clampedDt * 5f
             if (obs.type == ObstacleType.MOVING_SPIKE_BALL) {
                 obs.y = sin(obs.animPhase) * 18f
+            }
+        }
+
+        // Update Tactical Power-Up Slanted Bridge Tracking & Floating Bobbing
+        nextPlatform.powerUp?.let { pUp ->
+            if (!pUp.collected) {
+                val spanW = (nextPlatform.leftX - bridgeStartX).coerceAtLeast(10f)
+                val prog = ((pUp.x - bridgeStartX) / spanW).coerceIn(0.15f, 0.85f)
+                val startY = floorY + currentPlatform.heightOffset
+                val endY = floorY + nextPlatform.heightOffset
+                val bY = startY + prog * (endY - startY)
+                pUp.y = if (pUp.isUnderBridge) bY + 22f else bY - 20f
+                pUp.floatOffset = sin(System.currentTimeMillis() * 0.005f + pUp.x) * 4.5f
             }
         }
 
@@ -609,8 +701,9 @@ class StickmanGameEngine(
             }
 
             GameState.FALLING_BRIDGE -> {
-                // Physics-based gravitational angular acceleration
-                val torque = physicsEngine.computeBridgeAngularAcceleration(bridgeAngle)
+                // Physics-based gravitational angular acceleration (scaled when Chrono Slow-Mo is active)
+                val slowMoFactor = if (_activeSlowMoTime.value > 0f) 0.60f else 1.0f
+                val torque = physicsEngine.computeBridgeAngularAcceleration(bridgeAngle) * slowMoFactor
                 bridgeAngularVel += torque * clampedDt
                 bridgeAngle += bridgeAngularVel * clampedDt
 
@@ -800,34 +893,85 @@ class StickmanGameEngine(
                 nextPlatform.gem?.let { gem ->
                     if (physicsEngine.checkGemPickup(stickmanX, isUpsideDown, gem)) {
                         gem.collected = true
+                        val multiplier = if (_activeGemDoublerTime.value > 0f) 2 else 1
                         gemStateManager.onGemCollected(gem, stickmanY)?.let { event ->
+                            val finalAmt = event.amount * multiplier
+                            if (multiplier > 1) {
+                                repository.addGems(event.amount, com.mygames.stickmanrush.security.CurrencySource.GAMEPLAY_COLLECT)
+                            }
                             soundManager.playGemCollect()
                             hapticManager?.gemCollect(event.comboMultiplier)
-                            repository.trackMissionProgress("COLLECT_GEMS", event.amount)
-                            repository.trackWeeklyMissionProgress("COLLECT_GEMS", event.amount)
-                            repository.trackContestProgress("COLLECT_GEMS", event.amount)
-                            repository.recordGemsHarvested(event.amount)
+                            repository.trackMissionProgress("COLLECT_GEMS", finalAmt)
+                            repository.trackWeeklyMissionProgress("COLLECT_GEMS", finalAmt)
+                            repository.trackContestProgress("COLLECT_GEMS", finalAmt)
+                            repository.recordGemsHarvested(finalAmt)
 
-                            val comboLabel = if (event.comboMultiplier > 1) "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)" else "💎 +${event.amount}"
-                            addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1) 1.25f else 1.0f)
+                            val comboLabel = if (multiplier > 1) {
+                                "✨ 2X 💎 +$finalAmt"
+                            } else if (event.comboMultiplier > 1) {
+                                "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)"
+                            } else {
+                                "💎 +${event.amount}"
+                            }
+                            addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1 || multiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1 || multiplier > 1) 1.25f else 1.0f)
                             spawnGemCollectEffects(event.x, event.y)
                         }
                     }
                 }
 
-                // Check Obstacle Hazard Collision along the bridge span (Supports Jumping Clearance)
+                // Check Tactical Power-Up Pickup (Magnet, Shield, Gem Doubler, Slow Motion)
+                nextPlatform.powerUp?.let { pUp ->
+                    if (!pUp.collected && physicsEngine.checkPowerUpPickup(stickmanX, isUpsideDown, pUp)) {
+                        pUp.collected = true
+                        when (pUp.type) {
+                            PowerUpType.MAGNET -> {
+                                _activeMagnetTime.value = pUp.type.durationSeconds
+                                addFloatingText("🧲 MAGNET EQUIPPED! 14s", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
+                            }
+                            PowerUpType.INVINCIBILITY_SHIELD -> {
+                                _hasInvincibilityShield.value = true
+                                addFloatingText("🛡️ AEGIS SHIELD READY!", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
+                            }
+                            PowerUpType.GEM_DOUBLER -> {
+                                _activeGemDoublerTime.value = pUp.type.durationSeconds
+                                addFloatingText("✨ 2X GEMS ACTIVATED! 15s", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
+                            }
+                            PowerUpType.SLOW_MOTION -> {
+                                _activeSlowMoTime.value = pUp.type.durationSeconds
+                                addFloatingText("⏱️ CHRONO SLOW-MO! 12s", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
+                            }
+                        }
+                        soundManager.playPowerUpPickup()
+                        hapticManager?.powerUpPickup()
+                        spawnPowerUpBurst(pUp.x, stickmanY, Color(pUp.type.primaryColorHex))
+                    }
+                }
+
+                // Check Obstacle Hazard Collision along the bridge span (Supports Jumping Clearance & Shield Defense)
                 nextPlatform.obstacle?.let { obstacle ->
                     if (physicsEngine.checkObstacleCollision(stickmanX, isUpsideDown, obstacle, jumpOffsetY)) {
-                        fallElapsedTime = 0f
-                        hasSpawnedMidFallReaction = false
-                        soundManager.playStickmanFall()
-                        hapticManager?.gameOver()
-                        spawnDust(stickmanX, stickmanY, count = 16)
-                        stickmanFallVel = 60f
-                        val obstacleHits = listOf("OUCH! 🪚", "ZAPPED! ⚡", "SPIKED! 💥", "HIT HAZARD! 💀", "BURNED! 🔥")
-                        addFloatingText(obstacleHits.random(), stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
-                        _gameState.value = GameState.DROPPING_FAIL
-                        return
+                        if (_hasInvincibilityShield.value) {
+                            // 🛡️ Aegis Shield absorbs the fatal impact!
+                            _hasInvincibilityShield.value = false
+                            _shieldShatterFx.value = 1f
+                            obstacle.isActive = false
+                            obstacle.isDodged = true
+                            soundManager.playShieldShatter()
+                            hapticManager?.shieldShatter()
+                            spawnShieldShatterShockwave(stickmanX, stickmanY)
+                            addFloatingText("SHIELD DEFENSE! 🛡️💥", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.4f)
+                        } else {
+                            fallElapsedTime = 0f
+                            hasSpawnedMidFallReaction = false
+                            soundManager.playStickmanFall()
+                            hapticManager?.gameOver()
+                            spawnDust(stickmanX, stickmanY, count = 16)
+                            stickmanFallVel = 60f
+                            val obstacleHits = listOf("OUCH! 🪚", "ZAPPED! ⚡", "SPIKED! 💥", "HIT HAZARD! 💀", "BURNED! 🔥")
+                            addFloatingText(obstacleHits.random(), stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
+                            _gameState.value = GameState.DROPPING_FAIL
+                            return
+                        }
                     } else if (!obstacle.isDodged && stickmanX > obstacle.x + 25f) {
                         obstacle.isDodged = true
                         soundManager.playFlip()
@@ -843,21 +987,33 @@ class StickmanGameEngine(
                     }
                 }
 
-                // Check Boss Projectile Collision (Supports Jumping Clearance over Ground Fireballs)
+                // Check Boss Projectile Collision (Supports Jumping Clearance & Shield Defense)
                 _activeBossState.value?.let { boss ->
                     if (!boss.isDefeated) {
                         for (proj in boss.projectiles) {
                             if (physicsEngine.checkBossProjectileCollision(stickmanX, isUpsideDown, proj, jumpOffsetY)) {
-                                proj.hasHitPlayer = true
-                                fallElapsedTime = 0f
-                                hasSpawnedMidFallReaction = false
-                                soundManager.playStickmanFall()
-                                hapticManager?.gameOver()
-                                spawnDust(stickmanX, stickmanY, count = 16)
-                                stickmanFallVel = 60f
-                                addFloatingText("BOSS BLAST! 🔥", stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
-                                _gameState.value = GameState.DROPPING_FAIL
-                                return
+                                if (_hasInvincibilityShield.value) {
+                                    // 🛡️ Aegis Shield absorbs the boss blast!
+                                    _hasInvincibilityShield.value = false
+                                    _shieldShatterFx.value = 1f
+                                    proj.hasHitPlayer = true
+                                    proj.isDodged = true
+                                    soundManager.playShieldShatter()
+                                    hapticManager?.shieldShatter()
+                                    spawnShieldShatterShockwave(stickmanX, stickmanY)
+                                    addFloatingText("SHIELD DEFENSE! 🛡️💥", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.4f)
+                                } else {
+                                    proj.hasHitPlayer = true
+                                    fallElapsedTime = 0f
+                                    hasSpawnedMidFallReaction = false
+                                    soundManager.playStickmanFall()
+                                    hapticManager?.gameOver()
+                                    spawnDust(stickmanX, stickmanY, count = 16)
+                                    stickmanFallVel = 60f
+                                    addFloatingText("BOSS BLAST! 🔥", stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
+                                    _gameState.value = GameState.DROPPING_FAIL
+                                    return
+                                }
                             } else if (!proj.isDodged && stickmanX > proj.x + 30f) {
                                 proj.isDodged = true
                                 if (isJumping || jumpOffsetY > 12f) {
@@ -1648,6 +1804,115 @@ class StickmanGameEngine(
                 )
             }
         }
+    }
+
+    private fun spawnPowerUpBurst(x: Float, y: Float, color: Color) {
+        // Shockwave expansion ring
+        particles.add(
+            Particle(
+                x = x,
+                y = y,
+                vx = 0f,
+                vy = 0f,
+                color = color,
+                radius = 14f,
+                maxLife = 0.42f,
+                life = 0.42f,
+                shape = ParticleShape.RING_WAVE
+            )
+        )
+        // Particle burst
+        val burstColors = listOf(color, Color.White, Color(0xFFFFD700), Color(0xFF67E8F9))
+        for (i in 0 until 18) {
+            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = Random.nextFloat() * 200f + 60f
+            particles.add(
+                Particle(
+                    x = x,
+                    y = y,
+                    vx = kotlin.math.cos(angle) * speed,
+                    vy = kotlin.math.sin(angle) * speed - 50f,
+                    color = burstColors[Random.nextInt(burstColors.size)],
+                    radius = Random.nextFloat() * 3.5f + 2.0f,
+                    maxLife = 0.45f,
+                    life = 0.45f,
+                    shape = if (i % 2 == 0) ParticleShape.STAR else ParticleShape.SPARKLE,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 360f - 180f
+                )
+            )
+        }
+    }
+
+    private fun spawnShieldShatterShockwave(x: Float, y: Float) {
+        // High-energy shield shatter shockwave
+        particles.add(
+            Particle(
+                x = x,
+                y = y,
+                vx = 0f,
+                vy = 0f,
+                color = Color(0xFF38BDF8),
+                radius = 24f,
+                maxLife = 0.45f,
+                life = 0.45f,
+                shape = ParticleShape.RING_WAVE
+            )
+        )
+        particles.add(
+            Particle(
+                x = x,
+                y = y,
+                vx = 0f,
+                vy = 0f,
+                color = Color(0xFF818CF8),
+                radius = 12f,
+                maxLife = 0.35f,
+                life = 0.35f,
+                shape = ParticleShape.RING_WAVE
+            )
+        )
+        val shatterColors = listOf(Color(0xFF38BDF8), Color(0xFF818CF8), Color(0xFFE0F2FE), Color.White, Color(0xFFFFD700))
+        for (i in 0 until 24) {
+            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = Random.nextFloat() * 260f + 80f
+            particles.add(
+                Particle(
+                    x = x,
+                    y = y,
+                    vx = kotlin.math.cos(angle) * speed,
+                    vy = kotlin.math.sin(angle) * speed,
+                    color = shatterColors[Random.nextInt(shatterColors.size)],
+                    radius = Random.nextFloat() * 4.0f + 2.5f,
+                    maxLife = 0.50f,
+                    life = 0.50f,
+                    shape = ParticleShape.STAR,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 480f - 240f
+                )
+            )
+        }
+    }
+
+    private fun spawnMagnetAttractSparks(gemX: Float, gemY: Float, stickmanX: Float, stickmanY: Float) {
+        val t = Random.nextFloat()
+        val sparkX = gemX + t * (stickmanX - gemX) + (Random.nextFloat() * 12f - 6f)
+        val sparkY = gemY + t * (stickmanY - gemY) + (Random.nextFloat() * 12f - 6f)
+        particles.add(
+            Particle(
+                x = sparkX,
+                y = sparkY,
+                vx = (stickmanX - gemX) * 0.4f + (Random.nextFloat() * 30f - 15f),
+                vy = (Random.nextFloat() * 40f - 20f),
+                color = if (Random.nextBoolean()) Color(0xFF38BDF8) else Color(0xFFFDE047),
+                radius = Random.nextFloat() * 2.8f + 1.2f,
+                maxLife = 0.22f,
+                life = 0.22f,
+                shape = ParticleShape.SPARKLE,
+                rotation = Random.nextFloat() * 360f,
+                vRot = Random.nextFloat() * 300f - 150f
+            )
+        )
     }
 
     private fun spawnConfetti(x: Float, y: Float, count: Int = 35) {

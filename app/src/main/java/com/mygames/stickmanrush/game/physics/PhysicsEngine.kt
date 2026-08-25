@@ -248,6 +248,20 @@ class PhysicsEngine {
     }
 
     /**
+     * Checks if the stickman is within pickup range of a PowerUpItem.
+     */
+    fun checkPowerUpPickup(
+        stickmanX: Float,
+        isUpsideDown: Boolean,
+        powerUp: com.mygames.stickmanrush.model.PowerUpItem?
+    ): Boolean {
+        if (powerUp == null || powerUp.collected) return false
+        val inRange = abs(stickmanX - powerUp.x) <= (GEM_COLLECT_RADIUS + 4f)
+        val correctSide = (powerUp.isUnderBridge && isUpsideDown) || (!powerUp.isUnderBridge && !isUpsideDown)
+        return inRange && correctSide
+    }
+
+    /**
      * Checks if the inverted stickman crashes into the side cliff wall of the destination platform.
      * Uses a tight, forgiving safety buffer.
      */

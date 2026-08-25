@@ -55,6 +55,9 @@ class SoundManager(private val context: Context) {
     private val pcmVictory by lazy { generateFanfare(durationSec = 0.50f) }
     private val pcmBuySuccess by lazy { generateChime(freq1 = 660f, freq2 = 880f, freq3 = 1320f, durationSec = 0.28f) }
     private val pcmStartupMelody by lazy { generateStartupMelody() }
+    private val pcmPowerUp by lazy { generateChime(freq1 = 523f, freq2 = 659f, freq3 = 1046f, durationSec = 0.35f) }
+    private val pcmShieldShatter by lazy { generateShieldShatterTone() }
+    private val pcmMagnetHum by lazy { generateTone(freq = 440f, durationSec = 0.12f, decayRate = 18f) }
 
     init {
         initAudioEngines()
@@ -119,6 +122,9 @@ class SoundManager(private val context: Context) {
                 registerSound("victory", pcmVictory)
                 registerSound("buy_success", pcmBuySuccess)
                 registerSound("startup", pcmStartupMelody)
+                registerSound("powerup", pcmPowerUp)
+                registerSound("shield_shatter", pcmShieldShatter)
+                registerSound("magnet_hum", pcmMagnetHum)
 
             } catch (t: Throwable) {
                 Log.w("SoundManager", "SoundPool initialization error", t)
@@ -286,6 +292,9 @@ class SoundManager(private val context: Context) {
     fun playBuyGemsSuccess() = play("buy_success", pcmBuySuccess, volume = 0.95f)
     fun playComboStreak() = play("perfect", pcmPerfect, volume = 0.95f)
     fun playStartupMelody() = play("startup", pcmStartupMelody, volume = 0.90f)
+    fun playPowerUpPickup() = play("powerup", pcmPowerUp, volume = 1.00f)
+    fun playShieldShatter() = play("shield_shatter", pcmShieldShatter, volume = 1.00f, priority = 8)
+    fun playMagnetAttract() = play("magnet_hum", pcmMagnetHum, volume = 0.65f)
 
     fun release() {
         try {
@@ -674,6 +683,44 @@ class SoundManager(private val context: Context) {
             }
             val scale = (27000f / maxPeak).coerceAtMost(28000f)
 
+            for (i in 0 until totalSamples) {
+                pcmSamples[i] = (floatBuffer[i] * scale).toInt().coerceIn(-32767, 32767).toShort()
+            }
+            return pcmSamples
+        }
+
+        private fun generateShieldShatterTone(durationSec: Float = 0.40f): ShortArray {
+            val totalSamples = (SAMPLE_RATE * durationSec).toInt()
+            val floatBuffer = FloatArray(totalSamples)
+            var phase1 = 0.0
+            var phase2 = 0.0
+
+            for (i in 0 until totalSamples) {
+                val t = i.toFloat() / SAMPLE_RATE
+                val p = t / durationSec
+
+                // Electric glass/forcefield burst frequencies: 1800 Hz down to 320 Hz with noise burst
+                val freq1 = (1800f * (1f - p * 0.7f)).coerceAtLeast(200f)
+                val freq2 = (950f * (1f - p * 0.85f)).coerceAtLeast(140f)
+
+                phase1 += 2.0 * PI * freq1 / SAMPLE_RATE
+                phase2 += 2.0 * PI * freq2 / SAMPLE_RATE
+
+                val attack = (t / 0.008f).coerceIn(0f, 1f)
+                val decay = exp(-7.5f * t)
+                val electricNoise = (((i * 17) % 43) - 21) / 40f
+
+                val tone = (sin(phase1) * 0.60 + sin(phase2) * 0.35 + electricNoise * 0.25).toFloat()
+                floatBuffer[i] = tone * attack * decay * 0.95f
+            }
+
+            val pcmSamples = ShortArray(totalSamples)
+            var maxPeak = 0.001f
+            for (v in floatBuffer) {
+                val absV = kotlin.math.abs(v)
+                if (absV > maxPeak) maxPeak = absV
+            }
+            val scale = (27000f / maxPeak).coerceAtMost(28000f)
             for (i in 0 until totalSamples) {
                 pcmSamples[i] = (floatBuffer[i] * scale).toInt().coerceIn(-32767, 32767).toShort()
             }

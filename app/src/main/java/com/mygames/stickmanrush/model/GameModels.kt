@@ -304,6 +304,7 @@ data class PlatformData(
     val hasRedDot: Boolean = true,
     var heightOffset: Float = 0f, // Dynamic height variation (negative = higher cliff, positive = lower step)
     var gem: GemData? = null,
+    var powerUp: PowerUpItem? = null,
     var obstacle: ObstacleData? = null,
     var isMoving: Boolean = false,
     var moveAmplitude: Float = 0f,
@@ -312,6 +313,58 @@ data class PlatformData(
     var baseLeftX: Float = 0f,
     var baseHeightOffset: Float = 0f,
     var moveVertical: Boolean = false
+)
+
+enum class PowerUpType(
+    val title: String,
+    val symbolEmoji: String,
+    val description: String,
+    val durationSeconds: Float,
+    val primaryColorHex: Long,
+    val secondaryColorHex: Long
+) {
+    MAGNET(
+        title = "Magnet",
+        symbolEmoji = "🧲",
+        description = "Attracts all gems across the bridge directly to you!",
+        durationSeconds = 14f,
+        primaryColorHex = 0xFFEF4444,
+        secondaryColorHex = 0xFF38BDF8
+    ),
+    INVINCIBILITY_SHIELD(
+        title = "Aegis Shield",
+        symbolEmoji = "🛡️",
+        description = "Energy barrier that absorbs 1 fatal hazard or projectile collision per run!",
+        durationSeconds = 0f, // 1-hit charge / persists until hit
+        primaryColorHex = 0xFF38BDF8,
+        secondaryColorHex = 0xFF818CF8
+    ),
+    GEM_DOUBLER(
+        title = "2X Gem Multiplier",
+        symbolEmoji = "✨",
+        description = "Multiplies all collected gems by 2x!",
+        durationSeconds = 15f,
+        primaryColorHex = 0xFFFFD700,
+        secondaryColorHex = 0xFFF59E0B
+    ),
+    SLOW_MOTION(
+        title = "Chrono Slow-Mo",
+        symbolEmoji = "⏱️",
+        description = "Slows bridge descent for easy precision bullseye landing!",
+        durationSeconds = 12f,
+        primaryColorHex = 0xFF10B981,
+        secondaryColorHex = 0xFF059669
+    )
+}
+
+data class PowerUpItem(
+    val id: Long,
+    var x: Float,
+    var y: Float = 0f,
+    val type: PowerUpType,
+    val isUnderBridge: Boolean = false,
+    var collected: Boolean = false,
+    var floatOffset: Float = 0f
 )
 
 data class GemData(

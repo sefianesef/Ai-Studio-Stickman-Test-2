@@ -1751,7 +1751,7 @@ fun GameOverDialog(
 }
 
 @Composable
-fun ShopDialog(
+private fun LegacyShopDialog(
     viewModel: GameViewModel,
     modifier: Modifier = Modifier
 ) {
