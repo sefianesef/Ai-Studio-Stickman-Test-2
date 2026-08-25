@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Stickman Rush</string>
+    <string name="play">Jogar</string>
+    <string name="game_over">Fim de Jogo</string>
+    <string name="score">Pontuação: %1$d</string>
+    <string name="best_score">Melhor: %1$d</string>
+    <string name="gems">Gemas</string>
+    <string name="revive">Reviver</string>
+    <string name="double_gems">2x Gemas (Ver Anúncio)</string>
+    <string name="shop">Loja</string>
+    <string name="settings">Configurações</string>
+    <string name="app_description">Stickman Rush: O melhor jogo de corrida de física e pontes. Estique pontes, acerte alvos perfeitos, colete gemas raras e desbloqueie heróis lendários.</string>
+    <string name="seo_category">Corredor de Física Arcade</string>
+    <string name="seo_keywords">stickman rush, herói da ponte, stick hero, corredor de física, arcade stickman, precisão</string>
+</resources>

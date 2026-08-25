@@ -1,5 +1,14 @@
 <resources>
     <string name="app_name">Stickman Rush</string>
+    <string name="play">Play</string>
+    <string name="game_over">Game Over</string>
+    <string name="score">Score: %1$d</string>
+    <string name="best_score">Best: %1$d</string>
+    <string name="gems">Gems</string>
+    <string name="revive">Revive</string>
+    <string name="double_gems">2x Gems (Watch Ad)</string>
+    <string name="shop">Shop</string>
+    <string name="settings">Settings</string>
     <string name="app_description">Stickman Rush: Ultimate Physics Bridge Runner. The fast-paced precision bridge-building runner game. Stretch sticks, perfect bullseye crossings, collect rare gems, and unlock legendary heroes.</string>
     <string name="seo_category">Arcade Physics Runner</string>
     <string name="seo_keywords">stickman rush, bridge hero, stick hero, physics runner, stickman arcade, precision timing</string>

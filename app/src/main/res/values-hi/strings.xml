@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Stickman Rush</string>
+    <string name="play">खेलें</string>
+    <string name="game_over">खेल समाप्त</string>
+    <string name="score">स्कोर: %1$d</string>
+    <string name="best_score">सर्वश्रेष्ठ: %1$d</string>
+    <string name="gems">रत्न</string>
+    <string name="revive">पुनर्जीवित करें</string>
+    <string name="double_gems">2x रत्न (विज्ञापन देखें)</string>
+    <string name="shop">दुकान</string>
+    <string name="settings">सेटिंग्स</string>
+    <string name="app_description">स्टिकमैन रश: अल्टीमेट फिजिक्स ब्रिज रनर। पुल बनाएं, सटीक निशान लगाएं, दुर्लभ रत्न इकट्ठा करें और नए हीरो अनलॉक करें।</string>
+    <string name="seo_category">आर्केड फिजिक्स रनर</string>
+    <string name="seo_keywords">stickman rush, stick hero, bridge runner, physics game, arcade</string>
+</resources>
