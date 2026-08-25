@@ -2,6 +2,7 @@ package com.mygames.stickmanrush.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.mygames.stickmanrush.ads.AdFrequencyManager
 import com.mygames.stickmanrush.data.local.AppDatabase
 import com.mygames.stickmanrush.data.local.entity.DailyMissionEntity
 import com.mygames.stickmanrush.data.local.entity.PlayerProfileEntity
@@ -1939,13 +1940,28 @@ class GameRepository(
         val now = System.currentTimeMillis()
         _lastRewardedAdTime.value = now
         prefs.edit().putLong("LAST_REWARDED_AD_TIME", now).apply()
+        // Notify AdFrequencyManager for 120s grace period and attempt reset
+        AdFrequencyManager.getInstance().onRewardedAdCompleted()
     }
 
-    fun canShowForcedInterstitial(): Boolean {
-        val attempts = _levelAttemptsCount.value
-        val timeSinceRewarded = System.currentTimeMillis() - _lastRewardedAdTime.value
-        // Show max 1 interstitial every 3-4 attempts, and NEVER if player recently watched a rewarded ad within 2 minutes (120s)
-        return (attempts > 0 && attempts % 4 == 0) && (timeSinceRewarded > 120_000L)
+    fun isNoAdsPurchased(): Boolean {
+        return isItemUnlocked("no_ads_forever") || isItemUnlocked("vip_season_pass")
+    }
+
+    fun canShowForcedInterstitial(currentLevel: Int = _highestUnlockedLevel.value): Boolean {
+        return AdFrequencyManager.getInstance().canShowInterstitial(
+            currentLevel = currentLevel,
+            hasNoAdsPurchased = isNoAdsPurchased()
+        )
+    }
+
+    fun handleLevelEndAdPacing(currentLevel: Int, triggerInterstitial: () -> Unit) {
+        recordLevelAttempt()
+        AdFrequencyManager.getInstance().handleLevelEnd(
+            currentLevel = currentLevel,
+            hasNoAdsPurchased = isNoAdsPurchased(),
+            triggerInterstitial = triggerInterstitial
+        )
     }
 
     fun getDailyRewardedSpinsRemaining(): Int {

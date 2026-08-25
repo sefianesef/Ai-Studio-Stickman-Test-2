@@ -381,6 +381,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun acceptSecondChanceRevive() {
         engine.acceptSecondChanceRevive(isRewardedAd = true)
+        repository.recordRewardedAdWatched()
         soundManager.playVictoryMusic()
         hapticManager.levelUp()
     }
@@ -391,6 +392,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun rentItemForTestDrive(item: AccessoryItem) {
         repository.rentItemForTestDrive(item, 3)
+        repository.recordRewardedAdWatched()
         soundManager.playBuyGemsSuccess()
         soundManager.playVictoryMusic()
         hapticManager.levelUp()
