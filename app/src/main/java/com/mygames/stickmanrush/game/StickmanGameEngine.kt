@@ -109,6 +109,9 @@ class StickmanGameEngine(
     private val _activeBossState = MutableStateFlow<BossState?>(null)
     val activeBossState: StateFlow<BossState?> = _activeBossState.asStateFlow()
 
+    private val _currentWindDrift = MutableStateFlow(0f)
+    val currentWindDrift: StateFlow<Float> = _currentWindDrift.asStateFlow()
+
     fun getReviveCost(): Int {
         return when (_revivalsUsed.value) {
             0 -> 5
@@ -355,9 +358,6 @@ class StickmanGameEngine(
         hapticManager?.gameOver()
         _gameState.value = GameState.DROPPING_FAIL
     }
-
-    private val _currentWindDrift = MutableStateFlow(0f)
-    val currentWindDrift: StateFlow<Float> = _currentWindDrift.asStateFlow()
 
     /**
      * Procedurally generates the next platform using DifficultyManager.
