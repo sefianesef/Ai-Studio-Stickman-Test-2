@@ -197,8 +197,8 @@ private fun DrawScope.drawGameBackground(engine: StickmanGameEngine, stage: Stag
 
     // 3. Celestial Body / Sky Phenomenon (Parallax: 0.04x)
     val celestialWrapW = screenW + 200f
-    val baseCelestialX = (screenW * 0.82f - parallax * 0.04f).mod(celestialWrapW) - 50f
-    val celestialY = screenH * 0.20f
+    val baseCelestialX = (screenW * 0.28f - parallax * 0.04f).mod(celestialWrapW) - 50f
+    val celestialY = screenH * 0.42f
 
     when (stage.celestialType) {
         CelestialType.MOON -> {

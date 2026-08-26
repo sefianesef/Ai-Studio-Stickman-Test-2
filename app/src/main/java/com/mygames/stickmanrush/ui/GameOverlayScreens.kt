@@ -11,6 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -1733,9 +1735,11 @@ fun GameOverDialog(
                 .testTag("game_over_dialog")
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Header
                 Text(
@@ -2029,12 +2033,13 @@ fun GameOverDialog(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFA855F7)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA855F7)),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(48.dp)
                             .testTag("game_over_theme_button")
                     ) {
-                        Text(text = "🎨 Theme", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text(text = "🎨 Theme", fontWeight = FontWeight.Bold, fontSize = 10.sp, maxLines = 1)
                     }
 
                     OutlinedButton(
@@ -2042,12 +2047,13 @@ fun GameOverDialog(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFBBF24)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFBBF24)),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(48.dp)
                             .testTag("game_over_leaderboard_button")
                     ) {
-                        Text(text = "🏆 Rank", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text(text = "🏆 Rank", fontWeight = FontWeight.Bold, fontSize = 10.sp, maxLines = 1)
                     }
 
                     OutlinedButton(
@@ -2055,12 +2061,13 @@ fun GameOverDialog(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(48.dp)
                             .testTag("game_over_shop_button")
                     ) {
-                        Text(text = "🥋 Shop", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text(text = "🥋 Shop", fontWeight = FontWeight.Bold, fontSize = 10.sp, maxLines = 1)
                     }
 
                     OutlinedButton(
@@ -2068,12 +2075,13 @@ fun GameOverDialog(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(48.dp)
                             .testTag("game_over_home_button")
                     ) {
-                        Text(text = "🏠 Menu", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Text(text = "🏠 Menu", fontWeight = FontWeight.Bold, fontSize = 10.sp, maxLines = 1)
                     }
                 }
             }
