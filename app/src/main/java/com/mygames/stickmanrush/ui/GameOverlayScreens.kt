@@ -87,6 +87,8 @@ fun GameHud(
     val gameState by viewModel.engine.gameState.collectAsState()
     val dailyMissions by viewModel.dailyMissions.collectAsState()
     val uncompletedClaimableCount = dailyMissions.count { it.currentProgress >= it.targetCount && !it.isClaimed }
+    val firestoreWoodPlanks by viewModel.firestoreWoodPlanks.collectAsState()
+    val firestoreCoins by viewModel.firestoreCoins.collectAsState()
 
     if (gameState == GameState.START) return
 
@@ -98,13 +100,13 @@ fun GameHud(
                 .padding(horizontal = 12.dp, vertical = 8.dp)
                 .align(Alignment.TopCenter)
         ) {
-            // TOP BAR: Left (Gems + Lives) | Center (Level & Stage) | Right (Daily/Weekly + Action Menu & Pause)
+            // TOP BAR: Left (Gems + Planks + Lives) | Center (Level & Stage) | Right (Daily/Weekly + Action Menu & Pause)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // LEFT SIDE: Gem Counter & Dynamic Lives Counter (clickable to open Life Shop)
+            // LEFT SIDE: Gem Counter & Wood Planks & Lives Counter
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -130,6 +132,31 @@ fun GameHud(
                             color = Color(0xFF38BDF8),
                             fontWeight = FontWeight.Black,
                             fontSize = 13.sp
+                        )
+                    }
+                }
+
+                // 🪵 WOOD PLANKS (Firebase Inventory slot_1)
+                Surface(
+                    onClick = { viewModel.addWoodPlanks(3) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xDD2D1810),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFB45309)),
+                    modifier = Modifier
+                        .shadow(4.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFFB45309))
+                        .testTag("hud_wood_planks_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "🪵", fontSize = 13.sp)
+                        Text(
+                            text = "$firestoreWoodPlanks",
+                            color = Color(0xFFFDE68A),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp
                         )
                     }
                 }
@@ -560,6 +587,9 @@ fun StartScreenOverlay(
     val highestUnlockedLevel by viewModel.highestUnlockedLevel.collectAsState()
     val currentStreak by viewModel.currentStreak.collectAsState()
     val isDailyRewardAvailable by viewModel.isDailyRewardAvailable.collectAsState()
+    val firestoreWoodPlanks by viewModel.firestoreWoodPlanks.collectAsState()
+    val firestoreCoins by viewModel.firestoreCoins.collectAsState()
+    val firestoreIsSynced by viewModel.firestoreIsSynced.collectAsState()
 
     // Play pleasant startup welcome melody when start screen first mounts
     LaunchedEffect(Unit) {
@@ -652,6 +682,29 @@ fun StartScreenOverlay(
                                 modifier = Modifier
                                     .background(Color(0xFF047857), CircleShape)
                                     .padding(horizontal = 4.dp)
+                            )
+                        }
+                    }
+
+                    // 🪵 Wood Planks (Firestore inventory/slot_1)
+                    Surface(
+                        onClick = { viewModel.addWoodPlanks(3) },
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xDD2D1810),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFB45309)),
+                        modifier = Modifier.testTag("start_wood_planks_pill")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "🪵", fontSize = 13.sp)
+                            Text(
+                                text = "$firestoreWoodPlanks",
+                                color = Color(0xFFFDE68A),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp
                             )
                         }
                     }
@@ -1584,6 +1637,8 @@ fun GameOverDialog(
     val revivalsUsed by viewModel.engine.revivalsUsed.collectAsState()
     val reviveCost = viewModel.engine.getReviveCost()
     val canAffordRevive = totalGems >= reviveCost
+    val firestoreWoodPlanks by viewModel.firestoreWoodPlanks.collectAsState()
+    val firestoreCoins by viewModel.firestoreCoins.collectAsState()
 
     // Urgency countdown timer for second chance loss aversion
     var countdownSeconds by remember { mutableIntStateOf(7) }
@@ -1714,10 +1769,45 @@ fun GameOverDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Best High Score", color = Color(0xFF94A3B8), fontSize = 15.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    "$highScore",
+                                    color = Color(0xFFFBBF24),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text("☁️", fontSize = 12.sp)
+                            }
+                        }
+
+                        Divider(color = Color(0xFF334155))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Wood Planks Left", color = Color(0xFF94A3B8), fontSize = 15.sp)
                             Text(
-                                "$highScore",
-                                color = Color(0xFFFBBF24),
-                                fontSize = 20.sp,
+                                "$firestoreWoodPlanks 🪵",
+                                color = Color(0xFFFDE68A),
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Divider(color = Color(0xFF334155))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Firestore Coins", color = Color(0xFF94A3B8), fontSize = 15.sp)
+                            Text(
+                                "$firestoreCoins 🪙",
+                                color = Color(0xFFFEF08A),
+                                fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }

@@ -43,12 +43,20 @@ class GameRepository(
     context: Context,
     private val database: AppDatabase = AppDatabase.getDatabase(context),
     val serverAuthority: IServerCurrencyAuthority = CloudBackendCurrencyAuthority(context),
-    val cloudWalletService: FirebaseCloudWalletService = FirebaseCloudWalletService(context)
+    val cloudWalletService: FirebaseCloudWalletService = FirebaseCloudWalletService(context),
+    val firestorePlayerManager: FirestorePlayerManager = FirestorePlayerManager(context)
 ) : CurrencyRepository {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val playerProfileDao = database.playerProfileDao()
     private val inventoryDao = database.inventoryDao()
     private val dailyMissionDao = database.dailyMissionDao()
+
+    // Realtime Firestore Properties
+    val firestoreCoins: StateFlow<Int> = firestorePlayerManager.coins
+    val firestoreWoodPlanks: StateFlow<Int> = firestorePlayerManager.woodPlanks
+    val firestoreHighScore: StateFlow<Int> = firestorePlayerManager.highScore
+    val firestoreIsSynced: StateFlow<Boolean> = firestorePlayerManager.isCloudSynced
+    val firestoreSyncStatus: StateFlow<String> = firestorePlayerManager.syncStatusMessage
 
     private val prefs: SharedPreferences =
         EncryptedSaveStorage.createEncryptedSharedPreferences(context).also { securePrefs ->
@@ -1629,6 +1637,9 @@ class GameRepository(
     }
 
     fun updateHighScore(score: Int): Boolean {
+        // Sync to Firebase Firestore players/{playerId} document
+        firestorePlayerManager.updateHighScore(score)
+
         if (score > _highScore.value) {
             _highScore.value = score
             prefs.edit().putInt(KEY_HIGH_SCORE, score).apply()
@@ -1640,7 +1651,18 @@ class GameRepository(
         return false
     }
 
+    fun consumeWoodPlank(amount: Int = 1) {
+        firestorePlayerManager.consumeWoodPlank(amount)
+    }
+
+    fun addWoodPlanks(amount: Int) {
+        firestorePlayerManager.addWoodPlanks(amount)
+    }
+
     fun recordBridgeBuilt() {
+        // Deduct 1 wood plank from Firebase inventory/slot_1 on bridge construction
+        consumeWoodPlank(1)
+
         val current = prefs.getInt(KEY_TOTAL_BRIDGES, 0)
         prefs.edit().putInt(KEY_TOTAL_BRIDGES, current + 1).apply()
         scope.launch {

@@ -470,7 +470,7 @@ class StickmanGameEngine(
         when (_gameState.value) {
             GameState.START, GameState.IDLE -> {
                 soundManager.playButton()
-                hapticManager?.uiClick()
+                hapticManager?.bridgeGrowStart()
                 stickLength = 0f
                 bridgeAngle = 0f
                 bridgeAngularVel = 0f
@@ -511,6 +511,7 @@ class StickmanGameEngine(
             if (stickLength > 10f) {
                 _gameState.value = GameState.FALLING_BRIDGE
                 bridgeAngularVel = 0f
+                hapticManager?.bridgeRelease()
 
                 // Pre-evaluate landing result to determine target landing angle (incline or decline)
                 val tier = difficultyManager.getTier(_score.value)
@@ -725,10 +726,12 @@ class StickmanGameEngine(
                 stickLength += speed * clampedDt
 
                 // Sound & haptic ticks
-                if ((stickLength / 22f).toInt() > (prevLength / 22f).toInt()) {
+                val tickStep = 20f
+                if ((stickLength / tickStep).toInt() > (prevLength / tickStep).toInt()) {
                     growTickCounter++
                     soundManager.playGrowTick(growTickCounter)
-                    hapticManager?.tick(tier.tierLevel)
+                    val stretchRatio = (stickLength / screenWidth.coerceAtLeast(300f)).coerceIn(0f, 1f)
+                    hapticManager?.triggerBridgeExtend(stretchRatio = stretchRatio, tierLevel = tier.tierLevel)
 
                     // Themed sparks at the growing bridge tip
                     if (particles.size < 80) {
@@ -762,7 +765,6 @@ class StickmanGameEngine(
                     bridgeImpactTime = 0f
 
                     soundManager.playBridgePlaced()
-                    hapticManager?.bridgePlaced(tier.tierLevel)
 
                     isSuccessfulLanding = landingResult.isSuccessful
                     isPerfectHit = landingResult.isBullseye
@@ -770,6 +772,22 @@ class StickmanGameEngine(
                     targetBridgeTipX = landingResult.bridgeTipX
                     bridgeLandingSlope = landingResult.landingSlopeAngle
                     _lastNearMiss.value = landingResult.nearMiss
+
+                    // Trigger tactile bridge landing vibration
+                    if (landingResult.isSuccessful) {
+                        hapticManager?.triggerLandingSuccess(
+                            tierLevel = tier.tierLevel,
+                            isBullseye = landingResult.isBullseye,
+                            isElevated = nextPlatform.heightOffset != currentPlatform.heightOffset,
+                            isNearMiss = landingResult.nearMiss != null
+                        )
+                    } else {
+                        if (landingResult.nearMiss != null) {
+                            hapticManager?.nearMiss()
+                        } else {
+                            hapticManager?.bridgeFail()
+                        }
+                    }
 
                     if (landingResult.isSuccessful) {
                         val impactY = floorY + nextPlatform.heightOffset
@@ -803,7 +821,6 @@ class StickmanGameEngine(
 
                         if (landingResult.isBullseye) {
                             soundManager.playPerfectHit()
-                            hapticManager?.perfectHit(tier.tierLevel)
                             repository.recordPerfectHit()
                             repository.trackMissionProgress("PERFECT_HITS", 1)
                             repository.trackWeeklyMissionProgress("PERFECT_HITS", 1)
@@ -823,7 +840,6 @@ class StickmanGameEngine(
                         _gameState.value = GameState.WALKING
                     } else {
                         landingResult.nearMiss?.let { nearMiss ->
-                            hapticManager?.nearMiss()
                             addFloatingText(
                                 nearMiss.message,
                                 landingResult.bridgeTipX,
@@ -858,7 +874,7 @@ class StickmanGameEngine(
                         jumpVelocityY = 0f
                         jumpRotation = 0f
                         soundManager.playStickmanLand()
-                        hapticManager?.uiClick()
+                        hapticManager?.jumpLanding()
                         spawnFootstepDust(stickmanX, stickmanY)
                     }
                 }
@@ -1363,6 +1379,9 @@ class StickmanGameEngine(
                 if (fallElapsedTime >= 2.40f && stickmanY > screenHeight + 50f) {
                     // Deduct 1 life when stickman falls via persistent repository
                     repository.consumeLife()
+
+                    // Authoritative High Score sync to Firestore and local Room DB
+                    repository.updateHighScore(_score.value)
 
                     // Psychology: Provocative challenge failure dialog on fail
                     val lvl = _currentLevel.value

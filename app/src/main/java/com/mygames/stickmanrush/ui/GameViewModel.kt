@@ -251,6 +251,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val particleQualityUltra: StateFlow<Boolean> = repository.particleQualityUltra
     val screenShakeEnabled: StateFlow<Boolean> = repository.screenShakeEnabled
 
+    // 🔥 Firebase Firestore Live Synchronized States
+    val firestoreCoins: StateFlow<Int> = repository.firestoreCoins
+    val firestoreWoodPlanks: StateFlow<Int> = repository.firestoreWoodPlanks
+    val firestoreHighScore: StateFlow<Int> = repository.firestoreHighScore
+    val firestoreIsSynced: StateFlow<Boolean> = repository.firestoreIsSynced
+    val firestoreSyncStatus: StateFlow<String> = repository.firestoreSyncStatus
+
+    fun consumeWoodPlank(amount: Int = 1) {
+        repository.consumeWoodPlank(amount)
+    }
+
+    fun addWoodPlanks(amount: Int) {
+        repository.addWoodPlanks(amount)
+    }
+
     fun getUnlockedCheckpoints(): List<Int> = repository.getUnlockedCheckpoints()
 
     fun startGameFromCheckpoint(level: Int) {
