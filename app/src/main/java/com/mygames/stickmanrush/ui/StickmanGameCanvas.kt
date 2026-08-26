@@ -195,14 +195,13 @@ private fun DrawScope.drawGameBackground(engine: StickmanGameEngine, stage: Stag
         )
     }
 
-    // 3. Celestial Body / Sky Phenomenon (Parallax: 0.04x)
-    val celestialWrapW = screenW + 200f
-    val baseCelestialX = (screenW * 0.28f - parallax * 0.04f).mod(celestialWrapW) - 50f
-    val celestialY = screenH * 0.42f
+    // 3. Celestial Body / Sky Phenomenon (Safely positioned in left-center sky, clamped away from top-right header)
+    val baseCelestialX = (screenW * 0.22f - parallax * 0.015f).coerceIn(60f, screenW * 0.42f)
+    val celestialY = screenH * 0.22f
 
     when (stage.celestialType) {
         CelestialType.MOON -> {
-            // Glowing Moon with Crater Depth
+            // Glowing Moon (Clean, no overlapping dark crater shadow)
             drawCircle(
                 color = Color(0x25FFFFFF),
                 radius = 48.dp.toPx(),
@@ -212,12 +211,6 @@ private fun DrawScope.drawGameBackground(engine: StickmanGameEngine, stage: Stag
                 color = Color(0xFFF1F5F9),
                 radius = 34.dp.toPx(),
                 center = Offset(baseCelestialX, celestialY)
-            )
-            // Moon crater shadow
-            drawCircle(
-                color = stage.bgTopColor.copy(alpha = 0.88f),
-                radius = 28.dp.toPx(),
-                center = Offset(baseCelestialX - 10.dp.toPx(), celestialY - 6.dp.toPx())
             )
         }
         CelestialType.SUN -> {
