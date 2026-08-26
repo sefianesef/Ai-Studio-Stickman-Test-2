@@ -42,15 +42,25 @@ class GameLoop(
         accumulator += frameTimeSeconds
 
         // Fixed timestep sub-steps for determinism
+        val maxStepsPerFrame = 4
         var steps = 0
-        while (accumulator >= fixedDeltaSeconds && steps < 4) {
+        while (accumulator >= fixedDeltaSeconds && steps < maxStepsPerFrame) {
             onTick(fixedDeltaSeconds)
             accumulator -= fixedDeltaSeconds
             steps++
         }
 
-        // Remainder step if sub-stepping finished
-        if (steps == 0 && accumulator > 0.001f) {
+        // Accumulator clamp — after the fixed-step loop, if the backlog still
+        // exceeds 4 × fixedDeltaSeconds, it's dropped instead of carried forward.
+        // This is what stops the spiral.
+        val maxAccumulator = fixedDeltaSeconds * maxStepsPerFrame
+        if (accumulator > maxAccumulator) {
+            accumulator = maxAccumulator
+        }
+
+        // Remainder step always runs — it now fires whenever there's leftover time,
+        // not just when steps == 0. This keeps motion smooth at odd frame rates.
+        if (accumulator > 0.001f) {
             onTick(accumulator)
             accumulator = 0f
         }
