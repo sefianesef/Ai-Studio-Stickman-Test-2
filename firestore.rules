@@ -11,45 +11,77 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isValidGemData(data) {
+    function isValidWalletData(data) {
       return data.gems is int && data.gems >= 0 &&
-             data.redGems is int && data.redGems >= 0;
+             data.redGems is int && data.redGems >= 0 &&
+             data.coins is int && data.coins >= 0;
     }
 
-    // 1. User Profiles & Cloud Wallet Document
+    // Strict validation for user profile / wallet updates:
+    // - Removes loose continuous client-write (Case B +5 gems every 2s).
+    // - Enforces session-based match-end sync with bounded gain delta and anti-spam cooldown.
+    function validateUserUpdate(requestData, resourceData) {
+      return isValidWalletData(requestData) &&
+             requestData.isCheaterFlagged == resourceData.isCheaterFlagged &&
+             (
+               // Case A: Spending gems/coins or inventory purchase (balance decreases or stays equal)
+               (requestData.gems <= resourceData.gems &&
+                requestData.redGems <= resourceData.redGems &&
+                requestData.coins <= resourceData.coins) ||
+               // Case B: Match-End / Session-Based Sync reward increment (bounded delta <= 50 gems & 20s cooldown)
+               (requestData.gems - resourceData.gems > 0 &&
+                requestData.gems - resourceData.gems <= 50 &&
+                request.time > resourceData.lastUpdated + duration.value(20, 's'))
+             );
+    }
+
+    // 1. User Profiles & Cloud Wallet Document (users collection)
     match /users/{userId} {
-      // Players can read their own cloud wallet & profile data
       allow read: if isOwner(userId);
 
-      // Initial account creation with starting balance (default 0 or tutorial bonus)
       allow create: if isOwner(userId) &&
-                       isValidGemData(request.resource.data) &&
+                       isValidWalletData(request.resource.data) &&
                        request.resource.data.gems <= 100 &&
                        request.resource.data.isCheaterFlagged == false;
 
-      // Updating wallet balance:
-      // - Direct unauthorized client increments of gems are STRICTLY FORBIDDEN to prevent local phone hacks.
-      // - Decrements (spending gems for shop items) are allowed if the balance stays >= 0.
-      // - Credits from verified IAP / Cloud Functions / Server Authority are permitted.
       allow update: if isOwner(userId) &&
-                       isValidGemData(request.resource.data) &&
-                       request.resource.data.isCheaterFlagged == resource.data.isCheaterFlagged &&
-                       (
-                         // Case A: Spending gems (balance decreases)
-                         (request.resource.data.gems <= resource.data.gems &&
-                          request.resource.data.redGems <= resource.data.redGems) ||
-                         // Case B: In-run authorized delta ceiling (max 1-2 gems per bridge)
-                         (request.resource.data.gems - resource.data.gems <= 5 &&
-                          request.time > resource.data.lastUpdated + duration.value(2, 's'))
-                       );
+                       validateUserUpdate(request.resource.data, resource.data);
 
-      // Disallow client-side account deletion of audit trails
       allow delete: if false;
 
-      // 2. Cloud Transaction Audit Subcollection
       match /transactions/{txId} {
         allow read: if isOwner(userId);
-        // Only append-only logs with server timestamps allowed
+        allow create: if isOwner(userId) &&
+                         request.resource.data.amount is int &&
+                         request.resource.data.timestamp == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    // 2. Player Profiles & Cloud Wallet Document (players collection)
+    match /players/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidWalletData(request.resource.data) &&
+                       request.resource.data.gems <= 100 &&
+                       request.resource.data.isCheaterFlagged == false;
+
+      allow update: if isOwner(userId) &&
+                       validateUserUpdate(request.resource.data, resource.data);
+
+      allow delete: if false;
+
+      match /inventory/{slotId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) &&
+                                 request.resource.data.quantity is int &&
+                                 request.resource.data.quantity >= 0;
+        allow delete: if false;
+      }
+
+      match /transactions/{txId} {
+        allow read: if isOwner(userId);
         allow create: if isOwner(userId) &&
                          request.resource.data.amount is int &&
                          request.resource.data.timestamp == request.time;
@@ -61,11 +93,11 @@ service cloud.firestore {
     match /leaderboard/{entryId} {
       allow read: if true;
       allow create, update: if isAuthenticated() &&
-                               request.resource.data.userId == request.auth.uid &&
-                               request.resource.data.score is int &&
-                               request.resource.data.score >= 0 &&
-                               request.resource.data.score <= 10000 &&
-                               request.resource.data.isCheater == false;
+                                request.resource.data.userId == request.auth.uid &&
+                                request.resource.data.score is int &&
+                                request.resource.data.score >= 0 &&
+                                request.resource.data.score <= 10000 &&
+                                request.resource.data.isCheater == false;
       allow delete: if false;
     }
   }
