@@ -141,6 +141,29 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isThemeSelectorOpen = MutableStateFlow(false)
     val isThemeSelectorOpen: StateFlow<Boolean> = _isThemeSelectorOpen.asStateFlow()
 
+    private val _isNicknameSetupOpen = MutableStateFlow(false)
+    val isNicknameSetupOpen: StateFlow<Boolean> = _isNicknameSetupOpen.asStateFlow()
+
+    val nickname: StateFlow<String> = repository.firestoreNickname
+
+    val randomStickmanNicknames = listOf(
+        "ShadowBlade", "NeonRunner", "BridgeKing", "SwiftNinja", "ApexSamurai",
+        "CyberDash", "QuantumStick", "StarlightHero", "TurboDash", "PhantomBlade",
+        "ZenMaster", "SolarStick", "VortexRunner", "PixelNinja", "IronBridge"
+    )
+
+    fun openNicknameSetup(open: Boolean) {
+        _isNicknameSetupOpen.value = open
+    }
+
+    fun updateNickname(newName: String) {
+        viewModelScope.launch {
+            repository.updateNickname(newName)
+            soundManager.playBuyGemsSuccess()
+            hapticManager.levelUp()
+        }
+    }
+
     // Pass through engine lives and challenge states
     val lives: StateFlow<Int> = engine.lives
     val maxLives: Int = engine.maxLives

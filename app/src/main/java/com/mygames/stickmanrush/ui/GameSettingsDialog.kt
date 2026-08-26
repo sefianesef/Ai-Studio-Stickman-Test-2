@@ -125,6 +125,55 @@ fun GameSettingsDialog(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Profile & Identity Section
+                    SettingsSectionTitle(title = "PLAYER PROFILE & IDENTITY")
+                    val nickname by viewModel.nickname.collectAsState()
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(text = "🥷", fontSize = 28.sp)
+                                Column {
+                                    Text(
+                                        text = if (nickname.isNotBlank()) nickname else "Choose Nickname",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                    Text(
+                                        text = "Player ID Handle & Cloud Sync",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { viewModel.openNicknameSetup(true) },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                                modifier = Modifier.testTag("settings_edit_nickname_button")
+                            ) {
+                                Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "Edit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
                     // Audio Section
                     SettingsSectionTitle(title = "AUDIO & HAPTICS")
                     SettingsToggleCard(

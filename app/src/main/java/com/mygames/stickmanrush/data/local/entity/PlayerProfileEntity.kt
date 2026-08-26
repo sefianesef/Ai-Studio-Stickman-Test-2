@@ -16,6 +16,7 @@ data class PlayerProfileEntity(
     val selectedScarfId: String = "scarf_gold",
     val selectedStickId: String = "stick_wood",
     val selectedSkinId: String = "skin_white",
+    val nickname: String = "",
     val soundEnabled: Boolean = true,
     val hapticsEnabled: Boolean = true,
     val updatedAt: Long = System.currentTimeMillis()

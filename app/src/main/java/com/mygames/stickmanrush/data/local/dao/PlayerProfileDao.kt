@@ -75,4 +75,7 @@ interface PlayerProfileDao {
 
     @Query("UPDATE player_profile SET hapticsEnabled = :enabled WHERE id = 1")
     suspend fun updateHapticsEnabled(enabled: Boolean)
+
+    @Query("UPDATE player_profile SET nickname = :nickname, updatedAt = :timestamp WHERE id = 1")
+    suspend fun updateNickname(nickname: String, timestamp: Long = System.currentTimeMillis())
 }

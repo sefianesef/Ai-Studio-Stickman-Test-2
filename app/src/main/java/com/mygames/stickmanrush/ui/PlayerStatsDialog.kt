@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -29,6 +31,8 @@ fun PlayerCareerStatsDialog(
     modifier: Modifier = Modifier
 ) {
     val stats = remember { viewModel.getPlayerCareerStats() }
+    val nickname by viewModel.nickname.collectAsState()
+    val playerLevel = 1 + stats.highScore / 50
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -122,30 +126,28 @@ fun PlayerCareerStatsDialog(
                             Text(text = "🥷", fontSize = 36.sp)
                             Column {
                                 Text(
-                                    text = "Stickman Ninja Elite",
+                                    text = if (nickname.isNotBlank()) nickname else "Stickman Ninja Elite",
                                     color = Color.White,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 15.sp
                                 )
                                 Text(
-                                    text = "League: ${stats.league.title} ${stats.league.badgeEmoji}",
+                                    text = "Level $playerLevel • League: ${stats.league.title} ${stats.league.badgeEmoji}",
                                     color = Color(0xFF38BDF8),
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                        Surface(
+                        OutlinedButton(
+                            onClick = { viewModel.openNicknameSetup(true) },
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0x3338BDF8)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                            modifier = Modifier.height(32.dp).testTag("stats_edit_nickname_button")
                         ) {
-                            Text(
-                                text = "ACTIVE",
-                                color = Color(0xFF38BDF8),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
+                            Text(text = "Edit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

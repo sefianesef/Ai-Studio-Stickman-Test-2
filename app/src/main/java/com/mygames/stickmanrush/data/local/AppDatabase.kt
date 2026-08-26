@@ -17,7 +17,7 @@ import com.mygames.stickmanrush.data.local.entity.PurchasedItemEntity
         PurchasedItemEntity::class,
         DailyMissionEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

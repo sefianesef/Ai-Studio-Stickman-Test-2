@@ -62,6 +62,7 @@ class FirestorePlayerManager(private val context: Context) {
         private const val KEY_CACHED_COINS = "cached_firestore_coins"
         private const val KEY_CACHED_HIGH_SCORE = "cached_firestore_high_score"
         private const val KEY_CACHED_PLANKS = "cached_firestore_wood_planks"
+        private const val KEY_CACHED_NICKNAME = "cached_firestore_nickname"
 
         const val COLLECTION_PLAYERS = "players"
         const val SUBCOLLECTION_INVENTORY = "inventory"
@@ -81,6 +82,9 @@ class FirestorePlayerManager(private val context: Context) {
 
     private val _highScore = MutableStateFlow(prefs.getInt(KEY_CACHED_HIGH_SCORE, 0))
     val highScore: StateFlow<Int> = _highScore.asStateFlow()
+
+    private val _nickname = MutableStateFlow(prefs.getString(KEY_CACHED_NICKNAME, "") ?: "")
+    val nickname: StateFlow<String> = _nickname.asStateFlow()
 
     private val _inventorySlots = MutableStateFlow(5)
     val inventorySlots: StateFlow<Int> = _inventorySlots.asStateFlow()
@@ -171,10 +175,15 @@ class FirestorePlayerManager(private val context: Context) {
                     val remoteCoins = snapshot.getLong("coins")?.toInt() ?: _coins.value
                     val remoteHighScore = snapshot.getLong("highScore")?.toInt() ?: _highScore.value
                     val remoteSlots = snapshot.getLong("inventorySlots")?.toInt() ?: 5
+                    val remoteNickname = snapshot.getString("nickname") ?: _nickname.value
 
                     _coins.value = remoteCoins
                     _highScore.value = remoteHighScore
                     _inventorySlots.value = remoteSlots
+                    if (remoteNickname.isNotBlank()) {
+                        _nickname.value = remoteNickname
+                        prefs.edit().putString(KEY_CACHED_NICKNAME, remoteNickname).apply()
+                    }
                     _isCloudSynced.value = true
                     _syncStatusMessage.value = "Cloud Synced (players/$playerId)"
 
@@ -183,7 +192,7 @@ class FirestorePlayerManager(private val context: Context) {
                         .putInt(KEY_CACHED_HIGH_SCORE, remoteHighScore)
                         .apply()
 
-                    Log.d(TAG, "Firestore Player Updated -> Coins: $remoteCoins, HighScore: $remoteHighScore")
+                    Log.d(TAG, "Firestore Player Updated -> Coins: $remoteCoins, HighScore: $remoteHighScore, Nickname: $remoteNickname")
                 } else {
                     // Document does not exist yet; create initial setup
                     scope.launch {
@@ -467,5 +476,30 @@ class FirestorePlayerManager(private val context: Context) {
         inventorySlotListener?.remove()
         playerListener = null
         inventorySlotListener = null
+    }
+
+    fun updateNickname(nickname: String) {
+        if (nickname.isBlank()) return
+        _nickname.value = nickname
+        prefs.edit().putString(KEY_CACHED_NICKNAME, nickname).apply()
+
+        scope.launch {
+            try {
+                if (FirebaseApp.getApps(context).isNotEmpty()) {
+                    val db = FirebaseFirestore.getInstance()
+                    val playerDocRef = db.collection(COLLECTION_PLAYERS).document(activePlayerId)
+                    playerDocRef.set(
+                        mapOf(
+                            "nickname" to nickname,
+                            "updatedAt" to System.currentTimeMillis()
+                        ),
+                        SetOptions.merge()
+                    ).await()
+                    Log.d(TAG, "Successfully updated nickname on Firestore: $nickname")
+                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "Failed to update nickname on Firestore: ${e.message}", e)
+            }
+        }
     }
 }

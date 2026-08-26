@@ -29,6 +29,15 @@ fun StickmanGameScreen(
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
     val isLeaderboardOpen by viewModel.isLeaderboardOpen.collectAsState()
     val isThemeSelectorOpen by viewModel.isThemeSelectorOpen.collectAsState()
+    val nickname by viewModel.nickname.collectAsState()
+    val isNicknameSetupOpen by viewModel.isNicknameSetupOpen.collectAsState()
+
+    // Auto open nickname setup dialog on first launch if nickname is blank
+    LaunchedEffect(nickname) {
+        if (nickname.isBlank()) {
+            viewModel.openNicknameSetup(true)
+        }
+    }
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
     val isRealMoneyShopOpen by viewModel.isRealMoneyShopOpen.collectAsState()
     val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
@@ -234,6 +243,15 @@ fun StickmanGameScreen(
             EnvironmentThemeDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.openThemeSelector(false) }
+            )
+        }
+
+        // 24. Nickname Setup / Edit Dialog
+        if (isNicknameSetupOpen) {
+            NicknameSetupDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openNicknameSetup(false) },
+                isInitialSetup = nickname.isBlank()
             )
         }
     }

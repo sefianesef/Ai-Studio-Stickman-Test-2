@@ -680,15 +680,37 @@ fun StartScreenOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    val nickname by viewModel.nickname.collectAsState()
+                    val playerLevel = 1 + highScore / 50
+
                     Surface(
                         onClick = { viewModel.openPlayerStats(true) },
-                        shape = CircleShape,
+                        shape = RoundedCornerShape(18.dp),
                         color = Color(0xFF1E293B),
-                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
-                        modifier = Modifier.size(38.dp)
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier.testTag("start_profile_pill")
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(text = "🥷", fontSize = 20.sp)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(text = "🥷", fontSize = 16.sp)
+                            Column {
+                                Text(
+                                    text = if (nickname.isNotBlank()) nickname else "Set Nickname",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "Level $playerLevel",
+                                    color = Color(0xFF38BDF8),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                            }
                         }
                     }
 
@@ -7105,6 +7127,139 @@ fun EnvironmentThemeDialog(
                     ) {
                         Text(text = "DONE", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NicknameSetupDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    isInitialSetup: Boolean = false
+) {
+    val currentNickname by viewModel.nickname.collectAsState()
+    var textInput by remember { mutableStateOf(currentNickname) }
+    val isBlank = textInput.isBlank()
+
+    Dialog(
+        onDismissRequest = { if (!isInitialSetup) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !isInitialSetup, dismissOnClickOutside = !isInitialSetup)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight()
+                .shadow(28.dp, RoundedCornerShape(24.dp))
+                .testTag("nickname_setup_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header Icon
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF38BDF8).copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(text = "🥷", fontSize = 28.sp)
+                    }
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "CHOOSE YOUR STICKMAN NICKNAME",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isInitialSetup) "Welcome to Stickman Rush! Set your legendary player handle to begin your journey." else "Update your warrior handle across local storage and cloud leaderboard.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // Input + Random Dice Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = textInput,
+                        onValueChange = { if (it.length <= 16) textInput = it },
+                        placeholder = { Text("e.g. ShadowBlade", color = Color(0xFF64748B)) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF1E293B),
+                            unfocusedContainerColor = Color(0xFF1E293B),
+                            focusedBorderColor = Color(0xFF38BDF8),
+                            unfocusedBorderColor = Color(0xFF334155),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("nickname_input")
+                    )
+
+                    // Dice Randomizer Button
+                    IconButton(
+                        onClick = {
+                            textInput = viewModel.randomStickmanNicknames.random()
+                        },
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(Color(0xFF1E293B), RoundedCornerShape(14.dp))
+                            .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(14.dp))
+                            .testTag("nickname_dice_button")
+                    ) {
+                        Text(text = "🎲", fontSize = 22.sp)
+                    }
+                }
+
+                // Confirm Button
+                Button(
+                    onClick = {
+                        if (textInput.isNotBlank()) {
+                            viewModel.updateNickname(textInput.trim())
+                            onDismiss()
+                        }
+                    },
+                    enabled = !isBlank,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF38BDF8),
+                        disabledContainerColor = Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("nickname_confirm_button")
+                ) {
+                    Text(
+                        text = "CONFIRM NICKNAME",
+                        color = if (!isBlank) Color(0xFF0F172A) else Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 15.sp,
+                        letterSpacing = 1.sp
+                    )
                 }
             }
         }

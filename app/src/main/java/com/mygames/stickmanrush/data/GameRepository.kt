@@ -55,6 +55,7 @@ class GameRepository(
     val firestoreCoins: StateFlow<Int> = firestorePlayerManager.coins
     val firestoreWoodPlanks: StateFlow<Int> = firestorePlayerManager.woodPlanks
     val firestoreHighScore: StateFlow<Int> = firestorePlayerManager.highScore
+    val firestoreNickname: StateFlow<String> = firestorePlayerManager.nickname
     val firestoreIsSynced: StateFlow<Boolean> = firestorePlayerManager.isCloudSynced
     val firestoreSyncStatus: StateFlow<String> = firestorePlayerManager.syncStatusMessage
 
@@ -2482,5 +2483,11 @@ class GameRepository(
         scope.launch {
             playerProfileDao.updateHighScore(0)
         }
+    }
+
+    suspend fun updateNickname(nickname: String) {
+        if (nickname.isBlank()) return
+        playerProfileDao.updateNickname(nickname)
+        firestorePlayerManager.updateNickname(nickname)
     }
 }
