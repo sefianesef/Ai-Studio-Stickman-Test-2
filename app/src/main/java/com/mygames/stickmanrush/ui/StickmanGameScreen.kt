@@ -28,6 +28,7 @@ fun StickmanGameScreen(
     val isPlayerStatsOpen by viewModel.isPlayerStatsOpen.collectAsState()
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
     val isLeaderboardOpen by viewModel.isLeaderboardOpen.collectAsState()
+    val isThemeSelectorOpen by viewModel.isThemeSelectorOpen.collectAsState()
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
     val isRealMoneyShopOpen by viewModel.isRealMoneyShopOpen.collectAsState()
     val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
@@ -225,6 +226,14 @@ fun StickmanGameScreen(
                 progressPercent = secondChanceProgressPercent,
                 onRevive = { viewModel.acceptSecondChanceRevive() },
                 onDecline = { viewModel.declineSecondChanceRevive() }
+            )
+        }
+
+        // 23. Environment Theme & Background Asset Selection Dialog
+        if (isThemeSelectorOpen) {
+            EnvironmentThemeDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.openThemeSelector(false) }
             )
         }
     }

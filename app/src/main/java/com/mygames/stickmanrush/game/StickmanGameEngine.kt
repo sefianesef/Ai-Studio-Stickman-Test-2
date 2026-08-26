@@ -67,6 +67,41 @@ class StickmanGameEngine(
         _activeChallengeDialog.value = null
     }
 
+    fun setStageTheme(stageTheme: StageTheme) {
+        _currentStage.value = stageTheme
+        val themeId = StageThemes.getThemeIdForStage(stageTheme.stageNumber)
+        repository.equip(
+            AccessoryItem(
+                id = themeId,
+                name = stageTheme.name,
+                type = AccessoryType.THEME,
+                cost = 0,
+                primaryColor = stageTheme.platformHighlightColor.value.toLong(),
+                secondaryColor = stageTheme.bgTopColor.value.toLong(),
+                description = stageTheme.ambientDescription,
+                iconSymbol = StageThemes.getThemeIcon(stageTheme)
+            )
+        )
+        soundManager.playButton()
+        hapticManager?.uiClick()
+        addFloatingText(
+            "THEME: ${stageTheme.name.uppercase()}",
+            screenWidth / 2f,
+            screenHeight * 0.35f,
+            stageTheme.platformHighlightColor,
+            scale = 1.25f
+        )
+        spawnConfetti(screenWidth / 2f, screenHeight * 0.38f, count = 20)
+    }
+
+    fun cycleNextTheme() {
+        val allThemes = StageThemes.stages
+        val currentIndex = allThemes.indexOfFirst { it.stageNumber == _currentStage.value.stageNumber }
+        val nextIndex = if (currentIndex == -1 || currentIndex >= allThemes.size - 1) 0 else currentIndex + 1
+        val nextTheme = allThemes[nextIndex]
+        setStageTheme(nextTheme)
+    }
+
     fun addLives(count: Int) {
         repository.addLives(count)
     }

@@ -138,6 +138,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLifeShopOpen = MutableStateFlow(false)
     val isLifeShopOpen: StateFlow<Boolean> = _isLifeShopOpen.asStateFlow()
 
+    private val _isThemeSelectorOpen = MutableStateFlow(false)
+    val isThemeSelectorOpen: StateFlow<Boolean> = _isThemeSelectorOpen.asStateFlow()
+
     // Pass through engine lives and challenge states
     val lives: StateFlow<Int> = engine.lives
     val maxLives: Int = engine.maxLives
@@ -519,6 +522,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             hapticManager.levelUp()
         }
         return totalGems to totalBlue
+    }
+
+    fun openThemeSelector(open: Boolean = true) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        _isThemeSelectorOpen.value = open
+    }
+
+    fun selectTheme(stageTheme: com.mygames.stickmanrush.model.StageTheme) {
+        engine.setStageTheme(stageTheme)
+    }
+
+    fun selectTheme(themeId: String) {
+        val stageTheme = com.mygames.stickmanrush.game.StageThemes.getThemeById(themeId)
+            ?: com.mygames.stickmanrush.game.StageThemes.stages[0]
+        engine.setStageTheme(stageTheme)
+    }
+
+    fun cycleNextTheme() {
+        engine.cycleNextTheme()
     }
 
     fun openContests(open: Boolean = true) {

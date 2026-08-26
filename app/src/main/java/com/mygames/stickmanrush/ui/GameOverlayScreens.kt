@@ -328,6 +328,42 @@ fun GameHud(
                     }
                 }
 
+                // 🎨 Theme Quick Toggle Button (Instant Environment Switching during run)
+                val currentHudTheme by viewModel.engine.currentStage.collectAsState()
+                val currentHudThemeIcon = remember(currentHudTheme) { com.mygames.stickmanrush.game.StageThemes.getThemeIcon(currentHudTheme) }
+                Surface(
+                    onClick = { viewModel.openThemeSelector(true) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xCC1E1B4B),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFA855F7)),
+                    modifier = Modifier.testTag("hud_theme_toggle_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(text = currentHudThemeIcon, fontSize = 13.sp)
+                        Text(
+                            text = "THEME",
+                            color = Color(0xFFE9D5FF),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+
+                // 🏆 Leadership Board Button
+                IconButton(
+                    onClick = { viewModel.openLeaderboard(true) },
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(Color(0xCC1E293B), CircleShape)
+                        .testTag("hud_leaderboard_button")
+                ) {
+                    Text(text = "🏆", fontSize = 14.sp)
+                }
+
                 // Master Game Menu Button
                 IconButton(
                     onClick = { viewModel.openMainMenu(true) },
@@ -1163,53 +1199,76 @@ fun StartScreenOverlay(
                         }
                     }
 
-                    // Wardrobe Shop Card (User-marked red block: Skins, Bridges, Hats, Capes, Backgrounds & Vault)
-                    Surface(
-                        onClick = { viewModel.openShop(true) },
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFF1E1B4B),
-                        border = androidx.compose.foundation.BorderStroke(1.8.dp, Color(0xFFA855F7)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(10.dp, RoundedCornerShape(16.dp))
-                            .testTag("start_wardrobe_shop_banner")
+                    // Wardrobe Shop & Realm Themes Cards Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        // 1. Wardrobe Shop Card
+                        Surface(
+                            onClick = { viewModel.openShop(true) },
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF1E1B4B),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFA855F7)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .shadow(8.dp, RoundedCornerShape(16.dp))
+                                .testTag("start_wardrobe_shop_banner")
                         ) {
                             Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text(text = "🥋", fontSize = 22.sp)
+                                Text(text = "🥋", fontSize = 20.sp)
                                 Column {
                                     Text(
-                                        text = "WARDROBE SHOP",
+                                        text = "WARDROBE",
                                         color = Color.White,
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 12.sp
+                                        fontSize = 11.sp
                                     )
                                     Text(
-                                        text = "Skins • Bridges • Hats • Capes • Bg",
+                                        text = "Skins & Bridges",
                                         color = Color(0xFFD8B4FE),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontSize = 8.5.sp
                                     )
                                 }
                             }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF9333EA)
+                        }
+
+                        // 2. Realm Themes Card
+                        val currentStartStage by viewModel.engine.currentStage.collectAsState()
+                        val currentStartIcon = remember(currentStartStage) { com.mygames.stickmanrush.game.StageThemes.getThemeIcon(currentStartStage) }
+                        Surface(
+                            onClick = { viewModel.openThemeSelector(true) },
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF0F172A),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .shadow(8.dp, RoundedCornerShape(16.dp))
+                                .testTag("start_environment_themes_button")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text(
-                                    text = "OPEN",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                                Text(text = currentStartIcon, fontSize = 20.sp)
+                                Column {
+                                    Text(
+                                        text = "REALM THEMES",
+                                        color = Color(0xFF38BDF8),
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 11.sp
+                                    )
+                                    Text(
+                                        text = "13 Environments",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 8.5.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -1960,14 +2019,27 @@ fun GameOverDialog(
                     )
                 }
 
-                // Secondary Action Row
+                // Secondary Action Row (Themes, Ranks, Shop, Menu)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     OutlinedButton(
+                        onClick = { viewModel.openThemeSelector(true) },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFA855F7)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA855F7)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .testTag("game_over_theme_button")
+                    ) {
+                        Text(text = "🎨 Theme", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+
+                    OutlinedButton(
                         onClick = { viewModel.openLeaderboard(true) },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFBBF24)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFBBF24)),
                         modifier = Modifier
@@ -1975,12 +2047,12 @@ fun GameOverDialog(
                             .height(42.dp)
                             .testTag("game_over_leaderboard_button")
                     ) {
-                        Text(text = "🏆 Rank", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(text = "🏆 Rank", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
 
                     OutlinedButton(
                         onClick = { viewModel.openShop(true) },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
                         modifier = Modifier
@@ -1988,14 +2060,12 @@ fun GameOverDialog(
                             .height(42.dp)
                             .testTag("game_over_shop_button")
                     ) {
-                        Icon(Icons.Default.ShoppingBag, contentDescription = "Shop", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Shop", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(text = "🥋 Shop", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
 
                     OutlinedButton(
                         onClick = { viewModel.engine.resetGame(initial = true) },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
                         modifier = Modifier
@@ -2003,9 +2073,7 @@ fun GameOverDialog(
                             .height(42.dp)
                             .testTag("game_over_home_button")
                     ) {
-                        Icon(Icons.Default.Home, contentDescription = "Home", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Menu", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(text = "🏠 Menu", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
                 }
             }
@@ -2999,6 +3067,73 @@ fun PauseMenuDialog(
                     Icon(Icons.Default.PlayArrow, contentDescription = "Resume", tint = Color.White)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("RESUME", fontWeight = FontWeight.Black, fontSize = 15.sp)
+                }
+
+                // Environment Themes & Backgrounds Button
+                val currentPauseStage by viewModel.engine.currentStage.collectAsState()
+                val currentPauseIcon = remember(currentPauseStage) { com.mygames.stickmanrush.game.StageThemes.getThemeIcon(currentPauseStage) }
+                Surface(
+                    onClick = {
+                        viewModel.openPauseMenu(false)
+                        viewModel.openThemeSelector(true)
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E1B4B),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFA855F7)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("pause_theme_selector_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(text = "🎨", fontSize = 16.sp)
+                            Text(
+                                text = "REALM THEMES ($currentPauseIcon ${currentPauseStage.name})",
+                                color = Color(0xFFE9D5FF),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                maxLines = 1
+                            )
+                        }
+                        Text(text = "CHANGE ▶", color = Color(0xFFC084FC), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                    }
+                }
+
+                // Global Leaderboard & World Ranks Button
+                Surface(
+                    onClick = {
+                        viewModel.openPauseMenu(false)
+                        viewModel.openLeaderboard(true)
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF064E3B),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF34D399)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .testTag("pause_leaderboard_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(text = "🏆", fontSize = 16.sp)
+                            Text(
+                                text = "LEADERSHIP BOARD & RANKS",
+                                color = Color(0xFFA7F3D0),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Text(text = "VIEW ▶", color = Color(0xFF6EE7B7), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                    }
                 }
 
                 // Restart button
@@ -6622,5 +6757,348 @@ fun LifeShopDialog(
     }
 }
 
+/**
+ * 🌌 EnvironmentThemeDialog: Production-grade modal system to browse, preview,
+ * and toggle background assets, celestial atmospheres, and platform styles.
+ */
+@Composable
+fun EnvironmentThemeDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val currentTheme by viewModel.engine.currentStage.collectAsState()
+    val allThemes = remember { com.mygames.stickmanrush.game.StageThemes.stages }
 
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF070D1E),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF334155)),
+            modifier = modifier
+                .fillMaxSize()
+                .padding(12.dp)
+                .testTag("theme_selection_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 1. Top Header Bar: Title, Badge, and Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF1E1B4B),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFA855F7)),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(text = "🌌", fontSize = 22.sp)
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "REALM & ENVIRONMENT THEMES",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "Toggle dynamic backgrounds, skies & bridge platforms",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
 
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFF1E293B), CircleShape)
+                            .testTag("theme_dialog_close_button")
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                }
+
+                // 2. Active Theme Hero Showcase Banner
+                val currentIcon = remember(currentTheme) { com.mygames.stickmanrush.game.StageThemes.getThemeIcon(currentTheme) }
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color.Transparent,
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(12.dp, RoundedCornerShape(18.dp))
+                        .testTag("active_theme_hero_card")
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        currentTheme.bgTopColor,
+                                        currentTheme.bgBottomColor.copy(alpha = 0.85f),
+                                        Color(0xFF0F172A)
+                                    )
+                                )
+                            )
+                            .padding(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = Color(0x66000000),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(text = currentIcon, fontSize = 26.sp)
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFF10B981)
+                                        ) {
+                                            Text(
+                                                text = "ACTIVE REALM",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 9.sp,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Text(
+                                            text = "Stage ${currentTheme.stageNumber}",
+                                            color = Color(0xFF7DD3FC),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = currentTheme.name,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 15.sp
+                                    )
+                                    Text(
+                                        text = currentTheme.ambientDescription,
+                                        color = Color(0xFFE2E8F0),
+                                        fontSize = 10.5.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+
+                            // Quick Cycle / Random buttons
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Button(
+                                    onClick = { viewModel.cycleNextTheme() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.testTag("theme_quick_cycle_button")
+                                ) {
+                                    Text(text = "NEXT ➡️", color = Color.White, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Grid of all 13 Themes
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .testTag("themes_grid"),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(allThemes, key = { it.stageNumber }) { stage ->
+                        val isEquipped = currentTheme.stageNumber == stage.stageNumber
+                        val stageIcon = remember(stage) { com.mygames.stickmanrush.game.StageThemes.getThemeIcon(stage) }
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFF0F172A),
+                            border = androidx.compose.foundation.BorderStroke(
+                                if (isEquipped) 2.dp else 1.dp,
+                                if (isEquipped) Color(0xFF38BDF8) else Color(0xFF334155)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shadow(if (isEquipped) 8.dp else 2.dp, RoundedCornerShape(16.dp))
+                                .testTag("theme_card_stage_${stage.stageNumber}")
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                // Sky Gradient & Celestial Preview Container
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(72.dp)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(
+                                                    stage.bgTopColor,
+                                                    stage.bgBottomColor
+                                                )
+                                            )
+                                        )
+                                        .padding(8.dp)
+                                ) {
+                                    // Celestial Icon & Stage Number Badge
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0x99000000)
+                                        ) {
+                                            Text(
+                                                text = "STAGE ${stage.stageNumber}",
+                                                color = Color(0xFFFDE047),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 9.sp,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            )
+                                        }
+
+                                        Text(text = stageIcon, fontSize = 22.sp)
+                                    }
+
+                                    // Platform preview bar at bottom of sky
+                                    Surface(
+                                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp),
+                                        color = stage.platformColor,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, stage.platformHighlightColor),
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.55f)
+                                            .height(10.dp)
+                                            .align(Alignment.BottomCenter)
+                                    ) {}
+                                }
+
+                                // Theme Info and Action Button
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "${stage.stageNumber}. ${stage.name}",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 12.sp,
+                                        maxLines = 1
+                                    )
+
+                                    Text(
+                                        text = stage.ambientDescription,
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 9.5.sp,
+                                        maxLines = 2,
+                                        lineHeight = 12.sp,
+                                        modifier = Modifier.height(24.dp)
+                                    )
+
+                                    Button(
+                                        onClick = { viewModel.selectTheme(stage) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isEquipped) Color(0xFF0284C7) else Color(0xFF1E293B)
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isEquipped) Color(0xFF38BDF8) else Color(0xFF475569)
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(34.dp)
+                                            .testTag("theme_select_button_${stage.stageNumber}")
+                                    ) {
+                                        Text(
+                                            text = if (isEquipped) "✓ EQUIPPED" else "APPLY REALM",
+                                            color = if (isEquipped) Color.White else Color(0xFFE2E8F0),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 10.5.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. Bottom Action Row: Random Theme & Back
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val randomStage = allThemes.random()
+                            viewModel.selectTheme(randomStage)
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFBBF24)),
+                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFBBF24)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("theme_random_button")
+                    ) {
+                        Text(text = "🎲 RANDOM REALM", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("theme_done_button")
+                    ) {
+                        Text(text = "DONE", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}

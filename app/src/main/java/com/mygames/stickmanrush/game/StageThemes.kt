@@ -153,7 +153,7 @@ object StageThemes {
 
     fun getThemeById(themeId: String?): StageTheme? {
         return when (themeId) {
-            "theme_emerald" -> stages[0]
+            "theme_emerald", "theme_midnight" -> stages[0]
             "theme_sunset" -> stages[1]
             "theme_cyber" -> stages[2]
             "theme_aurora" -> stages[3]
@@ -167,6 +167,41 @@ object StageThemes {
             "theme_dragon" -> stages[11]
             "theme_grandmaster" -> stages[12]
             else -> null
+        }
+    }
+
+    fun getThemeIdForStage(stageNumber: Int): String {
+        return when (stageNumber) {
+            1 -> "theme_emerald"
+            2 -> "theme_sunset"
+            3 -> "theme_cyber"
+            4 -> "theme_aurora"
+            5 -> "theme_golden"
+            6 -> "theme_cosmic"
+            7 -> "theme_volcano"
+            8 -> "theme_sakura"
+            9 -> "theme_abyss"
+            10 -> "theme_matrix"
+            11 -> "theme_moon_palace"
+            12 -> "theme_dragon"
+            13 -> "theme_grandmaster"
+            else -> "theme_emerald"
+        }
+    }
+
+    fun getThemeIcon(stage: StageTheme): String {
+        return when (stage.celestialType) {
+            CelestialType.CITY_SKYSCRAPERS -> "🏙️"
+            CelestialType.SUN -> if (stage.stageNumber == 2) "🏜️" else "🌅"
+            CelestialType.NEON_PLANET -> if (stage.stageNumber == 3) "🌆" else "🪐"
+            CelestialType.AURORA -> "❄️"
+            CelestialType.DRAGON_EMBER -> if (stage.stageNumber == 12) "🐉" else "🌋"
+            CelestialType.SAKURA_BLOOM -> "🌸"
+            CelestialType.DEEP_ABYSS -> "🌊"
+            CelestialType.MATRIX_CASCADE -> "💻"
+            CelestialType.CELESTIAL_SHRINE -> "🌙"
+            CelestialType.CRYSTAL_PRISM -> "👑"
+            else -> "🌌"
         }
     }
 
