@@ -151,6 +151,9 @@ class StickmanGameEngine(
 
     private var secondChancePromptUsedThisRun = false
 
+    private var pendingSecondChanceEligible = false
+    private var pendingSecondChanceProgress = 70
+
     private val _hasInvincibilityShield = MutableStateFlow(false)
     val hasInvincibilityShield: StateFlow<Boolean> = _hasInvincibilityShield.asStateFlow()
 
@@ -411,9 +414,23 @@ class StickmanGameEngine(
 
     fun declineSecondChanceRevive() {
         _activeSecondChancePrompt.value = false
-        soundManager.playStickmanFall()
-        hapticManager?.gameOver()
-        _gameState.value = GameState.DROPPING_FAIL
+        repository.consumeLife()
+        repository.updateHighScore(_score.value)
+
+        val lvl = _currentLevel.value
+        _activeChallengeDialog.value = ChallengeDialogData(
+            levelNumber = lvl,
+            title = if (lvl < 5) "CHALLENGE FAILED: YOU CAN'T CLEAR LEVEL 5!" else "CHALLENGE FAILED: LEVEL $lvl!",
+            message = if (lvl < 5) {
+                "I challenged you to clear Level 5 and you fell at Level $lvl! You can't clear it, better try again!"
+            } else {
+                "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!"
+            },
+            type = ChallengeDialogType.POST_LEVEL_FAIL,
+            rewardGems = 0,
+            buttonText = "TRY AGAIN & PROVE IT! 🔥"
+        )
+        _gameState.value = GameState.GAMEOVER
     }
 
     /**
@@ -1375,29 +1392,24 @@ class StickmanGameEngine(
                         val maxProg = maxOf(stickProgress, walkProgress)
                         val progressPercent = (maxProg * 100).toInt().coerceIn(0, 99)
 
-                        if (maxProg >= 0.70f && !secondChancePromptUsedThisRun && _revivalsUsed.value == 0) {
-                            _secondChanceProgressPercent.value = progressPercent
-                            _activeSecondChancePrompt.value = true
-                            _gameState.value = GameState.SECOND_CHANCE_REVIVE
-                            soundManager.playButton()
-                            hapticManager?.nearMiss()
-                        } else {
-                            soundManager.playStickmanFall()
-                            hapticManager?.gameOver()
-                            val funnyQuotes = listOf(
-                                "OH NO! OH NO! 😱",
-                                "OH NO NO NO NO! 🏃‍♂️💨",
-                                "WHOOOPS! 🍌",
-                                "AALLL THE WAY DOWNNN! 😱",
-                                "GRAVITY: 1, STICKMAN: 0 💀",
-                                "WHEEEEEEE! 🪂",
-                                "MY ANKLES! 💥",
-                                "SEE YA! 🕳️",
-                                "I CAN'T FLY! 🦅"
-                            )
-                            addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
-                            _gameState.value = GameState.DROPPING_FAIL
-                        }
+                        pendingSecondChanceEligible = maxProg >= 0.70f && !secondChancePromptUsedThisRun && _revivalsUsed.value == 0
+                        pendingSecondChanceProgress = progressPercent
+
+                        soundManager.playStickmanFall()
+                        hapticManager?.gameOver()
+                        val funnyQuotes = listOf(
+                            "OH NO! OH NO! 😱",
+                            "OH NO NO NO NO! 🏃‍♂️💨",
+                            "WHOOOPS! 🍌",
+                            "AALLL THE WAY DOWNNN! 😱",
+                            "GRAVITY: 1, STICKMAN: 0 💀",
+                            "WHEEEEEEE! 🪂",
+                            "MY ANKLES! 💥",
+                            "SEE YA! 🕳️",
+                            "I CAN'T FLY! 🦅"
+                        )
+                        addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
+                        _gameState.value = GameState.DROPPING_FAIL
                     }
                 }
             }
@@ -1441,30 +1453,39 @@ class StickmanGameEngine(
                     spawnDust(stickmanX, stickmanY.coerceAtMost(screenHeight - 40f), count = 8)
                 }
 
-                // Allow the full cartoon sound sequence (slide whistle + funny oh no voice + sad trombone + spring boing) to play before game over
-                if (fallElapsedTime >= 2.40f && stickmanY > screenHeight + 50f) {
-                    // Deduct 1 life when stickman falls via persistent repository
-                    repository.consumeLife()
+                // Allow the full cartoon sound sequence to play before game over or revive prompt
+                if (fallElapsedTime >= 1.20f && stickmanY > screenHeight + 50f) {
+                    if (pendingSecondChanceEligible) {
+                        pendingSecondChanceEligible = false
+                        _secondChanceProgressPercent.value = pendingSecondChanceProgress
+                        _activeSecondChancePrompt.value = true
+                        _gameState.value = GameState.SECOND_CHANCE_REVIVE
+                        soundManager.playButton()
+                        hapticManager?.nearMiss()
+                    } else {
+                        // Deduct 1 life when stickman falls via persistent repository
+                        repository.consumeLife()
 
-                    // Authoritative High Score sync to Firestore and local Room DB
-                    repository.updateHighScore(_score.value)
+                        // Authoritative High Score sync to Firestore and local Room DB
+                        repository.updateHighScore(_score.value)
 
-                    // Psychology: Provocative challenge failure dialog on fail
-                    val lvl = _currentLevel.value
-                    _activeChallengeDialog.value = ChallengeDialogData(
-                        levelNumber = lvl,
-                        title = if (lvl < 5) "CHALLENGE FAILED: YOU CAN'T CLEAR LEVEL 5!" else "CHALLENGE FAILED: LEVEL $lvl!",
-                        message = if (lvl < 5) {
-                            "I challenged you to clear Level 5 and you fell at Level $lvl! You can't clear it, better try again!"
-                        } else {
-                            "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!"
-                        },
-                        type = ChallengeDialogType.POST_LEVEL_FAIL,
-                        rewardGems = 0,
-                        buttonText = "TRY AGAIN & PROVE IT! 🔥"
-                    )
+                        // Psychology: Provocative challenge failure dialog on fail
+                        val lvl = _currentLevel.value
+                        _activeChallengeDialog.value = ChallengeDialogData(
+                            levelNumber = lvl,
+                            title = if (lvl < 5) "CHALLENGE FAILED: YOU CAN'T CLEAR LEVEL 5!" else "CHALLENGE FAILED: LEVEL $lvl!",
+                            message = if (lvl < 5) {
+                                "I challenged you to clear Level 5 and you fell at Level $lvl! You can't clear it, better try again!"
+                            } else {
+                                "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!"
+                            },
+                            type = ChallengeDialogType.POST_LEVEL_FAIL,
+                            rewardGems = 0,
+                            buttonText = "TRY AGAIN & PROVE IT! 🔥"
+                        )
 
-                    _gameState.value = GameState.GAMEOVER
+                        _gameState.value = GameState.GAMEOVER
+                    }
                 }
             }
 

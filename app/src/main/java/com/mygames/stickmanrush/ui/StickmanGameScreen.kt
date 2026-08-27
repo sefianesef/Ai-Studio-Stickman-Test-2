@@ -222,11 +222,13 @@ fun StickmanGameScreen(
         }
 
         // 21. Big Challenging Psychology Motivational Dialog (Every 5 Levels)
-        activeChallengeDialog?.let { challenge ->
-            ChallengePsychologyDialog(
-                challenge = challenge,
-                onAccept = { viewModel.dismissChallengeDialog() }
-            )
+        if (!activeSecondChancePrompt) {
+            activeChallengeDialog?.let { challenge ->
+                ChallengePsychologyDialog(
+                    challenge = challenge,
+                    onAccept = { viewModel.dismissChallengeDialog() }
+                )
+            }
         }
 
         // 22. High-Retention Second-Chance Revive Dialog (1 per run on near-clears >70%)
