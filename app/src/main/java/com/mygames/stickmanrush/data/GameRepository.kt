@@ -898,12 +898,14 @@ class GameRepository(
         // Realtime Firestore Cloud Wallet Sync Listener
         scope.launch {
             cloudWalletService.cloudGems.collect { remoteGems ->
-                if (remoteGems != null) {
-                    _gems.value = remoteGems
-                    currencyVault.syncFromDisk(remoteGems, _blueGems.value, _redGems.value)
-                    prefs.edit().putInt(KEY_GEMS, remoteGems).apply()
-                    saveIntegritySignature()
-                    playerProfileDao.updateGems(remoteGems)
+                if (remoteGems != null && remoteGems > 0) {
+                    if (remoteGems > _gems.value || _gems.value <= 10) {
+                        _gems.value = remoteGems
+                        currencyVault.syncFromDisk(remoteGems, _blueGems.value, _redGems.value)
+                        prefs.edit().putInt(KEY_GEMS, remoteGems).apply()
+                        saveIntegritySignature()
+                        playerProfileDao.updateGems(remoteGems)
+                    }
                 }
             }
         }

@@ -141,8 +141,8 @@ class FirebaseCloudWalletService(private val context: Context) {
     }
 
     suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int = 0): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
-        val uid = currentUserId ?: return@withContext Result.success(Pair((localGems - gemCost).coerceAtLeast(0), livesToAdd))
-        if (!isFirebaseConfigured()) return@withContext Result.success(Pair((localGems - gemCost).coerceAtLeast(0), livesToAdd))
+        val uid = currentUserId ?: return@withContext Result.success(Pair(localGems, livesToAdd))
+        if (!isFirebaseConfigured()) return@withContext Result.success(Pair(localGems, livesToAdd))
 
         try {
             val firestore = FirebaseFirestore.getInstance()
@@ -150,12 +150,9 @@ class FirebaseCloudWalletService(private val context: Context) {
 
             val updatedValues = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(docRef)
-                val cloudGems = snapshot.getLong("gems")?.toInt() ?: localGems
                 val currentLives = snapshot.getLong("lives")?.toInt() ?: 3
-
-                val baseGems = if (cloudGems > 0) cloudGems.coerceAtLeast(localGems) else localGems
-                val newGems = (baseGems - gemCost).coerceAtLeast(0)
                 val newLives = currentLives + livesToAdd
+                val newGems = localGems
 
                 transaction.set(
                     docRef,
@@ -174,8 +171,7 @@ class FirebaseCloudWalletService(private val context: Context) {
             Result.success(updatedValues)
         } catch (e: Throwable) {
             Log.w(TAG, "purchaseLifeWithGemsOnCloud failed (isolated error, network/permission timeout): ${e.message}")
-            val fallbackGems = (localGems - gemCost).coerceAtLeast(0)
-            Result.success(Pair(fallbackGems, livesToAdd))
+            Result.success(Pair(localGems, livesToAdd))
         }
     }
 
@@ -342,7 +338,7 @@ class FirebaseCloudWalletService(private val context: Context) {
         walletListenerRegistration?.remove()
         try {
             val firestore = FirebaseFirestore.getInstance()
-            val userDocRef = firestore.collection(USERS_COLLECTION).document(userId)
+            val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(userId)
 
             walletListenerRegistration = userDocRef.addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -354,8 +350,12 @@ class FirebaseCloudWalletService(private val context: Context) {
                 if (snapshot != null && snapshot.exists()) {
                     val gems = snapshot.getLong("gems")?.toInt() ?: 0
                     val redGems = snapshot.getLong("redGems")?.toInt() ?: 0
-                    _cloudGems.value = gems
-                    _cloudRedGems.value = redGems
+                    if (gems > 0) {
+                        _cloudGems.value = gems
+                    }
+                    if (redGems > 0) {
+                        _cloudRedGems.value = redGems
+                    }
                     _syncStatus.value = CloudSyncStatus.SYNCED
                     Log.d(TAG, "Realtime cloud wallet sync: $gems gems, $redGems red gems")
                 } else {

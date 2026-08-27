@@ -105,17 +105,24 @@ class FirestorePlayerManager(private val context: Context) {
     }
 
     /**
-     * Resolves the authoritative Player ID and attaches Firestore snapshot listeners.
+     * Resolves the authoritative Player ID and attaches Firestore snapshot listeners if authenticated.
      */
     fun initializePlayer(customPlayerId: String? = null) {
+        val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
         val resolvedId = when {
             !customPlayerId.isNullOrBlank() -> customPlayerId
+            authUser != null && authUser.uid.isNotBlank() -> authUser.uid
             else -> getOrCreatePlayerId()
         }
         activePlayerId = resolvedId
-        Log.i(TAG, "Initializing Firestore sync for Player ID: $activePlayerId")
+        Log.i(TAG, "Initializing Firestore sync for Player ID: $activePlayerId (Authenticated: ${authUser != null})")
 
-        attachFirestoreListeners(activePlayerId)
+        if (authUser != null && authUser.uid == activePlayerId) {
+            attachFirestoreListeners(activePlayerId)
+        } else {
+            Log.i(TAG, "User not authenticated with Firebase Auth. Operating in local cache mode.")
+            _syncStatusMessage.value = "Offline Mode (Local Cache Active)"
+        }
     }
 
     /**
@@ -148,6 +155,12 @@ class FirestorePlayerManager(private val context: Context) {
 
         playerListener?.remove()
         inventorySlotListener?.remove()
+
+        val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+        if (authUser == null || authUser.uid != playerId) {
+            Log.i(TAG, "Skipping Firestore listeners: User not authenticated or ID mismatch.")
+            return
+        }
 
         try {
             if (FirebaseApp.getApps(context).isEmpty()) {
@@ -289,6 +302,9 @@ class FirestorePlayerManager(private val context: Context) {
         // 2. Perform atomic decrement in Firestore
         scope.launch {
             try {
+                val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                if (authUser == null || authUser.uid != activePlayerId) return@launch
+
                 if (FirebaseApp.getApps(context).isNotEmpty()) {
                     val db = FirebaseFirestore.getInstance()
                     val slotDocRef = db.collection(COLLECTION_PLAYERS).document(activePlayerId)
@@ -339,6 +355,9 @@ class FirestorePlayerManager(private val context: Context) {
 
         scope.launch {
             try {
+                val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                if (authUser == null || authUser.uid != activePlayerId) return@launch
+
                 if (FirebaseApp.getApps(context).isNotEmpty()) {
                     val db = FirebaseFirestore.getInstance()
                     val slotDocRef = db.collection(COLLECTION_PLAYERS).document(activePlayerId)
@@ -372,6 +391,9 @@ class FirestorePlayerManager(private val context: Context) {
 
         scope.launch {
             try {
+                val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                if (authUser == null || authUser.uid != activePlayerId) return@launch
+
                 if (FirebaseApp.getApps(context).isNotEmpty()) {
                     val db = FirebaseFirestore.getInstance()
                     val playerDocRef = db.collection(COLLECTION_PLAYERS).document(activePlayerId)
@@ -419,6 +441,9 @@ class FirestorePlayerManager(private val context: Context) {
 
         scope.launch {
             try {
+                val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                if (authUser == null || authUser.uid != activePlayerId) return@launch
+
                 if (FirebaseApp.getApps(context).isNotEmpty()) {
                     val db = FirebaseFirestore.getInstance()
                     val playerDocRef = db.collection(COLLECTION_PLAYERS).document(activePlayerId)
@@ -447,6 +472,9 @@ class FirestorePlayerManager(private val context: Context) {
 
         scope.launch {
             try {
+                val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                if (authUser == null || authUser.uid != activePlayerId) return@launch
+
                 if (FirebaseApp.getApps(context).isNotEmpty()) {
                     val db = FirebaseFirestore.getInstance()
                     val playerDocRef = db.collection(COLLECTION_PLAYERS).document(activePlayerId)
@@ -485,6 +513,9 @@ class FirestorePlayerManager(private val context: Context) {
 
         scope.launch {
             try {
+                val authUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                if (authUser == null || authUser.uid != activePlayerId) return@launch
+
                 if (FirebaseApp.getApps(context).isNotEmpty()) {
                     val db = FirebaseFirestore.getInstance()
                     val playerDocRef = db.collection(COLLECTION_PLAYERS).document(activePlayerId)
