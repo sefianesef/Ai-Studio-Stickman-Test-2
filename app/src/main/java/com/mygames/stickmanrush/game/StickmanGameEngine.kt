@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.mygames.stickmanrush.audio.HapticManager
 import com.mygames.stickmanrush.audio.SoundManager
 import com.mygames.stickmanrush.data.GameRepository
+import com.mygames.stickmanrush.game.physics.LandingResult
 import com.mygames.stickmanrush.game.physics.PhysicsEngine
 import com.mygames.stickmanrush.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -830,13 +831,50 @@ class StickmanGameEngine(
                 bridgeAngle += bridgeAngularVel * clampedDt
 
                 val tier = difficultyManager.getTier(_score.value)
-                val landingResult = physicsEngine.evaluateBridgeLanding(
+                val rawLandingResult = physicsEngine.evaluateBridgeLanding(
                     bridgeStartX = bridgeStartX,
                     currentHeightOffset = currentPlatform.heightOffset,
                     stickLength = stickLength,
                     targetPlatform = nextPlatform,
                     bullseyeTolerance = tier.bullseyeTolerance
                 )
+
+                var landingResult = rawLandingResult
+                if (!landingResult.isSuccessful && _hasInvincibilityShield.value) {
+                    _hasInvincibilityShield.value = false
+                    _shieldShatterFx.value = 1f
+                    soundManager.playShieldShatter()
+                    hapticManager?.shieldShatter()
+                    spawnShieldShatterShockwave(bridgeStartX + stickLength, floorY + nextPlatform.heightOffset)
+
+                    val platformStart = nextPlatform.leftX
+                    val platformEnd = nextPlatform.leftX + nextPlatform.width
+                    val platformCenter = nextPlatform.leftX + (nextPlatform.width / 2f)
+
+                    val adjustedWalkX = if (rawLandingResult.bridgeTipX < platformStart) {
+                        platformStart + 25f // short bridge -> walk onto platform safely
+                    } else {
+                        platformEnd - 25f // long bridge -> walk back onto platform safely
+                    }
+
+                    val rescueMsg = if (rawLandingResult.bridgeTipX < platformStart) {
+                        "SHIELD RESCUE: SHORT BRIDGE WALK! 🛡️"
+                    } else {
+                        "SHIELD RESCUE: WALKING BACK! 🛡️"
+                    }
+                    addFloatingText(rescueMsg, platformCenter, floorY + nextPlatform.heightOffset - 90f, Color(0xFF38BDF8), scale = 1.35f)
+
+                    landingResult = LandingResult(
+                        isSuccessful = true,
+                        isBullseye = false,
+                        bridgeTipX = adjustedWalkX,
+                        targetWalkX = adjustedWalkX,
+                        platformCenter = platformCenter,
+                        landingSlopeAngle = 0f,
+                        nearMiss = null
+                    )
+                }
+
                 bridgeLandingSlope = landingResult.landingSlopeAngle
                 val targetLandingAngle = PhysicsEngine.MAX_BRIDGE_ANGLE + bridgeLandingSlope
 
@@ -1453,8 +1491,8 @@ class StickmanGameEngine(
                     spawnDust(stickmanX, stickmanY.coerceAtMost(screenHeight - 40f), count = 8)
                 }
 
-                // Allow the full cartoon sound sequence to play before game over or revive prompt
-                if (fallElapsedTime >= 1.20f && stickmanY > screenHeight + 50f) {
+                // Allow the full cartoon sound sequence to play before game over or revive prompt (~2.75s delay)
+                if (fallElapsedTime >= 2.75f && stickmanY > screenHeight + 50f) {
                     if (pendingSecondChanceEligible) {
                         pendingSecondChanceEligible = false
                         _secondChanceProgressPercent.value = pendingSecondChanceProgress
