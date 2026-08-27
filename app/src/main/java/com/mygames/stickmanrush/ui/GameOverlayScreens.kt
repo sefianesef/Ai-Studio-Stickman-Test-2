@@ -104,15 +104,14 @@ fun GameHud(
                 .align(Alignment.TopCenter)
         ) {
             // TOP BAR: Left (Gems + Planks + Lives) | Center (Level & Stage) | Right (Daily/Weekly + Action Menu & Pause)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // LEFT SIDE: Gem Counter & Wood Planks & Lives Counter
+            // TOP BAR: Scrollable Row of Resource Counters & Action Buttons to prevent any overflow or clipping
+            val hudScrollState = rememberScrollState()
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(hudScrollState),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 // Gem Counter & Shop Button
                 Surface(
@@ -213,7 +212,8 @@ fun GameHud(
                         }
                     }
                 }
-                // 🎯 COLORFUL DAILY MISSIONS ICON (Left Side) with Claim Indicator Badge
+
+                // 🎯 COLORFUL DAILY MISSIONS ICON with Claim Indicator Badge
                 Surface(
                     onClick = { viewModel.openDailyMissions(true) },
                     shape = RoundedCornerShape(18.dp),
@@ -248,38 +248,32 @@ fun GameHud(
                         }
                     }
                 }
-            }
 
-            // CENTER / COMPACT: Level & Stage Indicator Pill
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Color(0xEE0B1329),
-                border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF38BDF8)),
-                modifier = Modifier
-                    .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF38BDF8))
-                    .testTag("stage_indicator")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                // Level & Stage Indicator Pill
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xEE0B1329),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier
+                        .shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0xFF38BDF8))
+                        .testTag("stage_indicator")
                 ) {
-                    Text(text = "🚩", fontSize = 13.sp)
-                    Text(
-                        text = "LV $currentLevel",
-                        color = Color(0xFFF1F5F9),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "🚩", fontSize = 13.sp)
+                        Text(
+                            text = "LV $currentLevel",
+                            color = Color(0xFFF1F5F9),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
-            }
 
-            // RIGHT SIDE: Colorful Weekly Trials + Global Leaderboard + Master Menu
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // 🏆 GLOBAL LEADERBOARD BUTTON (Right Side)
+                // 🏆 GLOBAL LEADERBOARD BUTTON
                 Surface(
                     onClick = { viewModel.openLeaderboard(true) },
                     shape = RoundedCornerShape(18.dp),
@@ -305,7 +299,7 @@ fun GameHud(
                     }
                 }
 
-                // ⚡ COLORFUL WEEKLY MISSION BUTTON (Right Side)
+                // ⚡ COLORFUL WEEKLY MISSION BUTTON
                 Surface(
                     onClick = { viewModel.openWeeklyMissions(true) },
                     shape = RoundedCornerShape(18.dp),
@@ -331,7 +325,7 @@ fun GameHud(
                     }
                 }
 
-                // 🎨 Theme Quick Toggle Button (Instant Environment Switching during run)
+                // 🎨 Theme Quick Toggle Button
                 val currentHudTheme by viewModel.engine.currentStage.collectAsState()
                 val currentHudThemeIcon = remember(currentHudTheme) { com.mygames.stickmanrush.game.StageThemes.getThemeIcon(currentHudTheme) }
                 Surface(
@@ -354,17 +348,6 @@ fun GameHud(
                             fontSize = 10.sp
                         )
                     }
-                }
-
-                // 🏆 Leadership Board Button
-                IconButton(
-                    onClick = { viewModel.openLeaderboard(true) },
-                    modifier = Modifier
-                        .size(34.dp)
-                        .background(Color(0xCC1E293B), CircleShape)
-                        .testTag("hud_leaderboard_button")
-                ) {
-                    Text(text = "🏆", fontSize = 14.sp)
                 }
 
                 // Master Game Menu Button
@@ -399,7 +382,6 @@ fun GameHud(
                     )
                 }
             }
-        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
