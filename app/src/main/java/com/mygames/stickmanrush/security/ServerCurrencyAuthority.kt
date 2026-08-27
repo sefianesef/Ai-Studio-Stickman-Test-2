@@ -152,7 +152,8 @@ class CloudBackendCurrencyAuthority(
         }
 
         // 3. Secure local offline transaction resolution
-        val current = localCachedBalances.computeIfAbsent(request.playerId) { request.currentBalance }
+        localCachedBalances[request.playerId] = request.currentBalance
+        val current = request.currentBalance
         val newBalance = when (request.type) {
             TransactionType.CREDIT -> current + request.amount
             TransactionType.DEBIT -> {
