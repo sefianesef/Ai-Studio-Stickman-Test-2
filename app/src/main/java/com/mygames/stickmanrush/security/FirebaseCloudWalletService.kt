@@ -141,8 +141,15 @@ class FirebaseCloudWalletService(private val context: Context) {
     }
 
     suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int = 0): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
-        val uid = currentUserId ?: return@withContext Result.success(Pair(localGems, livesToAdd))
-        if (!isFirebaseConfigured()) return@withContext Result.success(Pair(localGems, livesToAdd))
+        Log.d(TAG, "purchaseLifeWithGemsOnCloud SERVICE START: uid=$currentUserId, gemCost=$gemCost, livesToAdd=$livesToAdd, localGems=$localGems")
+        val uid = currentUserId ?: run {
+            Log.w(TAG, "purchaseLifeWithGemsOnCloud: No authenticated user, returning localGems=$localGems")
+            return@withContext Result.success(Pair(localGems, livesToAdd))
+        }
+        if (!isFirebaseConfigured()) {
+            Log.w(TAG, "purchaseLifeWithGemsOnCloud: Firebase not configured, returning localGems=$localGems")
+            return@withContext Result.success(Pair(localGems, livesToAdd))
+        }
 
         try {
             val firestore = FirebaseFirestore.getInstance()
@@ -150,9 +157,11 @@ class FirebaseCloudWalletService(private val context: Context) {
 
             val updatedValues = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(docRef)
+                val cloudGemsBefore = snapshot.getLong("gems")?.toInt() ?: -1
                 val currentLives = snapshot.getLong("lives")?.toInt() ?: 3
                 val newLives = currentLives + livesToAdd
                 val newGems = localGems
+                Log.d(TAG, "purchaseLifeWithGemsOnCloud TRANSACTION: cloudGemsBefore=$cloudGemsBefore, cloudLivesBefore=$currentLives, committedGems=$newGems, committedLives=$newLives")
 
                 transaction.set(
                     docRef,
@@ -168,9 +177,10 @@ class FirebaseCloudWalletService(private val context: Context) {
             }.await()
 
             _cloudGems.value = updatedValues.first
+            Log.i(TAG, "purchaseLifeWithGemsOnCloud SERVICE SUCCESS: updatedGems=${updatedValues.first}, updatedLives=${updatedValues.second}")
             Result.success(updatedValues)
         } catch (e: Throwable) {
-            Log.w(TAG, "purchaseLifeWithGemsOnCloud failed (isolated error, network/permission timeout): ${e.message}")
+            Log.w(TAG, "purchaseLifeWithGemsOnCloud failed (isolated error, network/permission timeout): ${e.message}", e)
             Result.success(Pair(localGems, livesToAdd))
         }
     }

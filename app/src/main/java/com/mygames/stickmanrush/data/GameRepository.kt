@@ -2,6 +2,7 @@ package com.mygames.stickmanrush.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.mygames.stickmanrush.ads.AdFrequencyManager
 import com.mygames.stickmanrush.data.local.AppDatabase
 import com.mygames.stickmanrush.data.local.entity.DailyMissionEntity
@@ -73,6 +74,7 @@ class GameRepository(
     val encryptedStorage = EncryptedSaveStorage(context)
 
     companion object {
+        private const val TAG = "GameRepository"
         private const val KEY_GEMS = "GEMS"
         private const val KEY_BLUE_GEMS = "BLUE_GEMS"
         private const val KEY_RED_GEMS = "RED_GEMS"
@@ -1530,8 +1532,11 @@ class GameRepository(
      */
     override suspend fun deductGems(cost: Int): Boolean = deductMutex.withLock {
         withContext(Dispatchers.IO) {
-            val (success, newBalance) = currencyVault.spendGemsSecurely(_gems.value, cost)
+            val startBalance = _gems.value
+            Log.d(TAG, "deductGems START: startBalance=$startBalance, cost=$cost")
+            val (success, newBalance) = currencyVault.spendGemsSecurely(startBalance, cost)
             if (!success) {
+                Log.w(TAG, "deductGems FAILED: insufficient funds or vault check failed. balance=$startBalance, cost=$cost")
                 return@withContext false
             }
 
@@ -1541,6 +1546,7 @@ class GameRepository(
             saveIntegritySignature()
             // 2. Update local Room DB Profile synchronously
             playerProfileDao.updateGems(newBalance)
+            Log.i(TAG, "deductGems SUCCESS: previousBalance=$startBalance, cost=$cost, newBalance=$newBalance")
             return@withContext true
         }
     }
@@ -2537,15 +2543,19 @@ class GameRepository(
 
     override suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int): Result<Pair<Int, Int>> {
         val effectiveLocalGems = if (localGems > 0) localGems else _gems.value
+        Log.d(TAG, "purchaseLifeWithGemsOnCloud REPO START: gemCost=$gemCost, livesToAdd=$livesToAdd, localGems=$localGems, effectiveLocalGems=$effectiveLocalGems, currentRepositoryGems=${_gems.value}")
         val result = cloudWalletService.purchaseLifeWithGemsOnCloud(gemCost, livesToAdd, effectiveLocalGems)
         if (result.isSuccess) {
             val (newGems, newLives) = result.getOrThrow()
             val expectedLocal = (effectiveLocalGems - gemCost).coerceAtLeast(0)
             val finalGems = if (newGems <= expectedLocal) newGems else expectedLocal
+            Log.i(TAG, "purchaseLifeWithGemsOnCloud REPO SUCCESS: cloudResultGems=$newGems, expectedLocal=$expectedLocal, finalGems=$finalGems")
             _gems.value = finalGems
             prefs.edit().putInt(KEY_GEMS, finalGems).apply()
             saveIntegritySignature()
             playerProfileDao.updateGems(finalGems)
+        } else {
+            Log.w(TAG, "purchaseLifeWithGemsOnCloud REPO FAILED: ${result.exceptionOrNull()?.message}")
         }
         return result
     }
