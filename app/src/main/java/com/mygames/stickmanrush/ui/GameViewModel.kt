@@ -222,6 +222,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _isLifeShopOpen.value = open
     }
 
+    fun purchaseLifeWithGems(gemCost: Int, livesToAdd: Int): Boolean {
+        if (repository.gems.value < gemCost) {
+            soundManager.playButton()
+            hapticManager.uiClick()
+            openOutOfGemsOffer(true)
+            return false
+        }
+        if (repository.spendGems(gemCost)) {
+            engine.addLives(livesToAdd)
+            soundManager.playBuyGemsSuccess()
+            soundManager.playGemCollect()
+            hapticManager.gemCollect()
+            return true
+        } else {
+            soundManager.playButton()
+            hapticManager.uiClick()
+            openOutOfGemsOffer(true)
+            return false
+        }
+    }
+
     fun buyLifePack(pack: com.mygames.stickmanrush.model.LifeShopPack): Boolean {
         when {
             pack.isAd -> {
@@ -239,18 +260,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 return true
             }
             pack.gemCost > 0 -> {
-                if (repository.spendGems(pack.gemCost)) {
-                    engine.addLives(pack.livesCount)
-                    soundManager.playBuyGemsSuccess()
-                    soundManager.playGemCollect()
-                    hapticManager.gemCollect()
-                    return true
-                } else {
-                    soundManager.playButton()
-                    hapticManager.uiClick()
-                    // Prompt real money shop or out of gems
-                    return false
-                }
+                return purchaseLifeWithGems(pack.gemCost, pack.livesCount)
             }
             else -> return false
         }

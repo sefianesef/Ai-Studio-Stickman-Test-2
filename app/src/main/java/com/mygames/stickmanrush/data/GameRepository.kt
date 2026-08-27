@@ -1528,6 +1528,9 @@ class GameRepository(
             _gems.value = newGems
             prefs.edit().putInt(KEY_GEMS, newGems).apply()
             saveIntegritySignature()
+            scope.launch {
+                playerProfileDao.updateGems(newGems)
+            }
 
             val txId = "TX_" + java.util.UUID.randomUUID().toString().replace("-", "").take(16)
             val pendingTx = PendingCurrencyTransaction(
