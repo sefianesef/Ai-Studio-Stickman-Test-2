@@ -42,6 +42,7 @@ fun StickmanGameScreen(
     val isRealMoneyShopOpen by viewModel.isRealMoneyShopOpen.collectAsState()
     val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
     val isLifeShopOpen by viewModel.isLifeShopOpen.collectAsState()
+    val isOutOfPlanksDialog by viewModel.isOutOfPlanksDialog.collectAsState()
     val activeChallengeDialog by viewModel.activeChallengeDialog.collectAsState()
     val activeLevelVictory by viewModel.activeLevelVictory.collectAsState()
     val levelVictoryCelebration by viewModel.engine.levelVictoryCelebration.collectAsState()
@@ -252,6 +253,14 @@ fun StickmanGameScreen(
                 viewModel = viewModel,
                 onDismiss = { viewModel.openNicknameSetup(false) },
                 isInitialSetup = nickname.isBlank()
+            )
+        }
+
+        // 25. Out of Wood Planks Dialog
+        if (isOutOfPlanksDialog) {
+            OutOfWoodPlanksDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.dismissOutOfPlanksDialog() }
             )
         }
     }

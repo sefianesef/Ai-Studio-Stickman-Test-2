@@ -1674,6 +1674,7 @@ class GameRepository(
     fun recordPerfectHit() {
         val current = prefs.getInt(KEY_PERFECT_HITS, 0)
         prefs.edit().putInt(KEY_PERFECT_HITS, current + 1).apply()
+        addWoodPlanks(1)
         scope.launch {
             playerProfileDao.incrementPerfectHits()
         }

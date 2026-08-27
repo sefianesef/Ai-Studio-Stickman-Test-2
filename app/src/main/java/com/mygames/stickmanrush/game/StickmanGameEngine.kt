@@ -59,6 +59,28 @@ class StickmanGameEngine(
     private val _activeLevelVictory = MutableStateFlow<LevelVictoryData?>(null)
     val activeLevelVictory: StateFlow<LevelVictoryData?> = _activeLevelVictory.asStateFlow()
 
+    // Out of Wood Planks Dialog State
+    private val _isOutOfPlanksDialog = MutableStateFlow(false)
+    val isOutOfPlanksDialog: StateFlow<Boolean> = _isOutOfPlanksDialog.asStateFlow()
+
+    fun dismissOutOfPlanksDialog() {
+        _isOutOfPlanksDialog.value = false
+    }
+
+    fun watchAdForPlanks() {
+        repository.addWoodPlanks(10)
+        _isOutOfPlanksDialog.value = false
+    }
+
+    fun buyPlanksWithGems(): Boolean {
+        if (repository.spendGems(20)) {
+            repository.addWoodPlanks(20)
+            _isOutOfPlanksDialog.value = false
+            return true
+        }
+        return false
+    }
+
     fun dismissLevelVictory() {
         _activeLevelVictory.value = null
     }
@@ -504,6 +526,13 @@ class StickmanGameEngine(
     fun onTouchDown(touchX: Float = 0f, touchY: Float = 0f) {
         when (_gameState.value) {
             GameState.START, GameState.IDLE -> {
+                val currentPlanks = repository.firestoreWoodPlanks.value
+                if (currentPlanks <= 0) {
+                    soundManager.playGameOver()
+                    hapticManager?.uiClick()
+                    _isOutOfPlanksDialog.value = true
+                    return
+                }
                 soundManager.playButton()
                 hapticManager?.bridgeGrowStart()
                 stickLength = 0f
@@ -1221,6 +1250,8 @@ class StickmanGameEngine(
                                 else -> 2
                             }
                             repository.addGems(bonusGems, com.mygames.stickmanrush.security.CurrencySource.LEVEL_MILESTONE)
+                            repository.addWoodPlanks(5)
+                            addFloatingText("+5 WOOD PLANKS 🪵", screenWidth / 2f, screenHeight * 0.36f, Color(0xFF10B981), scale = 1.2f)
                             repository.saveProgressLevel(newLevel)
                             val title = when (previousLevel) {
                                 1 -> "Novice Stickman"

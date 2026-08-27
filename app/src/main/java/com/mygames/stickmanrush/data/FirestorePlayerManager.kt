@@ -77,7 +77,7 @@ class FirestorePlayerManager(private val context: Context) {
     private val _coins = MutableStateFlow(prefs.getInt(KEY_CACHED_COINS, 100))
     val coins: StateFlow<Int> = _coins.asStateFlow()
 
-    private val _woodPlanks = MutableStateFlow(prefs.getInt(KEY_CACHED_PLANKS, 1))
+    private val _woodPlanks = MutableStateFlow(prefs.getInt(KEY_CACHED_PLANKS, 30))
     val woodPlanks: StateFlow<Int> = _woodPlanks.asStateFlow()
 
     private val _highScore = MutableStateFlow(prefs.getInt(KEY_CACHED_HIGH_SCORE, 0))

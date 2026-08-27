@@ -135,6 +135,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isOutOfGemsOfferOpen = MutableStateFlow(false)
     val isOutOfGemsOfferOpen: StateFlow<Boolean> = _isOutOfGemsOfferOpen.asStateFlow()
 
+    val isOutOfPlanksDialog: StateFlow<Boolean> = engine.isOutOfPlanksDialog
+
     private val _isLifeShopOpen = MutableStateFlow(false)
     val isLifeShopOpen: StateFlow<Boolean> = _isLifeShopOpen.asStateFlow()
 
@@ -711,6 +713,30 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         soundManager.playButton()
         hapticManager.uiClick()
         _isOutOfGemsOfferOpen.value = open
+    }
+
+    fun dismissOutOfPlanksDialog() {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        engine.dismissOutOfPlanksDialog()
+    }
+
+    fun watchAdForPlanks() {
+        soundManager.playBuyGemsSuccess()
+        hapticManager.levelUp()
+        engine.watchAdForPlanks()
+    }
+
+    fun buyPlanksWithGems(): Boolean {
+        val success = engine.buyPlanksWithGems()
+        if (success) {
+            soundManager.playBuyGemsSuccess()
+            hapticManager.levelUp()
+        } else {
+            soundManager.playGameOver()
+            openOutOfGemsOffer(true)
+        }
+        return success
     }
 
     fun openRealMoneyShop(open: Boolean = true) {

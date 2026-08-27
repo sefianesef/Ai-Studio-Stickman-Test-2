@@ -7252,3 +7252,162 @@ fun NicknameSetupDialog(
         }
     }
 }
+
+@Composable
+fun OutOfWoodPlanksDialog(
+    viewModel: GameViewModel,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val firestorePlanks by viewModel.repository.firestoreWoodPlanks.collectAsState()
+
+    LaunchedEffect(firestorePlanks) {
+        if (firestorePlanks > 0) {
+            viewModel.dismissOutOfPlanksDialog()
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xDD020617))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(26.dp),
+                color = Color(0xFF0F172A),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF10B981)),
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .shadow(32.dp, RoundedCornerShape(26.dp), ambientColor = Color(0xFF10B981))
+                    .testTag("out_of_wood_planks_dialog")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color(0xFF064E3B),
+                                    Color(0xFF0F172A),
+                                    Color(0xFF020617)
+                                )
+                            )
+                        )
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(Color(0xFF065F46), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🪵", fontSize = 36.sp)
+                    }
+
+                    Text(
+                        text = "OUT OF WOOD PLANKS!",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 0.5.sp
+                    )
+
+                    Text(
+                        text = "You need Wood Planks to construct bridges across canyons. Refill your planks now to keep playing!",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    // Option 1: Watch Short Ad -> Get +10 Free Planks
+                    Button(
+                        onClick = {
+                            viewModel.watchAdForPlanks()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("watch_ad_planks_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "📺", fontSize = 18.sp)
+                            Text(
+                                text = "WATCH AD -> GET +10 FREE PLANKS",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    // Option 2: Use 20 Gems -> Get +20 Planks
+                    Button(
+                        onClick = {
+                            viewModel.buyPlanksWithGems()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("buy_planks_gems_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "💎", fontSize = 18.sp)
+                            Text(
+                                text = "USE 20 GEMS -> GET +20 PLANKS",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    // Option 3: Main Menu / Claim Daily
+                    TextButton(
+                        onClick = {
+                            viewModel.dismissOutOfPlanksDialog()
+                            viewModel.openMainMenu(true)
+                        },
+                        modifier = Modifier.testTag("main_menu_planks_button")
+                    ) {
+                        Text(
+                            text = "🏠 Return to Main Menu / Claim Daily",
+                            color = Color(0xFF38BDF8),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
