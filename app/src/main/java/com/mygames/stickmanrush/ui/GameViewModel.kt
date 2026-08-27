@@ -36,6 +36,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             _showAuthDialog.value = true
         } else {
             _showAuthDialog.value = false
+            viewModelScope.launch {
+                repository.fetchOrInitPlayerWallet()
+            }
         }
     }
 
@@ -43,6 +46,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val result = authService.signUpWithEmail(email, pass)
         if (result.isSuccess) {
             _showAuthDialog.value = false
+            repository.fetchOrInitPlayerWallet()
             soundManager.playBuyGemsSuccess()
             hapticManager.levelUp()
             return true
@@ -54,6 +58,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val result = authService.signInWithEmail(email, pass)
         if (result.isSuccess) {
             _showAuthDialog.value = false
+            repository.fetchOrInitPlayerWallet()
             soundManager.playBuyGemsSuccess()
             hapticManager.levelUp()
             return true
@@ -283,8 +288,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val success = repository.deductGems(cost)
-                if (success) {
+                val result = repository.purchaseLifeWithGemsOnCloud(cost, livesToAdd)
+                if (result.isSuccess) {
                     engine.addLives(livesToAdd)
                     soundManager.playBuyGemsSuccess()
                     soundManager.playGemCollect()

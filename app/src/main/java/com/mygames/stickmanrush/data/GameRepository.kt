@@ -2518,4 +2518,22 @@ class GameRepository(
         playerProfileDao.updateNickname(nickname)
         firestorePlayerManager.updateNickname(nickname)
     }
+
+    override suspend fun fetchOrInitPlayerWallet(): Result<Pair<Int, Int>> {
+        val result = cloudWalletService.fetchOrInitPlayerWallet()
+        if (result.isSuccess) {
+            val (gems, lives) = result.getOrThrow()
+            playerProfileDao.updateGems(gems)
+        }
+        return result
+    }
+
+    override suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int): Result<Pair<Int, Int>> {
+        val result = cloudWalletService.purchaseLifeWithGemsOnCloud(gemCost, livesToAdd)
+        if (result.isSuccess) {
+            val (newGems, newLives) = result.getOrThrow()
+            playerProfileDao.updateGems(newGems)
+        }
+        return result
+    }
 }

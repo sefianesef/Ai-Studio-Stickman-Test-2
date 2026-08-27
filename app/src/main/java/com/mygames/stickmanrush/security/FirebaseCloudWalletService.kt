@@ -12,6 +12,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -69,6 +70,7 @@ class FirebaseCloudWalletService(private val context: Context) {
         private const val FIREBASE_APP_ID = "1:842418078736:android:b891ca82349071d2"
         private const val FIREBASE_API_KEY = "AIzaSyStickmanRushProjectKey88867"
         private const val USERS_COLLECTION = "users"
+        private const val PLAYERS_COLLECTION = "players"
         private const val WALLET_SUBCOLLECTION = "wallet"
         private const val TRANSACTIONS_COLLECTION = "transactions"
         
@@ -84,6 +86,82 @@ class FirebaseCloudWalletService(private val context: Context) {
 
     private val _currentUser = MutableStateFlow<FirebaseUser?>(null)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
+
+    val currentUserId: String?
+        get() = try { FirebaseAuth.getInstance().currentUser?.uid } catch (e: Exception) { null }
+
+    suspend fun fetchOrInitPlayerWallet(): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
+        val uid = currentUserId ?: return@withContext Result.failure(IllegalStateException("User not authenticated"))
+        if (!isFirebaseConfigured()) return@withContext Result.failure(IllegalStateException("Firebase not initialized"))
+
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val docRef = firestore.collection(PLAYERS_COLLECTION).document(uid)
+
+            val resultPair = firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(docRef)
+                if (!snapshot.exists()) {
+                    val initialData = hashMapOf(
+                        "gems" to 50,
+                        "lives" to 3,
+                        "lastUpdated" to Timestamp.now()
+                    )
+                    transaction.set(docRef, initialData, SetOptions.merge())
+                    Pair(50, 3)
+                } else {
+                    val gems = snapshot.getLong("gems")?.toInt() ?: 50
+                    val lives = snapshot.getLong("lives")?.toInt() ?: 3
+                    Pair(gems, lives)
+                }
+            }.await()
+
+            _cloudGems.value = resultPair.first
+            Result.success(resultPair)
+        } catch (e: Throwable) {
+            Log.e(TAG, "fetchOrInitPlayerWallet failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
+        val uid = currentUserId ?: return@withContext Result.failure(IllegalStateException("User not authenticated"))
+        if (!isFirebaseConfigured()) return@withContext Result.failure(IllegalStateException("Firebase not initialized"))
+
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val docRef = firestore.collection(PLAYERS_COLLECTION).document(uid)
+
+            val updatedValues = firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(docRef)
+                val currentGems = snapshot.getLong("gems")?.toInt() ?: 50
+                val currentLives = snapshot.getLong("lives")?.toInt() ?: 3
+
+                if (currentGems < gemCost) {
+                    throw IllegalStateException("Insufficient gems on cloud wallet (Balance: $currentGems, Required: $gemCost)")
+                }
+
+                val newGems = currentGems - gemCost
+                val newLives = currentLives + livesToAdd
+
+                transaction.update(
+                    docRef,
+                    mapOf(
+                        "gems" to newGems,
+                        "lives" to newLives,
+                        "lastUpdated" to Timestamp.now()
+                    )
+                )
+
+                Pair(newGems, newLives)
+            }.await()
+
+            _cloudGems.value = updatedValues.first
+            Result.success(updatedValues)
+        } catch (e: Throwable) {
+            Log.e(TAG, "purchaseLifeWithGemsOnCloud failed: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
 
     private val _cloudGems = MutableStateFlow<Int?>(null)
     val cloudGems: StateFlow<Int?> = _cloudGems.asStateFlow()

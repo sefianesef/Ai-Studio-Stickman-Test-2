@@ -101,4 +101,7 @@ interface CurrencyRepository {
      * (stubbed for Firebase Cloud Functions / Firestore backend).
      */
     suspend fun syncCurrencyWithServer(): Boolean
+
+    suspend fun fetchOrInitPlayerWallet(): Result<Pair<Int, Int>>
+    suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int): Result<Pair<Int, Int>>
 }

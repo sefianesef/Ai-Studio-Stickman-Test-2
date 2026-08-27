@@ -101,6 +101,7 @@ fun ShopScreenContent(
     val selectedSkinId by viewModel.selectedSkinId.collectAsState()
     val selectedThemeId by viewModel.selectedThemeId.collectAsState()
     val isDailyAvailable by viewModel.isDailyRewardAvailable.collectAsState()
+    val isPurchasing by viewModel.isPurchasing.collectAsState()
 
     // Rarity filter state
     var selectedRarityFilter by remember { mutableStateOf<ItemRarity?>(null) }
@@ -501,6 +502,7 @@ fun ShopScreenContent(
                                 isEquipped = isEquipped,
                                 isPreviewSelected = isPreviewSelected,
                                 canAfford = canAfford,
+                                isPurchasing = isPurchasing,
                                 onClick = {
                                     previewedItem = item
                                     viewModel.soundManager.playButton()
@@ -850,6 +852,7 @@ private fun ShopItemCard(
     isEquipped: Boolean,
     isPreviewSelected: Boolean,
     canAfford: Boolean,
+    isPurchasing: Boolean,
     onClick: () -> Unit,
     onBuyOrEquip: () -> Unit,
     onBuyRealMoney: () -> Unit,
@@ -987,7 +990,7 @@ private fun ShopItemCard(
                 ) {
                     Button(
                         onClick = onBuyOrEquip,
-                        enabled = canAfford,
+                        enabled = canAfford && !isPurchasing,
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = when (item.currencyType) {
@@ -1034,7 +1037,7 @@ private fun ShopItemCard(
             } else {
                 Button(
                     onClick = onBuyOrEquip,
-                    enabled = isUnlocked || canAfford,
+                    enabled = (isUnlocked || canAfford) && !isPurchasing,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = when {
