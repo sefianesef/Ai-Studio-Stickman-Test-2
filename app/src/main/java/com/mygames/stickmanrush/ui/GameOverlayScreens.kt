@@ -80,6 +80,11 @@ fun GameHud(
     val score by viewModel.engine.score.collectAsState()
     val currentLevel by viewModel.engine.currentLevel.collectAsState()
     val gems by viewModel.gems.collectAsState()
+    val animatedGems by animateIntAsState(
+        targetValue = gems,
+        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+        label = "HudGemAnimation"
+    )
     val lives by viewModel.lives.collectAsState()
     val secondsUntilNextLife by viewModel.secondsUntilNextLife.collectAsState()
     val maxLives = viewModel.maxLives
@@ -131,7 +136,7 @@ fun GameHud(
                     ) {
                         Text(text = "💎", fontSize = 14.sp)
                         Text(
-                            text = "$gems",
+                            text = "$animatedGems",
                             color = Color(0xFF38BDF8),
                             fontWeight = FontWeight.Black,
                             fontSize = 13.sp
@@ -602,6 +607,11 @@ fun StartScreenOverlay(
 ) {
     val highScore by viewModel.highScore.collectAsState()
     val gems by viewModel.gems.collectAsState()
+    val animatedGems by animateIntAsState(
+        targetValue = gems,
+        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+        label = "StartGemAnimation"
+    )
     val lives by viewModel.lives.collectAsState()
     val maxLives = viewModel.maxLives
     val secondsUntilNextLife by viewModel.secondsUntilNextLife.collectAsState()
@@ -711,7 +721,7 @@ fun StartScreenOverlay(
                     ) {
                         Text(text = "💰", fontSize = 13.sp)
                         Text(
-                            text = "$gems",
+                            text = "$animatedGems",
                             color = Color(0xFFFEF08A),
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp
@@ -6387,6 +6397,7 @@ fun LifeShopDialog(
     val activity = remember(context) { context.findActivity() }
     val lives by viewModel.lives.collectAsState()
     val gems by viewModel.gems.collectAsState()
+    val isPurchasing by viewModel.isPurchasing.collectAsState()
     val secondsUntilNextLife by viewModel.secondsUntilNextLife.collectAsState()
     val maxLives = viewModel.maxLives
     val packs = viewModel.lifeShopPacks
@@ -6620,7 +6631,7 @@ fun LifeShopDialog(
                                                 }
                                             }
                                         },
-                                        enabled = if (isGemPack) isAffordable else true,
+                                        enabled = (if (isGemPack) isAffordable else true) && !isPurchasing,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = when {
                                                 pack.isAd -> Color(0xFF10B981)

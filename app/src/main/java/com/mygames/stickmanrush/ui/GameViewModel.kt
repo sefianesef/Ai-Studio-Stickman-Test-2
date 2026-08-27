@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.Mutex
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
     val repository = GameRepository(application)
@@ -216,30 +217,46 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         )
     )
 
+    private val purchaseLock = Mutex()
+    private val _isPurchasing = MutableStateFlow(false)
+    val isPurchasing: StateFlow<Boolean> = _isPurchasing.asStateFlow()
+
     fun openLifeShop(open: Boolean = true) {
         soundManager.playButton()
         hapticManager.uiClick()
         _isLifeShopOpen.value = open
     }
 
-    fun purchaseLifeWithGems(gemCost: Int, livesToAdd: Int): Boolean {
-        if (repository.gems.value < gemCost) {
-            soundManager.playButton()
-            hapticManager.uiClick()
-            openOutOfGemsOffer(true)
-            return false
-        }
-        if (repository.spendGems(gemCost)) {
-            engine.addLives(livesToAdd)
-            soundManager.playBuyGemsSuccess()
-            soundManager.playGemCollect()
-            hapticManager.gemCollect()
-            return true
-        } else {
-            soundManager.playButton()
-            hapticManager.uiClick()
-            openOutOfGemsOffer(true)
-            return false
+    fun purchaseLifeWithGems(cost: Int, livesToAdd: Int) {
+        viewModelScope.launch {
+            if (!purchaseLock.tryLock()) return@launch
+
+            try {
+                _isPurchasing.value = true
+                val currentBalance = repository.gems.value
+
+                if (currentBalance < cost) {
+                    soundManager.playButton()
+                    hapticManager.uiClick()
+                    openOutOfGemsOffer(true)
+                    return@launch
+                }
+
+                val success = repository.deductGems(cost)
+                if (success) {
+                    engine.addLives(livesToAdd)
+                    soundManager.playBuyGemsSuccess()
+                    soundManager.playGemCollect()
+                    hapticManager.gemCollect()
+                } else {
+                    soundManager.playButton()
+                    hapticManager.uiClick()
+                    openOutOfGemsOffer(true)
+                }
+            } finally {
+                _isPurchasing.value = false
+                purchaseLock.unlock()
+            }
         }
     }
 
@@ -260,7 +277,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 return true
             }
             pack.gemCost > 0 -> {
-                return purchaseLifeWithGems(pack.gemCost, pack.livesCount)
+                purchaseLifeWithGems(pack.gemCost, pack.livesCount)
+                return true
             }
             else -> return false
         }

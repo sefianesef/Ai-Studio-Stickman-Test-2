@@ -33,6 +33,9 @@ import com.mygames.stickmanrush.security.ServerVerificationResult
 import com.mygames.stickmanrush.security.TransactionType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,6 +50,7 @@ class GameRepository(
     val firestorePlayerManager: FirestorePlayerManager = FirestorePlayerManager(context)
 ) : CurrencyRepository {
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val deductMutex = Mutex()
     private val playerProfileDao = database.playerProfileDao()
     private val inventoryDao = database.inventoryDao()
     private val dailyMissionDao = database.dailyMissionDao()
@@ -1516,6 +1520,26 @@ class GameRepository(
                 newBalance = _gems.value,
                 message = result.rejectionReason
             )
+        }
+    }
+
+    /**
+     * Atomic synchronous deduction of gems with mutex lock and vault verification.
+     */
+    override suspend fun deductGems(cost: Int): Boolean = deductMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val (success, newBalance) = currencyVault.spendGemsSecurely(_gems.value, cost)
+            if (!success) {
+                return@withContext false
+            }
+
+            // 1. Save local state & prefs
+            _gems.value = newBalance
+            prefs.edit().putInt(KEY_GEMS, newBalance).apply()
+            saveIntegritySignature()
+            // 2. Update local Room DB Profile synchronously
+            playerProfileDao.updateGems(newBalance)
+            return@withContext true
         }
     }
 

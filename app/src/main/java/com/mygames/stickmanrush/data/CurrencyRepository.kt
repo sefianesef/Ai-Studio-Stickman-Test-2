@@ -79,6 +79,11 @@ interface CurrencyRepository {
     fun spendGems(amount: Int): Boolean
 
     /**
+     * Atomic synchronous deduction of gems with mutex lock and vault verification.
+     */
+    suspend fun deductGems(cost: Int): Boolean
+
+    /**
      * Suspending spend with server-side authorization handshake.
      */
     suspend fun spendGemsAuthoritative(
