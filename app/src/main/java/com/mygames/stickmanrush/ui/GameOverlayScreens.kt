@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -669,184 +670,177 @@ fun StartScreenOverlay(
             verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top Bar: Royal Resource Counters (Coins, Infinite Lives Timer, Stars & Settings)
+            // Top Bar: Royal Resource Counters (Scrollable horizontally to prevent any right-edge overflow or clipping)
+            val topBarScrollState = rememberScrollState()
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(topBarScrollState),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Profile & Coins/Gems
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                val nickname by viewModel.nickname.collectAsState()
+                val playerLevel = 1 + highScore / 50
+
+                Surface(
+                    onClick = { viewModel.openPlayerStats(true) },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier.testTag("start_profile_pill")
                 ) {
-                    val nickname by viewModel.nickname.collectAsState()
-                    val playerLevel = 1 + highScore / 50
-
-                    Surface(
-                        onClick = { viewModel.openPlayerStats(true) },
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xFF1E293B),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
-                        modifier = Modifier.testTag("start_profile_pill")
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(text = "🥷", fontSize = 16.sp)
-                            Column {
-                                Text(
-                                    text = if (nickname.isNotBlank()) nickname else "Set Nickname",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 12.sp,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = "Level $playerLevel",
-                                    color = Color(0xFF38BDF8),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-                    }
-
-                    // Gold Coins / Gems Counter
-                    Surface(
-                        onClick = { viewModel.openRealMoneyShop(true) },
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xEE064E3B),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF34D399)),
-                        modifier = Modifier.testTag("start_gems_pill")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(text = "💰", fontSize = 14.sp)
+                        Text(text = "🥷", fontSize = 14.sp)
+                        Column {
                             Text(
-                                text = "$gems",
-                                color = Color(0xFFFEF08A),
+                                text = if (nickname.isNotBlank()) nickname else "Set Nickname",
+                                color = Color.White,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 13.sp
+                                fontSize = 11.sp,
+                                maxLines = 1
                             )
                             Text(
-                                text = "+",
-                                color = Color(0xFF34D399),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                modifier = Modifier
-                                    .background(Color(0xFF047857), CircleShape)
-                                    .padding(horizontal = 4.dp)
-                            )
-                        }
-                    }
-
-                    // 🪵 Wood Planks (Firestore inventory/slot_1)
-                    Surface(
-                        onClick = { viewModel.addWoodPlanks(3) },
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xDD2D1810),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFB45309)),
-                        modifier = Modifier.testTag("start_wood_planks_pill")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(text = "🪵", fontSize = 13.sp)
-                            Text(
-                                text = "$firestoreWoodPlanks",
-                                color = Color(0xFFFDE68A),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp
+                                text = "Lvl $playerLevel",
+                                color = Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.sp
                             )
                         }
                     }
                 }
 
-                // Center: 20-Minute Regenerating Lives & Hearts Pill (Clickable to open Life Shop)
+                // Gold Coins / Gems Counter
+                Surface(
+                    onClick = { viewModel.openRealMoneyShop(true) },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xEE064E3B),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF34D399)),
+                    modifier = Modifier.testTag("start_gems_pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "💰", fontSize = 13.sp)
+                        Text(
+                            text = "$gems",
+                            color = Color(0xFFFEF08A),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "+",
+                            color = Color(0xFF34D399),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            modifier = Modifier
+                                .background(Color(0xFF047857), CircleShape)
+                                .padding(horizontal = 3.dp)
+                        )
+                    }
+                }
+
+                // 🪵 Wood Planks
+                Surface(
+                    onClick = { viewModel.addWoodPlanks(3) },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xDD2D1810),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFB45309)),
+                    modifier = Modifier.testTag("start_wood_planks_pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "🪵", fontSize = 12.sp)
+                        Text(
+                            text = "$firestoreWoodPlanks",
+                            color = Color(0xFFFDE68A),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                // Lives Regen Pill
                 val regenMinutes = secondsUntilNextLife / 60
                 val regenSeconds = secondsUntilNextLife % 60
                 val formattedTimer = String.format(java.util.Locale.US, "%02d:%02d", regenMinutes, regenSeconds)
 
                 Surface(
                     onClick = { viewModel.openLifeShop(true) },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = if (lives == 0) Color(0xFF881337) else Color(0xFF831843),
                     border = androidx.compose.foundation.BorderStroke(1.2.dp, if (lives == 0) Color(0xFFF43F5E) else Color(0xFFFB7185)),
                     modifier = Modifier.testTag("start_lives_regen_pill")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(text = if (lives > 0) "❤️" else "💔", fontSize = 13.sp)
+                        Text(text = if (lives > 0) "❤️" else "💔", fontSize = 12.sp)
                         Text(
                             text = "$lives/$maxLives",
                             color = Color.White,
                             fontWeight = FontWeight.Black,
-                            fontSize = 12.sp
+                            fontSize = 11.sp
                         )
                         if (lives < maxLives) {
                             Text(
-                                text = "⏱️ $formattedTimer",
+                                text = formattedTimer,
                                 color = Color(0xFFFDE047),
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+                                fontSize = 10.sp
                             )
                         } else {
                             Text(
                                 text = "FULL",
                                 color = Color(0xFF6EE7B7),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 10.sp
+                                fontSize = 9.sp
                             )
                         }
                     }
                 }
 
-                // Right: Stars & Settings Gear
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                // Stars Pill
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1E1B4B),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFBBF24)),
+                    modifier = Modifier.testTag("start_stars_pill")
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xFF1E1B4B),
-                        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFFFBBF24)),
-                        modifier = Modifier.testTag("start_stars_pill")
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(text = "⭐", fontSize = 13.sp)
-                            Text(
-                                text = "${highScore.coerceAtLeast(364)}",
-                                color = Color(0xFFFDE047),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp
-                            )
-                        }
+                        Text(text = "⭐", fontSize = 12.sp)
+                        Text(
+                            text = "${highScore.coerceAtLeast(364)}",
+                            color = Color(0xFFFDE047),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp
+                        )
                     }
+                }
 
-                    IconButton(
-                        onClick = { viewModel.openSettings(true) },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(Color(0xFF1E293B), CircleShape)
-                            .border(1.dp, Color(0xFF64748B), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
+                // Settings Gear
+                IconButton(
+                    onClick = { viewModel.openSettings(true) },
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFF1E293B), CircleShape)
+                        .border(1.dp, Color(0xFF64748B), CircleShape)
+                ) {
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
 
