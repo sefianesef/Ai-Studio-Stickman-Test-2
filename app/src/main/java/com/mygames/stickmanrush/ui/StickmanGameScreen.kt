@@ -31,6 +31,7 @@ fun StickmanGameScreen(
     val isThemeSelectorOpen by viewModel.isThemeSelectorOpen.collectAsState()
     val nickname by viewModel.nickname.collectAsState()
     val isNicknameSetupOpen by viewModel.isNicknameSetupOpen.collectAsState()
+    val showAuthDialog by viewModel.showAuthDialog.collectAsState()
 
     // Auto open nickname setup dialog on first launch if nickname is blank
     LaunchedEffect(nickname) {
@@ -263,6 +264,14 @@ fun StickmanGameScreen(
             OutOfWoodPlanksDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.dismissOutOfPlanksDialog() }
+            )
+        }
+
+        // 26. Auto-Prompt Authentication Dialog on Game Launch
+        if (showAuthDialog) {
+            AuthDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.dismissAuthDialog() }
             )
         }
     }

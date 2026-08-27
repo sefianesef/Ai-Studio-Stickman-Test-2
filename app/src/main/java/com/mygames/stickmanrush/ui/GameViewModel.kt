@@ -13,6 +13,7 @@ import com.mygames.stickmanrush.game.StickmanGameEngine
 import com.mygames.stickmanrush.model.AccessoryItem
 import com.mygames.stickmanrush.model.AccessoryType
 import com.mygames.stickmanrush.security.CurrencySource
+import com.mygames.stickmanrush.security.FirebaseAuthService
 import com.mygames.stickmanrush.security.PurchaseVerificationService
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,46 @@ import kotlinx.coroutines.sync.Mutex
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
     val repository = GameRepository(application)
+    private val authService = FirebaseAuthService(application)
+
+    private val _showAuthDialog = MutableStateFlow(false)
+    val showAuthDialog: StateFlow<Boolean> = _showAuthDialog.asStateFlow()
+
+    init {
+        val user = authService.currentUser
+        if (user == null) {
+            _showAuthDialog.value = true
+        } else {
+            _showAuthDialog.value = false
+        }
+    }
+
+    suspend fun signUpWithEmail(email: String, pass: String): Boolean {
+        val result = authService.signUpWithEmail(email, pass)
+        if (result.isSuccess) {
+            _showAuthDialog.value = false
+            soundManager.playBuyGemsSuccess()
+            hapticManager.levelUp()
+            return true
+        }
+        return false
+    }
+
+    suspend fun signInWithEmail(email: String, pass: String): Boolean {
+        val result = authService.signInWithEmail(email, pass)
+        if (result.isSuccess) {
+            _showAuthDialog.value = false
+            soundManager.playBuyGemsSuccess()
+            hapticManager.levelUp()
+            return true
+        }
+        return false
+    }
+
+    fun dismissAuthDialog() {
+        _showAuthDialog.value = false
+    }
+
     val hapticManager = HapticManager(application).apply {
         isEnabled = repository.hapticsEnabled.value
     }
