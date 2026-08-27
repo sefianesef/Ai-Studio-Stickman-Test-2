@@ -140,9 +140,9 @@ class FirebaseCloudWalletService(private val context: Context) {
         }
     }
 
-    suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
-        val uid = currentUserId ?: return@withContext Result.success(Pair(0, livesToAdd))
-        if (!isFirebaseConfigured()) return@withContext Result.success(Pair(0, livesToAdd))
+    suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int = 0): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
+        val uid = currentUserId ?: return@withContext Result.success(Pair((localGems - gemCost).coerceAtLeast(0), livesToAdd))
+        if (!isFirebaseConfigured()) return@withContext Result.success(Pair((localGems - gemCost).coerceAtLeast(0), livesToAdd))
 
         try {
             val firestore = FirebaseFirestore.getInstance()
@@ -150,10 +150,11 @@ class FirebaseCloudWalletService(private val context: Context) {
 
             val updatedValues = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(docRef)
-                val currentGems = snapshot.getLong("gems")?.toInt() ?: 50
+                val cloudGems = snapshot.getLong("gems")?.toInt() ?: localGems
                 val currentLives = snapshot.getLong("lives")?.toInt() ?: 3
 
-                val newGems = (currentGems - gemCost).coerceAtLeast(0)
+                val baseGems = if (cloudGems > 0) cloudGems.coerceAtLeast(localGems) else localGems
+                val newGems = (baseGems - gemCost).coerceAtLeast(0)
                 val newLives = currentLives + livesToAdd
 
                 transaction.set(
@@ -173,8 +174,8 @@ class FirebaseCloudWalletService(private val context: Context) {
             Result.success(updatedValues)
         } catch (e: Throwable) {
             Log.w(TAG, "purchaseLifeWithGemsOnCloud failed (isolated error, network/permission timeout): ${e.message}")
-            // Fallback gracefully without triggering Out of Gems modal
-            Result.success(Pair(_cloudGems.value ?: 0, livesToAdd))
+            val fallbackGems = (localGems - gemCost).coerceAtLeast(0)
+            Result.success(Pair(fallbackGems, livesToAdd))
         }
     }
 

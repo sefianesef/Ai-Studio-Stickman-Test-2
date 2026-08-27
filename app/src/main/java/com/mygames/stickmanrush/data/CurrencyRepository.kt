@@ -103,5 +103,5 @@ interface CurrencyRepository {
     suspend fun syncCurrencyWithServer(): Boolean
 
     suspend fun fetchOrInitPlayerWallet(localGems: Int = 50): Result<Pair<Int, Int>>
-    suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int): Result<Pair<Int, Int>>
+    suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int = 0): Result<Pair<Int, Int>>
 }

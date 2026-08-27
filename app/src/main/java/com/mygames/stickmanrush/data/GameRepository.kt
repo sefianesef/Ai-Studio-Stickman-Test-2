@@ -2533,14 +2533,17 @@ class GameRepository(
         return result
     }
 
-    override suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int): Result<Pair<Int, Int>> {
-        val result = cloudWalletService.purchaseLifeWithGemsOnCloud(gemCost, livesToAdd)
+    override suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int): Result<Pair<Int, Int>> {
+        val effectiveLocalGems = if (localGems > 0) localGems else _gems.value
+        val result = cloudWalletService.purchaseLifeWithGemsOnCloud(gemCost, livesToAdd, effectiveLocalGems)
         if (result.isSuccess) {
             val (newGems, newLives) = result.getOrThrow()
-            _gems.value = newGems
-            prefs.edit().putInt(KEY_GEMS, newGems).apply()
+            val expectedLocal = (effectiveLocalGems - gemCost).coerceAtLeast(0)
+            val finalGems = if (newGems <= expectedLocal) newGems else expectedLocal
+            _gems.value = finalGems
+            prefs.edit().putInt(KEY_GEMS, finalGems).apply()
             saveIntegritySignature()
-            playerProfileDao.updateGems(newGems)
+            playerProfileDao.updateGems(finalGems)
         }
         return result
     }
