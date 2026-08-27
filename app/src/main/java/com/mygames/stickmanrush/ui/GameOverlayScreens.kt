@@ -29,6 +29,7 @@ import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -6521,22 +6522,25 @@ fun LifeShopDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(packs) { pack ->
-                            val canAffordGem = pack.gemCost > 0 && gems >= pack.gemCost
+                            val isGemPack = pack.gemCost > 0
+                            val isAffordable = if (isGemPack) gems >= pack.gemCost else true
+                            val cardAlpha = if (isGemPack && !isAffordable) 0.4f else 1.0f
 
                             Surface(
                                 shape = RoundedCornerShape(18.dp),
-                                color = Color(0xFF1E293B),
+                                color = if (isGemPack && !isAffordable) Color(0xFF0F172A) else Color(0xFF1E293B),
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.2.dp,
                                     when {
                                         pack.isAd -> Color(0xFF10B981)
                                         pack.realMoneyPrice.isNotEmpty() -> Color(0xFFF59E0B)
-                                        canAffordGem -> Color(0xFFF43F5E)
-                                        else -> Color(0xFF475569)
+                                        isAffordable -> Color(0xFFF43F5E)
+                                        else -> Color(0xFF334155)
                                     }
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .alpha(cardAlpha)
                                     .testTag("life_pack_${pack.id}")
                             ) {
                                 Row(
@@ -6554,7 +6558,7 @@ fun LifeShopDialog(
                                         Box(
                                             modifier = Modifier
                                                 .size(44.dp)
-                                                .background(Color(0xFF334155), CircleShape),
+                                                .background(if (isGemPack && !isAffordable) Color(0xFF1E293B) else Color(0xFF334155), CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(text = pack.iconEmoji, fontSize = 22.sp)
@@ -6567,7 +6571,7 @@ fun LifeShopDialog(
                                             ) {
                                                 Text(
                                                     text = "+${pack.livesCount} Lives",
-                                                    color = Color.White,
+                                                    color = if (isGemPack && !isAffordable) Color(0xFF94A3B8) else Color.White,
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 15.sp
                                                 )
@@ -6576,7 +6580,8 @@ fun LifeShopDialog(
                                                     color = when {
                                                         pack.isAd -> Color(0xFF047857)
                                                         pack.realMoneyPrice.isNotEmpty() -> Color(0xFFB45309)
-                                                        else -> Color(0xFF9F1239)
+                                                        isAffordable -> Color(0xFF9F1239)
+                                                        else -> Color(0xFF334155)
                                                     }
                                                 ) {
                                                     Text(
@@ -6608,21 +6613,23 @@ fun LifeShopDialog(
                                                 showAdWatchingSimulator = true
                                             } else if (pack.realMoneyPrice.isNotEmpty()) {
                                                 selectedPackForCheckout = pack
-                                            } else {
+                                            } else if (isAffordable) {
                                                 val bought = viewModel.buyLifePack(pack)
                                                 if (!bought) {
-                                                    // Prompt out of gems offer
                                                     viewModel.openOutOfGemsOffer(true)
                                                 }
                                             }
                                         },
+                                        enabled = if (isGemPack) isAffordable else true,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = when {
                                                 pack.isAd -> Color(0xFF10B981)
                                                 pack.realMoneyPrice.isNotEmpty() -> Color(0xFFF59E0B)
-                                                canAffordGem -> Color(0xFFE11D48)
-                                                else -> Color(0xFF475569)
-                                            }
+                                                isAffordable -> Color(0xFFE11D48)
+                                                else -> Color(0xFF1E293B)
+                                            },
+                                            disabledContainerColor = Color(0xFF1E293B),
+                                            disabledContentColor = Color(0xFF64748B)
                                         ),
                                         shape = RoundedCornerShape(14.dp),
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
@@ -6633,7 +6640,11 @@ fun LifeShopDialog(
                                                 pack.realMoneyPrice.isNotEmpty() -> pack.realMoneyPrice
                                                 else -> "${pack.gemCost} 💎"
                                             },
-                                            color = if (pack.realMoneyPrice.isNotEmpty()) Color.Black else Color.White,
+                                            color = when {
+                                                pack.realMoneyPrice.isNotEmpty() -> Color.Black
+                                                isAffordable -> Color.White
+                                                else -> Color(0xFF64748B)
+                                            },
                                             fontWeight = FontWeight.Black,
                                             fontSize = 12.sp
                                         )
