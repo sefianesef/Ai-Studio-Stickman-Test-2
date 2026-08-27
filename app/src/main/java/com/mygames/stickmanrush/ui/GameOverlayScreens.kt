@@ -6624,14 +6624,13 @@ fun LifeShopDialog(
                                                 showAdWatchingSimulator = true
                                             } else if (pack.realMoneyPrice.isNotEmpty()) {
                                                 selectedPackForCheckout = pack
-                                            } else if (isAffordable) {
-                                                val bought = viewModel.buyLifePack(pack)
-                                                if (!bought) {
-                                                    viewModel.openOutOfGemsOffer(true)
-                                                }
+                                            } else if (gems >= pack.gemCost) {
+                                                viewModel.purchaseLifeWithGems(cost = pack.gemCost, livesToAdd = pack.livesCount)
+                                            } else {
+                                                viewModel.showOutOfGemsPopup(pack.gemCost - gems)
                                             }
                                         },
-                                        enabled = (if (isGemPack) isAffordable else true) && !isPurchasing,
+                                        enabled = !isPurchasing,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = when {
                                                 pack.isAd -> Color(0xFF10B981)

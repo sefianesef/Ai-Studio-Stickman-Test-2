@@ -2,6 +2,7 @@ package com.mygames.stickmanrush.ui
 
 import android.app.Activity
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mygames.stickmanrush.audio.HapticManager
@@ -15,6 +16,7 @@ import com.mygames.stickmanrush.model.AccessoryType
 import com.mygames.stickmanrush.security.CurrencySource
 import com.mygames.stickmanrush.security.FirebaseAuthService
 import com.mygames.stickmanrush.security.PurchaseVerificationService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,7 +39,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             _showAuthDialog.value = false
             viewModelScope.launch {
-                repository.fetchOrInitPlayerWallet()
+                repository.fetchOrInitPlayerWallet(repository.gems.value)
             }
         }
     }
@@ -46,7 +48,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val result = authService.signUpWithEmail(email, pass)
         if (result.isSuccess) {
             _showAuthDialog.value = false
-            repository.fetchOrInitPlayerWallet()
+            repository.fetchOrInitPlayerWallet(repository.gems.value)
             soundManager.playBuyGemsSuccess()
             hapticManager.levelUp()
             return true
@@ -58,7 +60,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val result = authService.signInWithEmail(email, pass)
         if (result.isSuccess) {
             _showAuthDialog.value = false
-            repository.fetchOrInitPlayerWallet()
+            repository.fetchOrInitPlayerWallet(repository.gems.value)
             soundManager.playBuyGemsSuccess()
             hapticManager.levelUp()
             return true
@@ -288,12 +290,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val result = repository.purchaseLifeWithGemsOnCloud(cost, livesToAdd)
-                if (result.isSuccess) {
+                val success = repository.deductGems(cost)
+                if (success) {
                     engine.addLives(livesToAdd)
                     soundManager.playBuyGemsSuccess()
                     soundManager.playGemCollect()
                     hapticManager.gemCollect()
+
+                    launch(Dispatchers.IO) {
+                        try {
+                            repository.purchaseLifeWithGemsOnCloud(cost, livesToAdd)
+                        } catch (e: Exception) {
+                            Log.w("GameViewModel", "Background cloud wallet sync failed: ${e.message}")
+                        }
+                    }
                 } else {
                     soundManager.playButton()
                     hapticManager.uiClick()
@@ -304,6 +314,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 purchaseLock.unlock()
             }
         }
+    }
+
+    fun showOutOfGemsPopup(shortage: Int) {
+        soundManager.playButton()
+        hapticManager.uiClick()
+        openOutOfGemsOffer(true)
     }
 
     fun buyLifePack(pack: com.mygames.stickmanrush.model.LifeShopPack): Boolean {
