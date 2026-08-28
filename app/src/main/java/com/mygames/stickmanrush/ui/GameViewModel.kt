@@ -2,7 +2,11 @@ package com.mygames.stickmanrush.ui
 
 import android.app.Activity
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mygames.stickmanrush.audio.HapticManager
@@ -281,8 +285,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
             try {
                 _isPurchasing.value = true
-                val currentBalance = repository.gems.value
+                val context = getApplication<Application>()
+                val currentUser = authService.currentUser
 
+                val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                val activeNetwork = connectivityManager?.activeNetwork
+                val capabilities = connectivityManager?.getNetworkCapabilities(activeNetwork)
+                val isConnected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+                if (currentUser == null || !isConnected) {
+                    soundManager.playButton()
+                    hapticManager.uiClick()
+                    Toast.makeText(context, "Internet connection required to purchase lives", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                val currentBalance = repository.gems.value
                 if (currentBalance < cost) {
                     soundManager.playButton()
                     hapticManager.uiClick()
@@ -290,27 +308,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val deductSuccess = repository.deductGems(cost)
-                if (deductSuccess) {
+                val result = repository.purchaseLifeWithGemsOnCloud(cost, livesToAdd)
+                if (result.isSuccess) {
                     engine.addLives(livesToAdd)
                     soundManager.playBuyGemsSuccess()
                     soundManager.playGemCollect()
                     hapticManager.gemCollect()
-
-                    launch(Dispatchers.IO) {
-                        try {
-                            repository.purchaseLifeWithGemsOnCloud(cost, livesToAdd)
-                        } catch (e: Exception) {
-                            Log.w("GameViewModel", "Background cloud wallet sync failed: ${e.message}")
-                        }
-                    }
                 } else {
                     soundManager.playButton()
                     hapticManager.uiClick()
-                    openOutOfGemsOffer(true)
+                    val errorMsg = result.exceptionOrNull()?.message ?: ""
+                    if (errorMsg.contains("Insufficient", ignoreCase = true) || errorMsg.contains("ABORTED", ignoreCase = true)) {
+                        openOutOfGemsOffer(true)
+                    } else {
+                        Toast.makeText(context, "Internet connection required to purchase lives", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } catch (e: Exception) {
                 Log.w("GameViewModel", "purchaseLifeWithGems error: ${e.message}")
+                Toast.makeText(getApplication<Application>(), "Internet connection required to purchase lives", Toast.LENGTH_SHORT).show()
             } finally {
                 _isPurchasing.value = false
                 purchaseLock.unlock()
