@@ -159,16 +159,16 @@ class FirebaseCloudWalletService(private val context: Context) {
 
             val updatedValues = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(docRef)
-                val cloudGems = if (snapshot.exists()) snapshot.getLong("gems") ?: 50L else 50L
-                val currentLives = if (snapshot.exists()) snapshot.getLong("lives")?.toInt() ?: 3 else 3
+                val currentGems = snapshot.getLong("gems") ?: 0L
+                val currentLives = snapshot.getLong("lives")?.toInt() ?: 3
 
-                if (cloudGems < cost) {
-                    throw FirebaseFirestoreException("Insufficient cloud balance", FirebaseFirestoreException.Code.ABORTED)
+                if (currentGems < cost) {
+                    throw IllegalStateException("Insufficient gems on server")
                 }
 
-                val newGems = cloudGems - cost
+                val newGems = currentGems - cost
                 val newLives = currentLives + livesToAdd
-                Log.d(TAG, "purchaseLifeWithGemsOnCloud TRANSACTION: cloudGems=$cloudGems, cost=$cost, newGems=$newGems, newLives=$newLives")
+                Log.d(TAG, "purchaseLifeWithGemsOnCloud TRANSACTION: currentGems=$currentGems, cost=$cost, newGems=$newGems, newLives=$newLives")
 
                 transaction.set(
                     docRef,
