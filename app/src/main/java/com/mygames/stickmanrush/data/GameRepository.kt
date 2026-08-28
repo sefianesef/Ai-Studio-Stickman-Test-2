@@ -2541,17 +2541,17 @@ class GameRepository(
         return result
     }
 
-    override suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int): Result<Pair<Int, Int>> {
-        val effectiveLocalGems = if (localGems > 0) localGems else _gems.value
-        Log.d(TAG, "purchaseLifeWithGemsOnCloud REPO START: gemCost=$gemCost, livesToAdd=$livesToAdd, localGems=$localGems, effectiveLocalGems=$effectiveLocalGems, currentRepositoryGems=${_gems.value}")
-        val result = cloudWalletService.purchaseLifeWithGemsOnCloud(gemCost, livesToAdd, effectiveLocalGems)
+    override suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int): Result<Pair<Int, Int>> {
+        Log.d(TAG, "purchaseLifeWithGemsOnCloud REPO START: gemCost=$gemCost, livesToAdd=$livesToAdd")
+        val result = cloudWalletService.purchaseLifeWithGemsOnCloud(gemCost, livesToAdd)
         if (result.isSuccess) {
             val (newGems, newLives) = result.getOrThrow()
-            Log.i(TAG, "purchaseLifeWithGemsOnCloud REPO SUCCESS: cloudResultGems=$newGems, effectiveLocalGems=$effectiveLocalGems")
-            _gems.value = effectiveLocalGems
-            prefs.edit().putInt(KEY_GEMS, effectiveLocalGems).apply()
+            Log.i(TAG, "purchaseLifeWithGemsOnCloud REPO SUCCESS: newGems=$newGems, newLives=$newLives")
+            _gems.value = newGems
+            currencyVault.syncFromDisk(newGems, _blueGems.value, _redGems.value)
+            prefs.edit().putInt(KEY_GEMS, newGems).apply()
             saveIntegritySignature()
-            playerProfileDao.updateGems(effectiveLocalGems)
+            playerProfileDao.updateGems(newGems)
         } else {
             Log.w(TAG, "purchaseLifeWithGemsOnCloud REPO FAILED: ${result.exceptionOrNull()?.message}")
         }

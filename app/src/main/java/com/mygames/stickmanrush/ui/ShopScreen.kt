@@ -1060,6 +1060,7 @@ private fun ShopItemCard(
                 ) {
                     Text(
                         text = when {
+                            isPurchasing -> "Verifying..."
                             isEquipped -> "✓ EQUIPPED"
                             isUnlocked -> "EQUIP"
                             canAfford -> "$curSymbol ${item.cost}"

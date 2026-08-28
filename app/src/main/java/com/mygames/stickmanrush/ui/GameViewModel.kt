@@ -290,25 +290,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val success = repository.deductGems(cost)
-                if (success) {
+                val result = repository.purchaseLifeWithGemsOnCloud(cost, livesToAdd)
+                if (result.isSuccess) {
+                    val (serverGems, serverLives) = result.getOrThrow()
                     engine.addLives(livesToAdd)
                     soundManager.playBuyGemsSuccess()
                     soundManager.playGemCollect()
                     hapticManager.gemCollect()
-
-                    launch(Dispatchers.IO) {
-                        try {
-                            repository.purchaseLifeWithGemsOnCloud(cost, livesToAdd)
-                        } catch (e: Exception) {
-                            Log.w("GameViewModel", "Background cloud wallet sync failed: ${e.message}")
-                        }
-                    }
                 } else {
                     soundManager.playButton()
                     hapticManager.uiClick()
-                    openOutOfGemsOffer(true)
+                    val errorMsg = result.exceptionOrNull()?.message ?: ""
+                    if (errorMsg.contains("Insufficient", ignoreCase = true) || errorMsg.contains("ABORTED", ignoreCase = true)) {
+                        openOutOfGemsOffer(true)
+                    }
                 }
+            } catch (e: Exception) {
+                Log.w("GameViewModel", "purchaseLifeWithGems error: ${e.message}")
             } finally {
                 _isPurchasing.value = false
                 purchaseLock.unlock()

@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
@@ -140,16 +141,10 @@ class FirebaseCloudWalletService(private val context: Context) {
         }
     }
 
-    suspend fun purchaseLifeWithGemsOnCloud(gemCost: Int, livesToAdd: Int, localGems: Int = 0): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
-        Log.d(TAG, "purchaseLifeWithGemsOnCloud SERVICE START: uid=$currentUserId, gemCost=$gemCost, livesToAdd=$livesToAdd, localGems=$localGems")
-        val uid = currentUserId ?: run {
-            Log.w(TAG, "purchaseLifeWithGemsOnCloud: No authenticated user, returning localGems=$localGems")
-            return@withContext Result.success(Pair(localGems, livesToAdd))
-        }
-        if (!isFirebaseConfigured()) {
-            Log.w(TAG, "purchaseLifeWithGemsOnCloud: Firebase not configured, returning localGems=$localGems")
-            return@withContext Result.success(Pair(localGems, livesToAdd))
-        }
+    suspend fun purchaseLifeWithGemsOnCloud(cost: Int, livesToAdd: Int): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "purchaseLifeWithGemsOnCloud SERVICE START: uid=$currentUserId, cost=$cost, livesToAdd=$livesToAdd")
+        val uid = currentUserId ?: return@withContext Result.failure(Exception("Not authenticated"))
+        if (!isFirebaseConfigured()) return@withContext Result.failure(Exception("Firebase not configured"))
 
         try {
             val firestore = FirebaseFirestore.getInstance()
@@ -157,11 +152,16 @@ class FirebaseCloudWalletService(private val context: Context) {
 
             val updatedValues = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(docRef)
-                val cloudGemsBefore = snapshot.getLong("gems")?.toInt() ?: -1
+                val cloudGems = snapshot.getLong("gems") ?: 0L
                 val currentLives = snapshot.getLong("lives")?.toInt() ?: 3
+
+                if (cloudGems < cost) {
+                    throw FirebaseFirestoreException("Insufficient cloud balance", FirebaseFirestoreException.Code.ABORTED)
+                }
+
+                val newGems = cloudGems - cost
                 val newLives = currentLives + livesToAdd
-                val newGems = localGems
-                Log.d(TAG, "purchaseLifeWithGemsOnCloud TRANSACTION: cloudGemsBefore=$cloudGemsBefore, cloudLivesBefore=$currentLives, committedGems=$newGems, committedLives=$newLives")
+                Log.d(TAG, "purchaseLifeWithGemsOnCloud TRANSACTION: cloudGems=$cloudGems, cost=$cost, newGems=$newGems, newLives=$newLives")
 
                 transaction.set(
                     docRef,
@@ -173,15 +173,15 @@ class FirebaseCloudWalletService(private val context: Context) {
                     SetOptions.merge()
                 )
 
-                Pair(newGems, newLives)
+                Pair(newGems.toInt(), newLives)
             }.await()
 
             _cloudGems.value = updatedValues.first
             Log.i(TAG, "purchaseLifeWithGemsOnCloud SERVICE SUCCESS: updatedGems=${updatedValues.first}, updatedLives=${updatedValues.second}")
             Result.success(updatedValues)
         } catch (e: Throwable) {
-            Log.w(TAG, "purchaseLifeWithGemsOnCloud failed (isolated error, network/permission timeout): ${e.message}", e)
-            Result.success(Pair(localGems, livesToAdd))
+            Log.w(TAG, "purchaseLifeWithGemsOnCloud failed: ${e.message}", e)
+            Result.failure(e)
         }
     }
 
