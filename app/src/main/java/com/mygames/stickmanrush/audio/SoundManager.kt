@@ -237,6 +237,7 @@ class SoundManager(private val context: Context) {
         play(pcmStickmanLand, volume = 0.85f)
     }
     fun playGemCollect() { play(pcmGem, volume = 0.95f) }
+    fun playGemCollectSound() { playGemCollect() }
     fun playPerfectHit() { play(pcmPerfect, volume = 1.00f) }
     fun playFlip() { play(pcmFlip, volume = 0.85f) }
     fun playJump() { play(pcmJump, volume = 0.92f) }

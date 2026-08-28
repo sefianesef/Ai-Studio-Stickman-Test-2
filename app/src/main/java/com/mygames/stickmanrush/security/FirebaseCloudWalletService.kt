@@ -228,6 +228,25 @@ class FirebaseCloudWalletService(private val context: Context) {
         return ensureFirebaseInitialized()
     }
 
+    suspend fun syncGemsToCloud(userId: String, newTotal: Int) = withContext(Dispatchers.IO) {
+        try {
+            val uid = userId.ifEmpty { currentUserId ?: return@withContext }
+            if (!isFirebaseConfigured()) return@withContext
+            val firestore = FirebaseFirestore.getInstance()
+            val userDocRef = firestore.collection(USERS_COLLECTION).document(uid)
+            userDocRef.set(
+                hashMapOf(
+                    "gems" to newTotal,
+                    "lastUpdated" to System.currentTimeMillis()
+                ),
+                SetOptions.merge()
+            )
+            _cloudGems.value = newTotal
+        } catch (e: Throwable) {
+            Log.w(TAG, "syncGemsToCloud failed: ${e.message}")
+        }
+    }
+
     private fun checkInitialAuthState() {
         if (!isFirebaseConfigured()) {
             _syncStatus.value = CloudSyncStatus.DISCONNECTED

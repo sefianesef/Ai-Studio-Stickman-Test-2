@@ -23,6 +23,13 @@ class StickmanGameEngine(
     val difficultyManager: DifficultyManager = DifficultyManager(),
     val gemStateManager: GemStateManager = GemStateManager(repository)
 ) {
+    var onGemCollectedListener: ((Int) -> Unit)? = null
+
+    val isFlipped: Boolean get() = isUpsideDown
+
+    fun checkGemCollision(x: Float, y: Float, gem: GemData): Boolean {
+        return physicsEngine.checkGemPickup(x, isUpsideDown, gem)
+    }
     // Game state
     private val _gameState = MutableStateFlow(GameState.START)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
@@ -1063,32 +1070,42 @@ class StickmanGameEngine(
                 }
 
                 // Check Gem Pickup along the bridge using PhysicsEngine & GemStateManager
-                nextPlatform.gem?.let { gem ->
-                    if (physicsEngine.checkGemPickup(stickmanX, isUpsideDown, gem)) {
-                        gem.collected = true
-                        val multiplier = if (_activeGemDoublerTime.value > 0f) 2 else 1
-                        gemStateManager.onGemCollected(gem, stickmanY)?.let { event ->
-                            val finalAmt = event.amount * multiplier
-                            if (multiplier > 1) {
-                                repository.addGems(event.amount, com.mygames.stickmanrush.security.CurrencySource.GAMEPLAY_COLLECT)
-                            }
-                            soundManager.playGemCollect()
-                            hapticManager?.gemCollect(event.comboMultiplier)
-                            repository.trackMissionProgress("COLLECT_GEMS", finalAmt)
-                            repository.trackWeeklyMissionProgress("COLLECT_GEMS", finalAmt)
-                            repository.trackContestProgress("COLLECT_GEMS", finalAmt)
-                            repository.recordGemsHarvested(finalAmt)
+                nextPlatform.gem?.let { currentGem ->
+                    if (isFlipped && checkGemCollision(stickmanX, stickmanY, currentGem)) {
+                        if (!currentGem.collected) {
+                            currentGem.collected = true
+                            soundManager.playGemCollectSound()
+                            onGemCollectedListener?.invoke(1)
+                        }
+                    } else if (physicsEngine.checkGemPickup(stickmanX, isUpsideDown, currentGem)) {
+                        if (!currentGem.collected) {
+                            currentGem.collected = true
+                            val multiplier = if (_activeGemDoublerTime.value > 0f) 2 else 1
+                            gemStateManager.onGemCollected(currentGem, stickmanY)?.let { event ->
+                                val finalAmt = event.amount * multiplier
+                                if (multiplier > 1) {
+                                    repository.addGems(event.amount, com.mygames.stickmanrush.security.CurrencySource.GAMEPLAY_COLLECT)
+                                }
+                                soundManager.playGemCollect()
+                                soundManager.playGemCollectSound()
+                                onGemCollectedListener?.invoke(finalAmt)
+                                hapticManager?.gemCollect(event.comboMultiplier)
+                                repository.trackMissionProgress("COLLECT_GEMS", finalAmt)
+                                repository.trackWeeklyMissionProgress("COLLECT_GEMS", finalAmt)
+                                repository.trackContestProgress("COLLECT_GEMS", finalAmt)
+                                repository.recordGemsHarvested(finalAmt)
 
-                            val comboLabel = if (multiplier > 1) {
-                                "✨ 2X 💎 +$finalAmt"
-                            } else if (event.comboMultiplier > 1) {
-                                "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)"
-                            } else {
-                                "💎 +${event.amount}"
+                                val comboLabel = if (multiplier > 1) {
+                                    "✨ 2X 💎 +$finalAmt"
+                                } else if (event.comboMultiplier > 1) {
+                                    "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)"
+                                } else {
+                                    "💎 +${event.amount}"
+                                }
+                                addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1 || multiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1 || multiplier > 1) 1.25f else 1.0f)
+                                spawnGemCollectEffects(event.x, event.y)
+                                spawnHeroGemCollectAura(stickmanX, stickmanY, multiplier > 1, event.comboMultiplier)
                             }
-                            addFloatingText(comboLabel, event.x, event.y - 30f, if (event.comboMultiplier > 1 || multiplier > 1) Color(0xFFFFD700) else Color(0xFF38BDF8), scale = if (event.comboMultiplier > 1 || multiplier > 1) 1.25f else 1.0f)
-                            spawnGemCollectEffects(event.x, event.y)
-                            spawnHeroGemCollectAura(stickmanX, stickmanY, multiplier > 1, event.comboMultiplier)
                         }
                     }
                 }

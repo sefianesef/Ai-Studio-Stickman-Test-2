@@ -7421,3 +7421,36 @@ fun OutOfWoodPlanksDialog(
         }
     }
 }
+
+@Composable
+fun GemBadge(gemsCount: Int, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xEE064E3B),
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, Color(0xFF34D399)),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(text = "💎", fontSize = 13.sp)
+            Text(
+                text = "$gemsCount",
+                color = Color(0xFFFEF08A),
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+            Text(
+                text = "+",
+                color = Color(0xFF34D399),
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                modifier = Modifier
+                    .background(Color(0xFF047857), CircleShape)
+                    .padding(horizontal = 3.dp)
+            )
+        }
+    }
+}

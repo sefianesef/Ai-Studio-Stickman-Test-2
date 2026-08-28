@@ -28,16 +28,73 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
     val repository = GameRepository(application)
     private val authService = FirebaseAuthService(application)
 
+    val hapticManager = HapticManager(application).apply {
+        isEnabled = repository.hapticsEnabled.value
+    }
+    val soundManager = SoundManager(application).apply {
+        soundEnabled = repository.soundEnabled.value
+        hapticsEnabled = repository.hapticsEnabled.value
+    }
+
+    val engine = StickmanGameEngine(
+        repository = repository,
+        soundManager = soundManager,
+        hapticManager = hapticManager
+    )
+
+    data class GameUiState(
+        val gems: Int = 0,
+        val sessionGems: Int = 0,
+        val highScore: Int = 0
+    )
+
+    private val _gameState = MutableStateFlow(GameUiState(gems = 0, sessionGems = 0))
+    val gameState: StateFlow<GameUiState> = _gameState.asStateFlow()
+
+    val secureVault = object {
+        fun addGems(amount: Int) {
+            repository.addGems(amount, CurrencySource.GAMEPLAY_COLLECT, null)
+        }
+    }
+
+    val cloudWalletService = repository.cloudWalletService
+    val currentUserId: String get() = repository.cloudWalletService.currentUserId ?: ""
+
+    fun onGemCollected(amount: Int = 1) {
+        viewModelScope.launch {
+            // 1. Pehle Screen par turant +1 dikhao (No lag!)
+            _gameState.update { currentState ->
+                currentState.copy(
+                    gems = currentState.gems + amount,
+                    sessionGems = currentState.sessionGems + amount
+                )
+            }
+
+            // 2. Local Secure Vault mein add karo
+            repository.addGems(amount, CurrencySource.GAMEPLAY_COLLECT, null)
+
+            // 3. Cloud (Firestore) ko background mein sync maro
+            cloudWalletService.syncGemsToCloud(
+                userId = currentUserId, 
+                newTotal = _gameState.value.gems
+            )
+        }
+    }
+
     private val _showAuthDialog = MutableStateFlow(false)
     val showAuthDialog: StateFlow<Boolean> = _showAuthDialog.asStateFlow()
 
     init {
+        engine.onGemCollectedListener = { amount ->
+            onGemCollected(amount)
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 authService.ensureAuthenticated()
@@ -45,6 +102,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     _showAuthDialog.value = false
                 }
                 repository.fetchOrInitPlayerWallet(repository.gems.value)
+                _gameState.update { it.copy(gems = repository.gems.value) }
             } catch (e: Exception) {
                 Log.w("GameViewModel", "Init ensureAuthenticated failed: ${e.message}")
             }
@@ -77,14 +135,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissAuthDialog() {
         _showAuthDialog.value = false
-    }
-
-    val hapticManager = HapticManager(application).apply {
-        isEnabled = repository.hapticsEnabled.value
-    }
-    val soundManager = SoundManager(application).apply {
-        soundEnabled = repository.soundEnabled.value
-        hapticsEnabled = repository.hapticsEnabled.value
     }
 
     private val purchaseVerifier = PurchaseVerificationService(application)
@@ -141,12 +191,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
-    val engine = StickmanGameEngine(
-        repository = repository,
-        soundManager = soundManager,
-        hapticManager = hapticManager
-    )
 
     // UI Overlays
     private val _isShopOpen = MutableStateFlow(false)
