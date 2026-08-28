@@ -84,6 +84,15 @@ class FirebaseAuthService(private val context: Context) {
         }
     }
 
+    suspend fun signInAnonymously(): Result<FirebaseUser?> = withContext(Dispatchers.IO) {
+        try {
+            val result = auth.signInAnonymously().await()
+            Result.success(result.user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun signOut() {
         try {
             auth.signOut()

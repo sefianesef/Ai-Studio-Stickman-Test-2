@@ -286,17 +286,31 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 _isPurchasing.value = true
                 val context = getApplication<Application>()
-                val currentUser = authService.currentUser
 
                 val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
                 val activeNetwork = connectivityManager?.activeNetwork
                 val capabilities = connectivityManager?.getNetworkCapabilities(activeNetwork)
                 val isConnected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
 
-                if (currentUser == null || !isConnected) {
+                if (!isConnected) {
                     soundManager.playButton()
                     hapticManager.uiClick()
-                    Toast.makeText(context, "Internet connection required to purchase lives", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Please check your internet connection", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                var currentUser = authService.currentUser
+                if (currentUser == null) {
+                    val signInResult = authService.signInAnonymously()
+                    if (signInResult.isSuccess) {
+                        currentUser = authService.currentUser
+                    }
+                }
+
+                if (currentUser == null) {
+                    soundManager.playButton()
+                    hapticManager.uiClick()
+                    Toast.makeText(context, "Authentication required to purchase lives", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
 
@@ -321,12 +335,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     if (errorMsg.contains("Insufficient", ignoreCase = true) || errorMsg.contains("ABORTED", ignoreCase = true)) {
                         openOutOfGemsOffer(true)
                     } else {
-                        Toast.makeText(context, "Internet connection required to purchase lives", Toast.LENGTH_SHORT).show()
+                        Log.w("GameViewModel", "purchaseLifeWithGems transaction failed: $errorMsg")
+                        Toast.makeText(context, "Purchase failed. Please try again.", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
                 Log.w("GameViewModel", "purchaseLifeWithGems error: ${e.message}")
-                Toast.makeText(getApplication<Application>(), "Internet connection required to purchase lives", Toast.LENGTH_SHORT).show()
+                Toast.makeText(getApplication<Application>(), "Purchase error. Please try again.", Toast.LENGTH_SHORT).show()
             } finally {
                 _isPurchasing.value = false
                 purchaseLock.unlock()
