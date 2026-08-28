@@ -2547,13 +2547,11 @@ class GameRepository(
         val result = cloudWalletService.purchaseLifeWithGemsOnCloud(gemCost, livesToAdd, effectiveLocalGems)
         if (result.isSuccess) {
             val (newGems, newLives) = result.getOrThrow()
-            val expectedLocal = (effectiveLocalGems - gemCost).coerceAtLeast(0)
-            val finalGems = if (newGems <= expectedLocal) newGems else expectedLocal
-            Log.i(TAG, "purchaseLifeWithGemsOnCloud REPO SUCCESS: cloudResultGems=$newGems, expectedLocal=$expectedLocal, finalGems=$finalGems")
-            _gems.value = finalGems
-            prefs.edit().putInt(KEY_GEMS, finalGems).apply()
+            Log.i(TAG, "purchaseLifeWithGemsOnCloud REPO SUCCESS: cloudResultGems=$newGems, effectiveLocalGems=$effectiveLocalGems")
+            _gems.value = effectiveLocalGems
+            prefs.edit().putInt(KEY_GEMS, effectiveLocalGems).apply()
             saveIntegritySignature()
-            playerProfileDao.updateGems(finalGems)
+            playerProfileDao.updateGems(effectiveLocalGems)
         } else {
             Log.w(TAG, "purchaseLifeWithGemsOnCloud REPO FAILED: ${result.exceptionOrNull()?.message}")
         }
