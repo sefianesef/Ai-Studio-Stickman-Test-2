@@ -3450,7 +3450,7 @@ fun DailyRewardDialog(
                                     isWatchingAdMultiplier = true
                                     coroutineScope.launch {
                                         kotlinx.coroutines.delay(1800)
-                                        val awarded = viewModel.claimDailyReward(multiplier = 2)
+                                        val awarded = viewModel.claimDailyRewardWithMultiplier(multiplier = 2)
                                         claimedNotice = "🎉 2X REWARD! Claimed +$awarded Gems! Streak is now $currentStreak days!"
                                         isWatchingAdMultiplier = false
                                     }
@@ -3480,7 +3480,7 @@ fun DailyRewardDialog(
                         // Regular Claim Button
                         OutlinedButton(
                             onClick = {
-                                val awarded = viewModel.claimDailyReward(multiplier = 1)
+                                val awarded = viewModel.claimDailyRewardWithMultiplier(multiplier = 1)
                                 claimedNotice = "🎉 Claimed +$awarded Gems! Streak is now $currentStreak days!"
                             },
                             enabled = !isWatchingAdMultiplier,

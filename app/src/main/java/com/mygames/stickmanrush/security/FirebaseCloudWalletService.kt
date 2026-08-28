@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
@@ -81,6 +82,7 @@ class FirebaseCloudWalletService(private val context: Context) {
     }
 
     private val credentialManager = CredentialManager.create(context)
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val _syncStatus = MutableStateFlow(CloudSyncStatus.DISCONNECTED)
     val syncStatus: StateFlow<CloudSyncStatus> = _syncStatus.asStateFlow()
@@ -228,22 +230,51 @@ class FirebaseCloudWalletService(private val context: Context) {
         return ensureFirebaseInitialized()
     }
 
-    suspend fun syncGemsToCloud(userId: String, newTotal: Int) = withContext(Dispatchers.IO) {
-        try {
-            val uid = userId.ifEmpty { currentUserId ?: return@withContext }
-            if (!isFirebaseConfigured()) return@withContext
-            val firestore = FirebaseFirestore.getInstance()
+    // 1. NAYA FUNCTION: Real-time update ke liye (Atomic Increment)
+    fun addGemRealTime(userId: String, amount: Long = 1) {
+        val userDocRef = firestore.collection(USERS_COLLECTION).document(userId)
+        
+        // FieldValue.increment bina read kiye seedha server pe add karta hai (Super Fast)
+        userDocRef.update("gems", FieldValue.increment(amount))
+            .addOnSuccessListener { 
+                Log.d("CloudWallet", "Real-time gem added successfully!") 
+            }
+            .addOnFailureListener { e -> 
+                Log.e("CloudWallet", "Failed to add gem: " + e.message) 
+            }
+    }
+
+    // 2. PURANA FUNCTION FIX: Purchase ke time deduct karne ke liye
+    suspend fun deductGems(userId: String, amount: Long): Boolean {
+        return try {
+            val userDocRef = firestore.collection(USERS_COLLECTION).document(userId)
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(userDocRef)
+                val currentGems = snapshot.getLong("gems") ?: 0L
+                
+                if (currentGems < amount) {
+                    throw IllegalStateException("INSUFFICIENT_GEMS")
+                }
+                transaction.update(userDocRef, "gems", currentGems - amount)
+            }.await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirebaseCloudWallet", "Deduct gems failed: " + e.message)
+            false
+        }
+    }
+
+    // 3. PURANA FUNCTION FIX: Manual background backup ke liye
+    suspend fun syncGemsToCloud(userId: String, totalGems: Int): Boolean {
+        return try {
+            val uid = userId.ifEmpty { currentUserId ?: return false }
+            if (!isFirebaseConfigured()) return false
             val userDocRef = firestore.collection(USERS_COLLECTION).document(uid)
-            userDocRef.set(
-                hashMapOf(
-                    "gems" to newTotal,
-                    "lastUpdated" to System.currentTimeMillis()
-                ),
-                SetOptions.merge()
-            )
-            _cloudGems.value = newTotal
-        } catch (e: Throwable) {
-            Log.w(TAG, "syncGemsToCloud failed: ${e.message}")
+            userDocRef.update("gems", totalGems).await()
+            _cloudGems.value = totalGems
+            true
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -520,6 +551,8 @@ class FirebaseCloudWalletService(private val context: Context) {
             Result.failure(e)
         }
     }
+
+
 
     /**
      * Credits gems securely to the cloud wallet (e.g. from verified In-App Purchases).

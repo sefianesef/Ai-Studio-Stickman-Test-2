@@ -58,33 +58,135 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _gameState = MutableStateFlow(GameUiState(gems = 0, sessionGems = 0))
     val gameState: StateFlow<GameUiState> = _gameState.asStateFlow()
 
-    val secureVault = object {
-        fun addGems(amount: Int) {
-            repository.addGems(amount, CurrencySource.GAMEPLAY_COLLECT, null)
-        }
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+
+    fun clearToast() {
+        _toastMessage.value = null
     }
 
     val cloudWalletService = repository.cloudWalletService
     val currentUserId: String get() = repository.cloudWalletService.currentUserId ?: ""
 
+    inner class SecureVaultHelper {
+        fun getGems(): Int = repository.gems.value
+        fun saveGems(newTotal: Int) {
+            val current = repository.gems.value
+            val diff = newTotal - current
+            if (diff > 0) {
+                repository.addGems(diff, CurrencySource.DAILY_REWARD, null)
+            } else if (diff < 0) {
+                repository.spendGems(-diff)
+            }
+        }
+        fun addGems(amount: Int) {
+            repository.addGems(amount, CurrencySource.GAMEPLAY_COLLECT, null)
+        }
+    }
+    val secureVault = SecureVaultHelper()
+
+    fun buyItem(cost: Int) {
+        viewModelScope.launch {
+            val currentLocalGems = secureVault.getGems()
+            
+            if (currentLocalGems < cost) {
+                _toastMessage.value = "Not enough gems!"
+                return@launch
+            }
+
+            // Cloud se deduct karwane ki koshish karo
+            val isCloudSuccess = cloudWalletService.deductGems(currentUserId, cost.toLong())
+            
+            if (isCloudSuccess) {
+                // Agar cloud success hua TABS HI local se kaato
+                val newTotal = currentLocalGems - cost
+                secureVault.saveGems(newTotal)
+                _gameState.update { it.copy(gems = newTotal) }
+                _toastMessage.value = "Purchase Successful!"
+            } else {
+                // YAHAN HOTA HAI BUG! Agar fail ho toh LOCAL KO CHHEDNA NAHI HAI.
+                // Pehle yahan zero set ho raha hoga default state ke chakkar me.
+                _toastMessage.value = "Purchase failed. Please try again."
+            }
+        }
+    }
+
+    // --------------------------------------------------------
+    // 1. GEM COLLECT HONE PAR (Real-time Cloud + UI Update)
+    // --------------------------------------------------------
     fun onGemCollected(amount: Int = 1) {
         viewModelScope.launch {
-            // 1. Pehle Screen par turant +1 dikhao (No lag!)
+            // A. UI ko turant update kar (Bina lag ke top bar badlega)
             _gameState.update { currentState ->
                 currentState.copy(
                     gems = currentState.gems + amount,
                     sessionGems = currentState.sessionGems + amount
                 )
             }
+            
+            // B. Local secure vault mein backup save kar
+            secureVault.addGems(amount)
+            
+            // C. Real-time Cloud update maar de (Atomic Increment)
+            val userId = currentUserId 
+            if (userId != null && userId.isNotEmpty()) {
+                cloudWalletService.addGemRealTime(userId, amount.toLong())
+            }
+        }
+    }
 
-            // 2. Local Secure Vault mein add karo
-            repository.addGems(amount, CurrencySource.GAMEPLAY_COLLECT, null)
+    // --------------------------------------------------------
+    // 2. KUCH BHI KHREEDNE PAR (Zero hone wala bug Fixed!)
+    // --------------------------------------------------------
+    fun buyLivesWithGems(livesToAdd: Int, cost: Int) {
+        viewModelScope.launch {
+            val currentLocalGems = secureVault.getGems()
+            
+            if (currentLocalGems < cost) {
+                _toastMessage.value = "Not enough gems!"
+                return@launch
+            }
 
-            // 3. Cloud (Firestore) ko background mein sync maro
-            cloudWalletService.syncGemsToCloud(
-                userId = currentUserId, 
-                newTotal = _gameState.value.gems
-            )
+            val userId = currentUserId
+            if (userId != null && userId.isNotEmpty()) {
+                // Cloud se validation try karo
+                val isCloudSuccess = cloudWalletService.deductGems(userId, cost.toLong())
+                
+                if (isCloudSuccess) {
+                    // SUCCESS HUA TABS HI LOCAL SE KAATO
+                    val newTotal = currentLocalGems - cost
+                    secureVault.saveGems(newTotal)
+                    
+                    _gameState.update { it.copy(gems = newTotal) }
+                    
+                    // Yahan tera jo life badhane ka call hoga woh chalega
+                    // gameEngine.addLives(livesToAdd) 
+                    
+                    _toastMessage.value = "Purchase Successful!"
+                } else {
+                    // FAIL HONE PAR AB ZERO NAHI HOGA
+                    _toastMessage.value = "Purchase failed. Please try again."
+                }
+            }
+        }
+    }
+
+    // --------------------------------------------------------
+    // 3. DAILY REWARDS MILNE PAR (Instantly add hoga)
+    // --------------------------------------------------------
+    fun claimDailyReward(rewardAmount: Int) {
+        viewModelScope.launch {
+            // Local Vault + UI instant update
+            val newTotal = secureVault.getGems() + rewardAmount
+            secureVault.saveGems(newTotal)
+            
+            _gameState.update { it.copy(gems = newTotal) }
+            
+            // Background Cloud Sync
+            val userId = currentUserId
+            if (userId != null && userId.isNotEmpty()) {
+                cloudWalletService.syncGemsToCloud(userId, newTotal)
+            }
         }
     }
 
@@ -856,7 +958,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return claimed
     }
 
-    fun claimDailyReward(multiplier: Int = 1): Int {
+    fun claimDailyRewardWithMultiplier(multiplier: Int = 1): Int {
         val gemsAwarded = repository.claimDailyReward()
         val totalAwarded = gemsAwarded * multiplier
         if (multiplier > 1 && gemsAwarded > 0) {
