@@ -363,4 +363,25 @@ class DifficultyManager {
     fun hasNarrowPlatformStreak(streak: Int): Boolean = streak >= 10
     fun hasMovingPillarStreak(streak: Int): Boolean = streak >= 20
     fun hasWindDriftStreak(streak: Int): Boolean = streak >= 30
+
+    // Boss ki speed ab control mein rahegi (normal se thodi si zyada, extreme nahi)
+    fun getSpeedMultiplier(level: Int, isBossChallenge: Boolean): Float {
+        return if (isBossChallenge) 1.2f else 1.0f + (level * 0.05f)
+    }
+
+    // Obstacles aur gaps ke beech mein hamesha safe distance rahega
+    fun getPlatformGap(level: Int, isBossChallenge: Boolean): Float {
+        val baseGap = if (isBossChallenge) 250f else 150f + (level * 10f)
+        return baseGap
+    }
+
+    // Hazard (spikes) spawn rate. Boss mein gap zyada hoga taaki saans lene ki jagah mile
+    fun getHazardProbability(level: Int, isBossChallenge: Boolean): Float {
+        return if (isBossChallenge) 0.2f else 0.1f + (level * 0.02f)
+    }
+
+    // SAFE ZONE: Landing ke baad spike ekdum muh par nahi aayega (Issue 3 Fixed)
+    fun getMinHazardPadding(): Float {
+        return 180f // 180 pixels ka safe zone landing ke baad
+    }
 }

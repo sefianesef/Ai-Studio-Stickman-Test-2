@@ -27,6 +27,22 @@ class StickmanGameEngine(
 
     val isFlipped: Boolean get() = isUpsideDown
 
+    fun flipStickman() {
+        triggerFlip()
+    }
+
+    fun startStretchingBridge() {
+        if (_gameState.value == GameState.START || _gameState.value == GameState.IDLE) {
+            onTouchDown()
+        }
+    }
+
+    fun stopStretchingAndDrop() {
+        if (_gameState.value == GameState.GROWING) {
+            onTouchUp()
+        }
+    }
+
     fun checkGemCollision(x: Float, y: Float, gem: GemData): Boolean {
         return physicsEngine.checkGemPickup(x, isUpsideDown, gem)
     }
