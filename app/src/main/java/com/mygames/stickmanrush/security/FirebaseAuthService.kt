@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.Dispatchers
@@ -40,8 +41,15 @@ class FirebaseAuthService(private val context: Context) {
 
     suspend fun registerWithEmail(email: String, pass: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val result = auth.createUserWithEmailAndPassword(email, pass).await()
-            val uid = result.user?.uid ?: throw IllegalStateException("User UID is null")
+            val user = auth.currentUser
+            val credential = EmailAuthProvider.getCredential(email, pass)
+            val uid = if (user != null && user.isAnonymous) {
+                user.linkWithCredential(credential).await()
+                user.uid
+            } else {
+                val result = auth.createUserWithEmailAndPassword(email, pass).await()
+                result.user?.uid ?: throw IllegalStateException("User UID is null")
+            }
             Result.success(uid)
         } catch (e: Exception) {
             Result.failure(e)
@@ -68,8 +76,16 @@ class FirebaseAuthService(private val context: Context) {
 
     suspend fun signUpWithEmail(email: String, pass: String): Result<FirebaseUser?> = withContext(Dispatchers.IO) {
         try {
-            val result = auth.createUserWithEmailAndPassword(email, pass).await()
-            Result.success(result.user)
+            val user = auth.currentUser
+            val credential = EmailAuthProvider.getCredential(email, pass)
+            val firebaseUser = if (user != null && user.isAnonymous) {
+                val authResult = user.linkWithCredential(credential).await()
+                authResult.user
+            } else {
+                val result = auth.createUserWithEmailAndPassword(email, pass).await()
+                result.user
+            }
+            Result.success(firebaseUser)
         } catch (e: Exception) {
             Result.failure(e)
         }

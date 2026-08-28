@@ -298,7 +298,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (!isConnected) {
                     soundManager.playButton()
                     hapticManager.uiClick()
-                    Toast.makeText(context, "Please check your internet connection", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Connect to internet to use the shop", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
 

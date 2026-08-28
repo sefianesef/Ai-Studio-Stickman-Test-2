@@ -723,8 +723,7 @@ class GameRepository(
 
     private val currencyVault = SecureCurrencyVault(context)
 
-    private val _gems = MutableStateFlow(prefs.getInt(KEY_GEMS, 10))
-    override val gems: StateFlow<Int> = _gems.asStateFlow()
+    override val gems: StateFlow<Int> = cloudWalletService.cloudGems
 
     private val _blueGems = MutableStateFlow(prefs.getInt(KEY_BLUE_GEMS, 6))
     override val blueGems: StateFlow<Int> = _blueGems.asStateFlow()
@@ -840,15 +839,13 @@ class GameRepository(
             rawGems, rawBlueGems, rawRedGems, rawHighScore, rawTotalBridges, rawStreak, rawLastClaimDay, storedSignature
         )
 
-        val initialGems = if (isDataValid) rawGems else 10
         val initialBlue = if (isDataValid) rawBlueGems else 6
         val initialRed = if (isDataValid) rawRedGems else 3
 
-        _gems.value = initialGems
         _blueGems.value = initialBlue
         _redGems.value = initialRed
 
-        currencyVault.syncFromDisk(initialGems, initialBlue, initialRed)
+        currencyVault.syncFromDisk(gems.value, initialBlue, initialRed)
         saveIntegritySignature()
 
         // Unlock all free items in memory and Room
@@ -866,7 +863,7 @@ class GameRepository(
                 if (existingProfile == null) {
                     val initialProfile = PlayerProfileEntity(
                         id = 1,
-                        totalGems = _gems.value,
+                        totalGems = gems.value,
                         highScore = _highScore.value,
                         totalBridgesBuilt = prefs.getInt(KEY_TOTAL_BRIDGES, 0),
                         totalPerfectHits = prefs.getInt(KEY_PERFECT_HITS, 0),
@@ -900,26 +897,14 @@ class GameRepository(
         // Realtime Firestore Cloud Wallet Sync Listener
         scope.launch {
             cloudWalletService.cloudGems.collect { remoteGems ->
-                if (remoteGems != null && remoteGems > 0) {
-                    if (remoteGems > _gems.value || _gems.value <= 10) {
-                        _gems.value = remoteGems
-                        currencyVault.syncFromDisk(remoteGems, _blueGems.value, _redGems.value)
-                        prefs.edit().putInt(KEY_GEMS, remoteGems).apply()
-                        saveIntegritySignature()
-                        playerProfileDao.updateGems(remoteGems)
-                    }
-                }
+                currencyVault.syncFromDisk(remoteGems, _blueGems.value, _redGems.value)
+                playerProfileDao.updateGems(remoteGems)
             }
         }
 
         scope.launch {
             cloudWalletService.cloudRedGems.collect { remoteRed ->
-                if (remoteRed != null) {
-                    _redGems.value = remoteRed
-                    currencyVault.syncFromDisk(_gems.value, _blueGems.value, remoteRed)
-                    prefs.edit().putInt(KEY_RED_GEMS, remoteRed).apply()
-                    saveIntegritySignature()
-                }
+                currencyVault.syncFromDisk(gems.value, _blueGems.value, remoteRed)
             }
         }
 
@@ -1269,7 +1254,7 @@ class GameRepository(
 
     private fun saveIntegritySignature() {
         val signature = currencyVault.computeIntegritySignature(
-            gems = _gems.value,
+            gems = gems.value,
             blueGems = _blueGems.value,
             redGems = _redGems.value,
             highScore = _highScore.value,
@@ -1353,15 +1338,13 @@ class GameRepository(
 
             val result = performServerCurrencyHandshake(
                 transaction = pendingTx,
-                currentBalance = _gems.value,
+                currentBalance = gems.value,
                 type = TransactionType.CREDIT
             )
 
             if (result.isApproved) {
                 val serverAuthorized = result.authorizedBalance
-                _gems.value = serverAuthorized
                 currencyVault.syncFromDisk(serverAuthorized, _blueGems.value, _redGems.value)
-                prefs.edit().putInt(KEY_GEMS, serverAuthorized).apply()
                 saveIntegritySignature()
                 playerProfileDao.updateGems(serverAuthorized)
 
@@ -1412,15 +1395,13 @@ class GameRepository(
 
         val result = performServerCurrencyHandshake(
             transaction = pendingTx,
-            currentBalance = _gems.value,
+            currentBalance = gems.value,
             type = TransactionType.CREDIT
         )
 
         return if (result.isApproved) {
             val serverAuthorized = result.authorizedBalance
-            _gems.value = serverAuthorized
             currencyVault.syncFromDisk(serverAuthorized, _blueGems.value, _redGems.value)
-            prefs.edit().putInt(KEY_GEMS, serverAuthorized).apply()
             saveIntegritySignature()
             playerProfileDao.updateGems(serverAuthorized)
 
@@ -1453,7 +1434,7 @@ class GameRepository(
                 transactionId = txId,
                 isApproved = false,
                 status = TransactionStatus.REJECTED,
-                newBalance = _gems.value,
+                newBalance = gems.value,
                 message = result.rejectionReason
             )
         }
@@ -1480,15 +1461,13 @@ class GameRepository(
 
         val result = performServerCurrencyHandshake(
             transaction = pendingTx,
-            currentBalance = _gems.value,
+            currentBalance = gems.value,
             type = TransactionType.DEBIT
         )
 
         return if (result.isApproved) {
             val serverAuthorized = result.authorizedBalance
-            _gems.value = serverAuthorized
             currencyVault.syncFromDisk(serverAuthorized, _blueGems.value, _redGems.value)
-            prefs.edit().putInt(KEY_GEMS, serverAuthorized).apply()
             saveIntegritySignature()
             playerProfileDao.updateGems(serverAuthorized)
 
@@ -1521,7 +1500,7 @@ class GameRepository(
                 transactionId = txId,
                 isApproved = false,
                 status = TransactionStatus.REJECTED,
-                newBalance = _gems.value,
+                newBalance = gems.value,
                 message = result.rejectionReason
             )
         }
@@ -1532,7 +1511,7 @@ class GameRepository(
      */
     override suspend fun deductGems(cost: Int): Boolean = deductMutex.withLock {
         withContext(Dispatchers.IO) {
-            val startBalance = _gems.value
+            val startBalance = gems.value
             Log.d(TAG, "deductGems START: startBalance=$startBalance, cost=$cost")
             val (success, newBalance) = currencyVault.spendGemsSecurely(startBalance, cost)
             if (!success) {
@@ -1541,8 +1520,6 @@ class GameRepository(
             }
 
             // 1. Save local state & prefs
-            _gems.value = newBalance
-            prefs.edit().putInt(KEY_GEMS, newBalance).apply()
             saveIntegritySignature()
             // 2. Update local Room DB Profile synchronously
             playerProfileDao.updateGems(newBalance)
@@ -1555,10 +1532,8 @@ class GameRepository(
      * Spends gems from the account with synchronous local vault gating and server-side authorization handshake.
      */
     override fun spendGems(amount: Int): Boolean {
-        val (success, newGems) = currencyVault.spendGemsSecurely(_gems.value, amount)
+        val (success, newGems) = currencyVault.spendGemsSecurely(gems.value, amount)
         if (success) {
-            _gems.value = newGems
-            prefs.edit().putInt(KEY_GEMS, newGems).apply()
             saveIntegritySignature()
             scope.launch {
                 playerProfileDao.updateGems(newGems)
@@ -1588,11 +1563,8 @@ class GameRepository(
                         if (it.transactionId == txId) it.copy(status = TransactionStatus.CONFIRMED) else it
                     }.takeLast(20)
                 } else {
-                    // Rollback if server debit check fails
                     val rolledBack = result.authorizedBalance
-                    _gems.value = rolledBack
                     currencyVault.syncFromDisk(rolledBack, _blueGems.value, _redGems.value)
-                    prefs.edit().putInt(KEY_GEMS, rolledBack).apply()
                     saveIntegritySignature()
                     playerProfileDao.updateGems(rolledBack)
                     _pendingTransactions.value = _pendingTransactions.value.map {
@@ -1659,10 +1631,8 @@ class GameRepository(
     override suspend fun syncCurrencyWithServer(): Boolean {
         return try {
             val serverBalance = serverAuthority.fetchAuthoritativeBalance(getPlayerId())
-            if (serverBalance > 0 && serverBalance != _gems.value) {
-                _gems.value = serverBalance
+            if (serverBalance > 0 && serverBalance != gems.value) {
                 currencyVault.syncFromDisk(serverBalance, _blueGems.value, _redGems.value)
-                prefs.edit().putInt(KEY_GEMS, serverBalance).apply()
                 saveIntegritySignature()
                 playerProfileDao.updateGems(serverBalance)
             }
@@ -2460,7 +2430,7 @@ class GameRepository(
         val bridges = prefs.getInt(KEY_TOTAL_BRIDGES, 0)
         val perfects = prefs.getInt(KEY_PERFECT_HITS, 0)
         val bullseyePct = if (bridges > 0) ((perfects.toFloat() / bridges.toFloat()) * 100).toInt().coerceIn(0, 100) else 0
-        val gemsEarned = prefs.getInt(KEY_TOTAL_GEMS_HARVESTED, 0) + _gems.value
+        val gemsEarned = prefs.getInt(KEY_TOTAL_GEMS_HARVESTED, 0) + gems.value
         val blueGemsEarned = prefs.getInt(KEY_TOTAL_BLUE_GEMS_EARNED, 0) + _blueGems.value
         val redGemsEarned = prefs.getInt(KEY_TOTAL_RED_GEMS_EARNED, 0) + _redGems.value
         val streak = _currentStreak.value
@@ -2531,12 +2501,7 @@ class GameRepository(
         val result = cloudWalletService.fetchOrInitPlayerWallet(localGems)
         if (result.isSuccess) {
             val (gems, lives) = result.getOrThrow()
-            if (gems > _gems.value) {
-                _gems.value = gems
-                prefs.edit().putInt(KEY_GEMS, gems).apply()
-                saveIntegritySignature()
-            }
-            playerProfileDao.updateGems(_gems.value)
+            playerProfileDao.updateGems(gems)
         }
         return result
     }
@@ -2547,10 +2512,6 @@ class GameRepository(
         if (result.isSuccess) {
             val (newGems, newLives) = result.getOrThrow()
             Log.i(TAG, "purchaseLifeWithGemsOnCloud REPO SUCCESS: newGems=$newGems, newLives=$newLives")
-            _gems.value = newGems
-            currencyVault.syncFromDisk(newGems, _blueGems.value, _redGems.value)
-            prefs.edit().putInt(KEY_GEMS, newGems).apply()
-            saveIntegritySignature()
             playerProfileDao.updateGems(newGems)
         } else {
             Log.w(TAG, "purchaseLifeWithGemsOnCloud REPO FAILED: ${result.exceptionOrNull()?.message}")

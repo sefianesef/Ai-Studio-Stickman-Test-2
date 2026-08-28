@@ -192,11 +192,11 @@ class FirebaseCloudWalletService(private val context: Context) {
         }
     }
 
-    private val _cloudGems = MutableStateFlow<Int?>(null)
-    val cloudGems: StateFlow<Int?> = _cloudGems.asStateFlow()
+    private val _cloudGems = MutableStateFlow(50)
+    val cloudGems: StateFlow<Int> = _cloudGems.asStateFlow()
 
-    private val _cloudRedGems = MutableStateFlow<Int?>(null)
-    val cloudRedGems: StateFlow<Int?> = _cloudRedGems.asStateFlow()
+    private val _cloudRedGems = MutableStateFlow(0)
+    val cloudRedGems: StateFlow<Int> = _cloudRedGems.asStateFlow()
 
     private var walletListenerRegistration: ListenerRegistration? = null
 
@@ -341,8 +341,8 @@ class FirebaseCloudWalletService(private val context: Context) {
             Log.w(TAG, "Sign out exception: ${e.message}")
         }
         _currentUser.value = null
-        _cloudGems.value = null
-        _cloudRedGems.value = null
+        _cloudGems.value = 50
+        _cloudRedGems.value = 0
         _syncStatus.value = CloudSyncStatus.DISCONNECTED
     }
 
@@ -365,18 +365,21 @@ class FirebaseCloudWalletService(private val context: Context) {
                 }
 
                 if (snapshot != null && snapshot.exists()) {
-                    val gems = snapshot.getLong("gems")?.toInt() ?: 0
+                    val gems = snapshot.getLong("gems")?.toInt() ?: 50
                     val redGems = snapshot.getLong("redGems")?.toInt() ?: 0
-                    if (gems > 0) {
-                        _cloudGems.value = gems
-                    }
-                    if (redGems > 0) {
-                        _cloudRedGems.value = redGems
-                    }
+                    _cloudGems.value = gems
+                    _cloudRedGems.value = redGems
                     _syncStatus.value = CloudSyncStatus.SYNCED
                     Log.d(TAG, "Realtime cloud wallet sync: $gems gems, $redGems red gems")
                 } else {
                     Log.i(TAG, "No cloud wallet found on Firestore for user $userId. Initializing...")
+                    val initialData = hashMapOf(
+                        "gems" to 50,
+                        "lives" to 3,
+                        "lastUpdated" to Timestamp.now()
+                    )
+                    userDocRef.set(initialData, SetOptions.merge())
+                    _cloudGems.value = 50
                 }
             }
         } catch (e: Throwable) {
