@@ -22,6 +22,7 @@ import com.mygames.stickmanrush.security.FirebaseAuthService
 import com.mygames.stickmanrush.security.PurchaseVerificationService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,13 +38,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val showAuthDialog: StateFlow<Boolean> = _showAuthDialog.asStateFlow()
 
     init {
-        val user = authService.currentUser
-        if (user == null) {
-            _showAuthDialog.value = true
-        } else {
-            _showAuthDialog.value = false
-            viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                authService.ensureAuthenticated()
+                withContext(Dispatchers.Main) {
+                    _showAuthDialog.value = false
+                }
                 repository.fetchOrInitPlayerWallet(repository.gems.value)
+            } catch (e: Exception) {
+                Log.w("GameViewModel", "Init ensureAuthenticated failed: ${e.message}")
             }
         }
     }
@@ -301,17 +304,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
                 var currentUser = authService.currentUser
                 if (currentUser == null) {
-                    val signInResult = authService.signInAnonymously()
-                    if (signInResult.isSuccess) {
-                        currentUser = authService.currentUser
+                    try {
+                        authService.ensureAuthenticated()
+                    } catch (e: Exception) {
+                        Log.w("GameViewModel", "Silent anonymous auth failed during purchase: ${e.message}")
                     }
-                }
-
-                if (currentUser == null) {
-                    soundManager.playButton()
-                    hapticManager.uiClick()
-                    Toast.makeText(context, "Authentication required to purchase lives", Toast.LENGTH_SHORT).show()
-                    return@launch
                 }
 
                 val currentBalance = repository.gems.value

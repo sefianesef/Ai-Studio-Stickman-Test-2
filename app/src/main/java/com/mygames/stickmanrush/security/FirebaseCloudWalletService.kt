@@ -142,8 +142,15 @@ class FirebaseCloudWalletService(private val context: Context) {
     }
 
     suspend fun purchaseLifeWithGemsOnCloud(cost: Int, livesToAdd: Int): Result<Pair<Int, Int>> = withContext(Dispatchers.IO) {
-        Log.d(TAG, "purchaseLifeWithGemsOnCloud SERVICE START: uid=$currentUserId, cost=$cost, livesToAdd=$livesToAdd")
-        val uid = currentUserId ?: return@withContext Result.failure(Exception("Not authenticated"))
+        val authService = FirebaseAuthService(context)
+        val uid = try {
+            authService.ensureAuthenticated()
+        } catch (e: Exception) {
+            Log.w(TAG, "purchaseLifeWithGemsOnCloud: Failed to ensure authentication: ${e.message}")
+            return@withContext Result.failure(Exception("Not authenticated"))
+        }
+
+        Log.d(TAG, "purchaseLifeWithGemsOnCloud SERVICE START: uid=$uid, cost=$cost, livesToAdd=$livesToAdd")
         if (!isFirebaseConfigured()) return@withContext Result.failure(Exception("Firebase not configured"))
 
         try {
@@ -152,8 +159,8 @@ class FirebaseCloudWalletService(private val context: Context) {
 
             val updatedValues = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(docRef)
-                val cloudGems = snapshot.getLong("gems") ?: 0L
-                val currentLives = snapshot.getLong("lives")?.toInt() ?: 3
+                val cloudGems = if (snapshot.exists()) snapshot.getLong("gems") ?: 50L else 50L
+                val currentLives = if (snapshot.exists()) snapshot.getLong("lives")?.toInt() ?: 3 else 3
 
                 if (cloudGems < cost) {
                     throw FirebaseFirestoreException("Insufficient cloud balance", FirebaseFirestoreException.Code.ABORTED)
