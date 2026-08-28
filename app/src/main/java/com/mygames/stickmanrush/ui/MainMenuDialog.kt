@@ -23,6 +23,18 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 @Composable
+fun MainMenuDialog(
+    viewModel: GameViewModel,
+    modifier: Modifier = Modifier
+) {
+    ProfessionalMainMenuDialog(
+        viewModel = viewModel,
+        onDismiss = { viewModel.openMainMenu(false) },
+        modifier = modifier
+    )
+}
+
+@Composable
 fun ProfessionalMainMenuDialog(
     viewModel: GameViewModel,
     onDismiss: () -> Unit,

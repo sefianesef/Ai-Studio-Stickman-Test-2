@@ -50,6 +50,13 @@ fun StickmanGameScreen(
     val activeSecondChancePrompt by viewModel.engine.activeSecondChancePrompt.collectAsState()
     val secondChanceProgressPercent by viewModel.engine.secondChanceProgressPercent.collectAsState()
 
+    // YEH CONNECTION GEMS ADD KAREGA
+    LaunchedEffect(viewModel.engine) {
+        viewModel.engine.onGemCollectedListener = { amount ->
+            viewModel.onGemCollected(amount) 
+        }
+    }
+
     val isPlaying = gameState != GameState.START && gameState != GameState.GAMEOVER
     val isStart = gameState == GameState.START
     val isGameOver = gameState == GameState.GAMEOVER

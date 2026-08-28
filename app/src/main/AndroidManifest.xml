@@ -8,7 +8,7 @@
     <uses-permission android:name="com.android.vending.BILLING" />
 
     <application
-        android:name=".StickmanApp"
+        android:name=".StickmanApplication"
         android:allowBackup="false"
         android:hardwareAccelerated="true"
         android:largeHeap="true"

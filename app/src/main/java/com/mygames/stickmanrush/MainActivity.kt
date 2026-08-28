@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.mygames.stickmanrush.ui.StickmanGameScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mygames.stickmanrush.ui.GameViewModel
 import com.mygames.stickmanrush.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -28,7 +29,8 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier.fillMaxSize(),
             color = Color(0xFF06140E)
           ) {
-            StickmanGameScreen()
+            val viewModel: GameViewModel = viewModel()
+            StickmanApp(viewModel = viewModel)
           }
         }
       }
@@ -37,4 +39,3 @@ class MainActivity : ComponentActivity() {
     }
   }
 }
-
