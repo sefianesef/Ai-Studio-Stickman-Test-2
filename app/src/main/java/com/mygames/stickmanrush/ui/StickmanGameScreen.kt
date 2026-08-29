@@ -179,12 +179,15 @@ fun StickmanGameScreen(
                 celebrationText = celebrationText,
                 levelNumber = activeLevelVictory?.levelNumber,
                 viewModel = viewModel,
-                onDismiss = { viewModel.dismissLevelVictory() }
+                onDismiss = { 
+                    viewModel.dismissLevelVictory() 
+                }
             )
         }
 
-        // Challenge Dialog (Every 5 Levels)
-        if (!activeSecondChancePrompt) {
+        // Big Challenging Psychology Motivational Dialog (Every 5 Levels)
+        // Show only after victory celebration is dismissed to prevent screen lock
+        if (!activeSecondChancePrompt && levelVictoryCelebration == null) {
             activeChallengeDialog?.let { challenge ->
                 ChallengePsychologyDialog(
                     challenge = challenge,

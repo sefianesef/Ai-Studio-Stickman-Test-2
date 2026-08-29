@@ -107,6 +107,7 @@ class StickmanGameEngine(
 
     fun dismissLevelVictory() {
         _activeLevelVictory.value = null
+        _levelVictoryCelebration.value = null
     }
 
     fun dismissChallengeDialog() {
@@ -2345,5 +2346,6 @@ class StickmanGameEngine(
 
     fun dismissVictoryCelebration() {
         _levelVictoryCelebration.value = null
+        _activeLevelVictory.value = null
     }
 }
