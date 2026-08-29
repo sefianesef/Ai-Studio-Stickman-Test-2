@@ -46,6 +46,7 @@ class StickmanGameEngine(
     fun checkGemCollision(x: Float, y: Float, gem: GemData): Boolean {
         return physicsEngine.checkGemPickup(x, isUpsideDown, gem)
     }
+
     // Game state
     private val _gameState = MutableStateFlow(GameState.START)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
@@ -68,11 +69,11 @@ class StickmanGameEngine(
     private val _lastNearMiss = MutableStateFlow<NearMissInfo?>(null)
     val lastNearMiss: StateFlow<NearMissInfo?> = _lastNearMiss.asStateFlow()
 
-    // Lives System (5 lives max, regenerating 1 life every 20 minutes)
+    // Lives System
     val lives: StateFlow<Int> = repository.lives
     val maxLives: Int = GameRepository.MAX_LIVES
 
-    // Challenge Dialog State (Every 5 levels challenge popup: Level 5, 10, 15...)
+    // Challenge Dialog State
     private val _activeChallengeDialog = MutableStateFlow<ChallengeDialogData?>(null)
     val activeChallengeDialog: StateFlow<ChallengeDialogData?> = _activeChallengeDialog.asStateFlow()
 
@@ -108,6 +109,11 @@ class StickmanGameEngine(
     fun dismissLevelVictory() {
         _activeLevelVictory.value = null
         _levelVictoryCelebration.value = null
+    }
+
+    fun dismissVictoryCelebration() {
+        _levelVictoryCelebration.value = null
+        _activeLevelVictory.value = null
     }
 
     fun dismissChallengeDialog() {
@@ -163,11 +169,9 @@ class StickmanGameEngine(
     private val _revivalsUsed = MutableStateFlow(0)
     val revivalsUsed: StateFlow<Int> = _revivalsUsed.asStateFlow()
 
-    // Active Tactical Power-Up State
     private val _activeMagnetTime = MutableStateFlow(0f)
     val activeMagnetTime: StateFlow<Float> = _activeMagnetTime.asStateFlow()
 
-    // Second-Chance Revive (1 per run when falling near goal >70% track progress)
     private val _activeSecondChancePrompt = MutableStateFlow(false)
     val activeSecondChancePrompt: StateFlow<Boolean> = _activeSecondChancePrompt.asStateFlow()
 
@@ -175,7 +179,6 @@ class StickmanGameEngine(
     val secondChanceProgressPercent: StateFlow<Int> = _secondChanceProgressPercent.asStateFlow()
 
     private var secondChancePromptUsedThisRun = false
-
     private var pendingSecondChanceEligible = false
     private var pendingSecondChanceProgress = 70
 
@@ -208,7 +211,6 @@ class StickmanGameEngine(
 
     private var justLeveledUp = false
 
-    // Physics & Layout coordinates (in DP/Canvas virtual pixels)
     var screenWidth = 1080f
     var screenHeight = 1920f
     var floorY = 1400f
@@ -218,13 +220,13 @@ class StickmanGameEngine(
     var nextPlatform = PlatformData(id = 2L, leftX = 400f, width = 140f)
 
     // Bridge
-    var bridgeStartX = 220f // right edge of current platform
+    var bridgeStartX = 220f
     var stickLength = 0f
-    var bridgeAngle = 0f // 0 = straight up, 90 = horizontal flat, 180 = dropped down
-    var bridgeLandingSlope = 0f // Incline or decline angle for sloped platforms
+    var bridgeAngle = 0f
+    var bridgeLandingSlope = 0f
     var targetBridgeTipX = 0f
     var bridgeAngularVel = 0f
-    var bridgeImpactTime = 0f // Timer tracking spring oscillation wobble
+    var bridgeImpactTime = 0f
     var bridgeBounceOffset = 0f
     var bridgeSagOffset = 0f
     private var growTickCounter = 0
@@ -243,26 +245,20 @@ class StickmanGameEngine(
     var slipTimer = 0f
     var walkPhase = 0f
 
-    // Parallax tracking
     var parallaxOffset = 0f
-
-    // Scroll interpolation
     private var scrollTargetX = 0f
     private var scrollCurrentX = 0f
 
-    // Results of bridge drop
     private var isSuccessfulLanding = false
     private var isPerfectHit = false
     private var targetStickmanWalkX = 0f
     private var fallElapsedTime = 0f
     private var hasSpawnedMidFallReaction = false
 
-    // Visual effects
     val particles = mutableListOf<Particle>()
     val floatingTexts = mutableListOf<FloatingPopupText>()
     private var nextTextId = 0L
 
-    // Theme transition alpha
     var themeTransitionProgress = 1f
 
     init {
@@ -275,7 +271,6 @@ class StickmanGameEngine(
         screenHeight = h
         floorY = h * 0.72f
         stickmanY = floorY
-
         if (_gameState.value == GameState.START) {
             currentPlatform.leftX = 60f
             currentPlatform.width = 160f
@@ -286,39 +281,12 @@ class StickmanGameEngine(
         }
     }
 
-    fun resetGame(initial: Boolean = false, startLevel: Int = 1) {
-        if (!initial) {
-            repository.onRunCompleted()
-        }
+    /**
+     * Respawns Stickman directly on the exact platform where he fell, preserving current score and level.
+     */
+    fun respawnAtCurrentPlatform() {
         soundManager.stopFallingSound()
-        val targetStartLevel = startLevel.coerceAtLeast(1)
-        val initialScore = ((targetStartLevel - 1) * 3).coerceAtLeast(0)
-        _score.value = initialScore
-        _currentLevel.value = targetStartLevel
-        _isNewHighScore.value = false
-        _revivalsUsed.value = 0
-        secondChancePromptUsedThisRun = false
-        _activeSecondChancePrompt.value = false
-        justLeveledUp = false
-        _difficultyTier.value = difficultyManager.getTier(initialScore)
-        val equippedTheme = repository.selectedTheme.value
-        val startLevel = computeLevelForScore(initialScore)
-        _currentStage.value = StageThemes.getThemeForLevel(startLevel, equippedTheme)
-        _levelVictoryCelebration.value = null
-        _activeLevelVictory.value = null
-        gemStateManager.resetRun()
 
-        _activeMagnetTime.value = 0f
-        _hasInvincibilityShield.value = false
-        _activeGemDoublerTime.value = 0f
-        _activeSlowMoTime.value = 0f
-        _shieldShatterFx.value = 0f
-
-        currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f, heightOffset = 0f)
-        checkOrSpawnBoss(targetStartLevel)
-        spawnNextPlatform()
-
-        bridgeStartX = currentPlatform.leftX + currentPlatform.width
         stickLength = 0f
         bridgeAngle = 0f
         bridgeLandingSlope = 0f
@@ -329,12 +297,107 @@ class StickmanGameEngine(
         bridgeSagOffset = 0f
         growTickCounter = 0
 
+        // Place Stickman safely standing upright on platform
+        stickmanX = currentPlatform.leftX + currentPlatform.width - 40f
+        stickmanY = floorY + currentPlatform.heightOffset
+        stickmanFallVel = 0f
+        stickmanRotation = 0f
+        fallElapsedTime = 0f
+        hasSpawnedMidFallReaction = false
+
+        isUpsideDown = false
+        isJumping = false
+        jumpOffsetY = 0f
+        jumpVelocityY = 0f
+        jumpRotation = 0f
+        isSlipping = false
+        slipTimer = 0f
+        walkPhase = 0f
+
+        _activeBossState.value?.projectiles?.clear()
+
+        spawnDust(stickmanX, stickmanY, count = 10)
+        _gameState.value = GameState.IDLE
+    }
+
+    fun computeLevelForScore(score: Int): Int {
+        return when {
+            score < 4 -> 1
+            score < 8 -> 2
+            score < 12 -> 3
+            score < 17 -> 4
+            score < 22 -> 5
+            score < 28 -> 6
+            score < 35 -> 7
+            score < 43 -> 8
+            score < 52 -> 9
+            score < 62 -> 10
+            else -> 10 + ((score - 62) / 10) + 1
+        }
+    }
+
+    private fun getMinScoreForLevel(level: Int): Int {
+        return when (level) {
+            1 -> 0
+            2 -> 4
+            3 -> 8
+            4 -> 12
+            5 -> 17
+            6 -> 22
+            7 -> 28
+            8 -> 35
+            9 -> 43
+            10 -> 52
+            else -> 62 + ((level - 10) * 10)
+        }
+    }
+
+    fun resetGame(initial: Boolean = false, startLevel: Int = 1) {
+        if (!initial) {
+            repository.onRunCompleted()
+        }
+        soundManager.stopFallingSound()
+        val targetStartLevel = startLevel.coerceAtLeast(1)
+        val initialScore = getMinScoreForLevel(targetStartLevel)
+
+        _score.value = initialScore
+        _currentLevel.value = targetStartLevel
+        _isNewHighScore.value = false
+        _revivalsUsed.value = 0
+        secondChancePromptUsedThisRun = false
+        _activeSecondChancePrompt.value = false
+        justLeveledUp = false
+        _difficultyTier.value = difficultyManager.getTier(initialScore)
+        val equippedTheme = repository.selectedTheme.value
+        _currentStage.value = StageThemes.getThemeForLevel(targetStartLevel, equippedTheme)
+        _levelVictoryCelebration.value = null
+        _activeLevelVictory.value = null
+        gemStateManager.resetRun()
+        _activeMagnetTime.value = 0f
+        _hasInvincibilityShield.value = false
+        _activeGemDoublerTime.value = 0f
+        _activeSlowMoTime.value = 0f
+        _shieldShatterFx.value = 0f
+        currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f, heightOffset = 0f)
+        checkOrSpawnBoss(targetStartLevel)
+        spawnNextPlatform()
+        bridgeStartX = currentPlatform.leftX + currentPlatform.width
+        stickLength = 0f
+        bridgeAngle = 0f
+        bridgeLandingSlope = 0f
+        targetBridgeTipX = 0f
+        bridgeAngularVel = 0f
+        bridgeImpactTime = 0f
+        bridgeBounceOffset = 0f
+        bridgeSagOffset = 0f
+        growTickCounter = 0
         stickmanX = currentPlatform.leftX + currentPlatform.width - 40f
         stickmanY = floorY
         stickmanFallVel = 0f
         stickmanRotation = 0f
         fallElapsedTime = 0f
         hasSpawnedMidFallReaction = false
+
         isUpsideDown = false
         isJumping = false
         jumpOffsetY = 0f
@@ -344,14 +407,11 @@ class StickmanGameEngine(
         slipTimer = 0f
         walkPhase = 0f
         parallaxOffset = 0f
-
         particles.clear()
         floatingTexts.clear()
-
         if (!initial) {
             repository.recordGamePlayed()
         }
-
         _gameState.value = if (initial) GameState.START else GameState.IDLE
     }
 
@@ -364,7 +424,6 @@ class StickmanGameEngine(
                 else -> BossType.VOID_REAPER
             }
             _activeBossState.value = BossState(type = bossType)
-            // Give Stickman a free Aegis Shield at the start of boss level
             _hasInvincibilityShield.value = true
             addFloatingText("🛡️ AEGIS DEFENSE ACTIVATED!", screenWidth / 2f, floorY - 80f, Color(0xFF38BDF8), scale = 1.35f)
         } else {
@@ -378,7 +437,6 @@ class StickmanGameEngine(
         resetGame(initial = false, startLevel = startLevel)
         _gameState.value = GameState.IDLE
 
-        // ⚔️ Start of Game / Checkpoint Provocative Challenge Prompt
         val nextMilestone = if (startLevel % 5 == 0) startLevel + 5 else ((startLevel / 5) + 1) * 5
         _activeChallengeDialog.value = ChallengeDialogData(
             levelNumber = startLevel,
@@ -390,20 +448,16 @@ class StickmanGameEngine(
             },
             type = ChallengeDialogType.PRE_LEVEL_TAUNT,
             rewardGems = if (startLevel == 1) 15 else 20,
-            buttonText = "I ACCEPT THE CHALLENGE! ⚔️"
+            buttonText = "I ACCEPT THE CHALLENGE! 🔥"
         )
     }
 
-    /**
-     * Loss Aversion / Revive Mechanic: Revives stickman right back on the platform with full score preserved.
-     */
     fun reviveRun() {
         soundManager.stopFallingSound()
         soundManager.playPerfectHit()
         hapticManager?.perfectHit()
         _revivalsUsed.value += 1
 
-        // Reset bridge & stickman to start of current platform
         stickLength = 0f
         bridgeAngle = 0f
         bridgeLandingSlope = 0f
@@ -413,7 +467,6 @@ class StickmanGameEngine(
         bridgeBounceOffset = 0f
         bridgeSagOffset = 0f
         growTickCounter = 0
-
         stickmanX = currentPlatform.leftX + currentPlatform.width - 40f
         stickmanY = floorY + currentPlatform.heightOffset
         stickmanFallVel = 0f
@@ -421,13 +474,10 @@ class StickmanGameEngine(
         isUpsideDown = false
         walkPhase = 0f
 
-        // Clear boss projectiles for a clean second chance
         _activeBossState.value?.projectiles?.clear()
 
-        // Golden revival shockwave & celebratory particles
         spawnConfetti(stickmanX, floorY - 60f, count = 25)
         addFloatingText("SECOND CHANCE! ✨", stickmanX, floorY - 100f, Color(0xFFFFD700), scale = 1.4f)
-
         _gameState.value = GameState.IDLE
     }
 
@@ -444,57 +494,28 @@ class StickmanGameEngine(
         _activeSecondChancePrompt.value = false
         repository.consumeLife()
         repository.updateHighScore(_score.value)
-
-        val lvl = _currentLevel.value
-        _activeChallengeDialog.value = ChallengeDialogData(
-            levelNumber = lvl,
-            title = if (lvl < 5) "CHALLENGE FAILED: YOU CAN'T CLEAR LEVEL 5!" else "CHALLENGE FAILED: LEVEL $lvl!",
-            message = if (lvl < 5) {
-                "I challenged you to clear Level 5 and you fell at Level $lvl! You can't clear it, better try again!"
-            } else {
-                "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!"
-            },
-            type = ChallengeDialogType.POST_LEVEL_FAIL,
-            rewardGems = 0,
-            buttonText = "TRY AGAIN & PROVE IT! 🔥"
-        )
-        _gameState.value = GameState.GAMEOVER
+        respawnAtCurrentPlatform()
     }
 
-    /**
-     * Procedurally generates the next platform using DifficultyManager.
-     */
     fun generateNextPlatform(currentScore: Int, screenW: Float): PlatformData {
         val tier = difficultyManager.getTier(currentScore)
         _difficultyTier.value = tier
-
         val level = computeLevelForScore(currentScore)
         val isBoss = (level % 5 == 0)
         val gap = difficultyManager.generatePlatformGap(currentScore, level, screenW, isFirstBridgeOfLevel = justLeveledUp)
         justLeveledUp = false
-
         val streak = currentScore
         val width = difficultyManager.generatePlatformWidth(currentScore, streak = streak).coerceIn(28f, 160f)
         val nextLeft = currentPlatform.leftX + currentPlatform.width + gap
 
-        // Streak Milestone 30+: Update Wind Drift Force
         _currentWindDrift.value = difficultyManager.getWindDriftForce(streak)
-
-        // Procedural Height Variation (Elevations & Depressions)
         val heightOffset = difficultyManager.generatePlatformHeightOffset(currentScore, level)
 
-        // Procedural Gem Placement via GemStateManager
         val spanStart = currentPlatform.leftX + currentPlatform.width
         val spanEnd = nextLeft
         val gem = gemStateManager.createGemForSpan(spanStart, spanEnd, tier)
-
-        // Procedural Physical Obstacle Hazard (Buzzsaws, Spike Mines, Laser Barriers, Ice Slip)
         val obstacle = difficultyManager.generateObstacle(spanStart, spanEnd, currentScore, level, isBossLevel = isBoss)
-
-        // Procedural Tactical Power-Up (Magnet, Aegis Shield, Gem Doubler, Chrono Slow-Mo)
         val powerUp = difficultyManager.generatePowerUp(spanStart, spanEnd, currentScore, level, hasObstacle = (obstacle != null))
-
-        // Procedural Moving Platform Config with Streak Escalation
         val movingConfig = difficultyManager.generateMovingConfig(currentScore, level, streak = streak)
 
         return PlatformData(
@@ -519,24 +540,22 @@ class StickmanGameEngine(
         nextPlatform = generateNextPlatform(_score.value, screenWidth)
     }
 
-    // Actions for Jumping & Flipping
     fun triggerJump() {
         if (_gameState.value == GameState.WALKING) {
             if (!isJumping) {
                 if (isUpsideDown) {
-                    // Quick flip back up to bridge surface before leaping
                     isUpsideDown = false
                     soundManager.playFlip()
                     hapticManager?.flip()
                 }
                 isJumping = true
-                jumpVelocityY = 520f // Peak jump arc ~90px
+                jumpVelocityY = 520f
                 jumpOffsetY = 4f
                 jumpRotation = 0f
                 soundManager.playJump()
                 hapticManager?.jump()
                 spawnJumpTakeoffEffects(stickmanX, stickmanY)
-                addFloatingText("JUMP! 🦘", stickmanX, stickmanY - 50f, Color(0xFF38BDF8), scale = 1.15f)
+                addFloatingText("JUMP! 🥷", stickmanX, stickmanY - 50f, Color(0xFF38BDF8), scale = 1.15f)
                 repository.trackMissionProgress("JUMP_HAZARD", 1)
             }
         }
@@ -544,9 +563,7 @@ class StickmanGameEngine(
 
     fun triggerFlip() {
         if (_gameState.value == GameState.WALKING) {
-            // If in mid-air jump, landing back onto bridge
             if (isJumping && jumpOffsetY > 15f) {
-                // Ignore flip during high air jump
                 return
             }
             if (isJumping) {
@@ -555,7 +572,6 @@ class StickmanGameEngine(
                 jumpVelocityY = 0f
                 jumpRotation = 0f
             }
-
             isUpsideDown = !isUpsideDown
             soundManager.playFlip()
             hapticManager?.flip()
@@ -567,7 +583,6 @@ class StickmanGameEngine(
         }
     }
 
-    // Touch input handlers
     fun onTouchDown(touchX: Float = 0f, touchY: Float = 0f) {
         when (_gameState.value) {
             GameState.START, GameState.IDLE -> {
@@ -592,18 +607,13 @@ class StickmanGameEngine(
             GameState.GAMEOVER -> {
                 soundManager.playButton()
                 hapticManager?.uiClick()
-                resetGame(initial = false)
-                _gameState.value = GameState.IDLE
+                respawnAtCurrentPlatform()
             }
-            GameState.GROWING -> {
-                // Already growing while finger is pressed down
-            }
+            GameState.GROWING -> {}
             GameState.WALKING -> {
                 if (isUpsideDown) {
-                    // Tap flips upright back onto bridge
                     triggerFlip()
                 } else {
-                    // If tap is in bottom area, flip underneath; otherwise perform athletic jump
                     if (touchY > 0f && touchY > (floorY + 30f)) {
                         triggerFlip()
                     } else {
@@ -622,7 +632,6 @@ class StickmanGameEngine(
                 bridgeAngularVel = 0f
                 hapticManager?.bridgeRelease()
 
-                // Pre-evaluate landing result to determine target landing angle (incline or decline)
                 val tier = difficultyManager.getTier(_score.value)
                 val landingResult = physicsEngine.evaluateBridgeLanding(
                     bridgeStartX = bridgeStartX,
@@ -631,55 +640,23 @@ class StickmanGameEngine(
                     targetPlatform = nextPlatform,
                     bullseyeTolerance = tier.bullseyeTolerance
                 )
-                // If the bridge will successfully land on the target platform, land at the slope angle
                 bridgeLandingSlope = landingResult.landingSlopeAngle
-
                 soundManager.playBridgeFall()
                 repository.recordBridgeBuilt()
                 repository.trackMissionProgress("BUILD_BRIDGES", 1)
                 repository.trackWeeklyMissionProgress("BUILD_BRIDGES", 1)
                 repository.trackContestProgress("BUILD_BRIDGES", 1)
             } else {
-                // Finger released too quickly; reset back to IDLE
                 stickLength = 0f
                 _gameState.value = GameState.IDLE
             }
         }
     }
 
-    /**
-     * Level Progression Curve:
-     * - Level 1 (Score 0-3): 4 introductory bridges (easy & wide platforms)
-     * - Level 2 (Score 4-7): 4 bridges (predictable comfortable distances)
-     * - Level 3 (Score 8-11): 4 bridges (solid mastery)
-     * - Level 4 (Score 12-16): 5 bridges (dynamic bridge physics & varying distances: small hops, medium bridges, long gaps)
-     * - Level 5 (Score 17-21): 5 bridges (rich bridge physics variations)
-     * - Level 6+ (Score 22+): Scaled progression with continuous endless arcade flow
-     */
-    fun computeLevelForScore(score: Int): Int {
-        return when {
-            score < 4 -> 1
-            score < 8 -> 2
-            score < 12 -> 3
-            score < 17 -> 4
-            score < 22 -> 5
-            score < 28 -> 6
-            score < 35 -> 7
-            score < 43 -> 8
-            score < 52 -> 9
-            score < 62 -> 10
-            else -> 10 + ((score - 62) / 10) + 1
-        }
-    }
-
-    // Main Game Update Loop (deltaTime in seconds)
     fun update(dt: Float) {
         val clampedDt = dt.coerceIn(0.001f, 0.05f)
-
-        // Update active particles & floating texts
         updateEffects(clampedDt)
 
-        // Update Power-Up Active Timers
         if (_activeMagnetTime.value > 0f) {
             _activeMagnetTime.value = (_activeMagnetTime.value - clampedDt).coerceAtLeast(0f)
         }
@@ -693,7 +670,6 @@ class StickmanGameEngine(
             _shieldShatterFx.value = (_shieldShatterFx.value - clampedDt * 2.5f).coerceAtLeast(0f)
         }
 
-        // Active Magnet Dynamic Attraction of Bridge Gems
         if (_activeMagnetTime.value > 0f) {
             nextPlatform.gem?.let { gem ->
                 if (!gem.collected) {
@@ -702,11 +678,9 @@ class StickmanGameEngine(
                         val dir = if (stickmanX > gem.x) 1f else -1f
                         val pullSpeed = (450f + (600f - dist) * 0.9f) * clampedDt
                         gem.x += dir * pullSpeed
-
                         if (particles.size < 120 && kotlin.random.Random.nextFloat() < 0.25f) {
                             spawnMagnetAttractSparks(gem.x, stickmanY - 20f, stickmanX, stickmanY - 20f)
                         }
-
                         if (dist < 36f) {
                             gem.collected = true
                             val multiplier = if (_activeGemDoublerTime.value > 0f) 2 else 1
@@ -722,7 +696,7 @@ class StickmanGameEngine(
                                 repository.trackWeeklyMissionProgress("COLLECT_GEMS", finalAmt)
                                 repository.trackContestProgress("COLLECT_GEMS", finalAmt)
                                 repository.recordGemsHarvested(finalAmt)
-                                val label = if (multiplier > 1) "🧲 2X 💎 +$finalAmt" else "🧲 💎 +$finalAmt"
+                                val label = if (multiplier > 1) "⚡ 2X 💎 +$finalAmt" else "💎 +$finalAmt"
                                 addFloatingText(label, stickmanX, stickmanY - 35f, Color(0xFF38BDF8), scale = 1.3f)
                                 spawnGemCollectEffects(stickmanX, stickmanY)
                                 spawnHeroGemCollectAura(stickmanX, stickmanY, multiplier > 1, 1)
@@ -733,7 +707,6 @@ class StickmanGameEngine(
             }
         }
 
-        // Update Obstacle animations
         nextPlatform.obstacle?.let { obs ->
             obs.animPhase += clampedDt * 5f
             if (obs.type == ObstacleType.MOVING_SPIKE_BALL) {
@@ -741,7 +714,6 @@ class StickmanGameEngine(
             }
         }
 
-        // Update Tactical Power-Up Slanted Bridge Tracking & Floating Bobbing
         nextPlatform.powerUp?.let { pUp ->
             if (!pUp.collected) {
                 val spanW = (nextPlatform.leftX - bridgeStartX).coerceAtLeast(10f)
@@ -754,13 +726,11 @@ class StickmanGameEngine(
             }
         }
 
-        // Update Boss Mechanics & Projectiles
         _activeBossState.value?.let { boss ->
             if (!boss.isDefeated && _gameState.value != GameState.GAMEOVER && _gameState.value != GameState.START) {
                 boss.attackTimer += clampedDt
                 if (boss.attackTimer >= boss.attackInterval && (_gameState.value == GameState.IDLE || _gameState.value == GameState.GROWING || _gameState.value == GameState.WALKING)) {
                     boss.attackTimer = 0f
-                    // Boss launches a projectile
                     val isHigh = (kotlin.random.Random.nextFloat() < 0.65f)
                     val spawnX = (nextPlatform.leftX + nextPlatform.width + 120f).coerceAtMost(screenWidth + 60f)
                     val spawnY = floorY + nextPlatform.heightOffset - (if (isHigh) 28f else 0f)
@@ -769,7 +739,7 @@ class StickmanGameEngine(
                             id = System.currentTimeMillis() + kotlin.random.Random.nextInt(1000),
                             x = spawnX,
                             y = spawnY,
-                            vx = -(110f + (_currentLevel.value * 2f)), // Slower for 1.5s - 2.0s clear dodge window
+                            vx = -(110f + (_currentLevel.value * 2f)),
                             colorHex = boss.type.primaryColorHex,
                             isHigh = isHigh
                         )
@@ -777,12 +747,10 @@ class StickmanGameEngine(
                     spawnTipSparks(spawnX, spawnY)
                 }
 
-                // Update Projectiles
                 val pIter = boss.projectiles.iterator()
                 while (pIter.hasNext()) {
                     val p = pIter.next()
                     p.x += p.vx * clampedDt
-                    // Spawn fiery tracer particles
                     if (particles.size < 85 && kotlin.random.Random.nextFloat() < 0.35f) {
                         particles.add(
                             Particle(
@@ -805,7 +773,6 @@ class StickmanGameEngine(
             }
         }
 
-        // Procedural Moving Platform Oscillation
         if (nextPlatform.isMoving && (_gameState.value == GameState.IDLE || _gameState.value == GameState.GROWING || _gameState.value == GameState.FALLING_BRIDGE)) {
             nextPlatform.movePhase += clampedDt * nextPlatform.moveSpeed
             if (nextPlatform.moveVertical) {
@@ -815,7 +782,6 @@ class StickmanGameEngine(
             }
         }
 
-        // Procedural Obstacle Hazard Slanted Bridge Tracking
         nextPlatform.obstacle?.let { obs ->
             obs.animPhase += clampedDt * 6f
             val spanW = (nextPlatform.leftX - bridgeStartX).coerceAtLeast(10f)
@@ -828,13 +794,11 @@ class StickmanGameEngine(
 
         when (_gameState.value) {
             GameState.GROWING -> {
-                // Growth speed scales gently with current difficulty tier for easy early control
                 val tier = difficultyManager.getTier(_score.value)
                 val speed = (310f + (stickLength * 0.40f)) * tier.growthSpeedFactor
                 val prevLength = stickLength
                 stickLength += speed * clampedDt
 
-                // Sound & haptic ticks
                 val tickStep = 20f
                 if ((stickLength / tickStep).toInt() > (prevLength / tickStep).toInt()) {
                     growTickCounter++
@@ -842,21 +806,17 @@ class StickmanGameEngine(
                     val stretchRatio = (stickLength / screenWidth.coerceAtLeast(300f)).coerceIn(0f, 1f)
                     hapticManager?.triggerBridgeExtend(stretchRatio = stretchRatio, tierLevel = tier.tierLevel)
 
-                    // Themed sparks at the growing bridge tip
                     if (particles.size < 80) {
                         val stickSkin = repository.availableAccessories.find { it.id == repository.selectedStick.value }
                         spawnTipSparks(bridgeStartX, (floorY + currentPlatform.heightOffset) - stickLength, stickSkin)
                     }
                 }
             }
-
             GameState.FALLING_BRIDGE -> {
-                // Physics-based gravitational angular acceleration (scaled when Chrono Slow-Mo is active)
                 val slowMoFactor = if (_activeSlowMoTime.value > 0f) 0.60f else 1.0f
                 val torque = physicsEngine.computeBridgeAngularAcceleration(bridgeAngle) * slowMoFactor
                 bridgeAngularVel += torque * clampedDt
                 bridgeAngle += bridgeAngularVel * clampedDt
-
                 val tier = difficultyManager.getTier(_score.value)
                 val rawLandingResult = physicsEngine.evaluateBridgeLanding(
                     bridgeStartX = bridgeStartX,
@@ -865,7 +825,6 @@ class StickmanGameEngine(
                     targetPlatform = nextPlatform,
                     bullseyeTolerance = tier.bullseyeTolerance
                 )
-
                 var landingResult = rawLandingResult
                 if (!landingResult.isSuccessful && _hasInvincibilityShield.value) {
                     _hasInvincibilityShield.value = false
@@ -873,24 +832,20 @@ class StickmanGameEngine(
                     soundManager.playShieldShatter()
                     hapticManager?.shieldShatter()
                     spawnShieldShatterShockwave(bridgeStartX + stickLength, floorY + nextPlatform.heightOffset)
-
                     val platformStart = nextPlatform.leftX
                     val platformEnd = nextPlatform.leftX + nextPlatform.width
                     val platformCenter = nextPlatform.leftX + (nextPlatform.width / 2f)
-
                     val adjustedWalkX = if (rawLandingResult.bridgeTipX < platformStart) {
-                        platformStart + 25f // short bridge -> walk onto platform safely
+                        platformStart + 25f
                     } else {
-                        platformEnd - 25f // long bridge -> walk back onto platform safely
+                        platformEnd - 25f
                     }
-
                     val rescueMsg = if (rawLandingResult.bridgeTipX < platformStart) {
                         "SHIELD RESCUE: SHORT BRIDGE WALK! 🛡️"
                     } else {
                         "SHIELD RESCUE: WALKING BACK! 🛡️"
                     }
                     addFloatingText(rescueMsg, platformCenter, floorY + nextPlatform.heightOffset - 90f, Color(0xFF38BDF8), scale = 1.35f)
-
                     landingResult = LandingResult(
                         isSuccessful = true,
                         isBullseye = false,
@@ -901,17 +856,13 @@ class StickmanGameEngine(
                         nearMiss = null
                     )
                 }
-
                 bridgeLandingSlope = landingResult.landingSlopeAngle
                 val targetLandingAngle = PhysicsEngine.MAX_BRIDGE_ANGLE + bridgeLandingSlope
-
                 if (bridgeAngle >= targetLandingAngle) {
                     bridgeAngle = targetLandingAngle
                     bridgeAngularVel = 0f
                     bridgeImpactTime = 0f
-
                     soundManager.playBridgePlaced()
-
                     isSuccessfulLanding = landingResult.isSuccessful
                     isPerfectHit = landingResult.isBullseye
                     targetStickmanWalkX = landingResult.targetWalkX
@@ -919,7 +870,6 @@ class StickmanGameEngine(
                     bridgeLandingSlope = landingResult.landingSlopeAngle
                     _lastNearMiss.value = landingResult.nearMiss
 
-                    // Trigger tactile bridge landing vibration
                     if (landingResult.isSuccessful) {
                         hapticManager?.triggerLandingSuccess(
                             tierLevel = tier.tierLevel,
@@ -939,7 +889,6 @@ class StickmanGameEngine(
                         val impactY = floorY + nextPlatform.heightOffset
                         spawnLandingEffects(landingResult.bridgeTipX, impactY, landingResult.isBullseye)
 
-                        // Boss damage if boss active
                         _activeBossState.value?.let { boss ->
                             if (!boss.isDefeated) {
                                 val damage = if (landingResult.isBullseye) 2 else 1
@@ -948,11 +897,10 @@ class StickmanGameEngine(
                                 hapticManager?.levelUp()
                                 spawnLandingEffects(nextPlatform.leftX + (nextPlatform.width / 2f), impactY - 50f, true)
                                 if (landingResult.isBullseye) {
-                                    addFloatingText("CRITICAL HIT! -${damage} HP 💥", nextPlatform.leftX + (nextPlatform.width / 2f), impactY - 90f, Color(0xFFFF4500), scale = 1.35f)
+                                    addFloatingText("CRITICAL HIT! -${damage} HP 🔥", nextPlatform.leftX + (nextPlatform.width / 2f), impactY - 90f, Color(0xFFFF4500), scale = 1.35f)
                                 } else {
                                     addFloatingText("STRIKE! -${damage} HP ⚔️", nextPlatform.leftX + (nextPlatform.width / 2f), impactY - 75f, Color(0xFFFFD700), scale = 1.2f)
                                 }
-
                                 if (boss.currentHp <= 0) {
                                     boss.isDefeated = true
                                     boss.projectiles.clear()
@@ -960,11 +908,10 @@ class StickmanGameEngine(
                                     repository.recordGemsHarvested(boss.type.gemReward)
                                     spawnConfetti(screenWidth / 2f, screenHeight * 0.35f, count = 60)
                                     soundManager.playVictoryMusic()
-                                    addFloatingText("BOSS DEFEATED! 🏆 +${boss.type.gemReward} GEMS", screenWidth / 2f, screenHeight * 0.32f, Color(0xFFFFD700), scale = 1.5f)
+                                    addFloatingText("BOSS DEFEATED! 👑 +${boss.type.gemReward} GEMS", screenWidth / 2f, screenHeight * 0.32f, Color(0xFFFFD700), scale = 1.5f)
                                 }
                             }
                         }
-
                         if (landingResult.isBullseye) {
                             soundManager.playPerfectHit()
                             repository.recordPerfectHit()
@@ -978,11 +925,10 @@ class StickmanGameEngine(
                                 Color(0xFFFFD700),
                                 scale = 1.3f
                             )
-                            _score.value += 1 // Bonus +1 for bullseye
+                            _score.value += 1
                             repository.addGems(1, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
                             repository.recordGemsHarvested(1)
                         }
-
                         _gameState.value = GameState.WALKING
                     } else {
                         landingResult.nearMiss?.let { nearMiss ->
@@ -998,40 +944,38 @@ class StickmanGameEngine(
                     }
                 }
             }
-
             GameState.WALKING -> {
                 bridgeImpactTime += clampedDt
                 bridgeBounceOffset = physicsEngine.computeLandingBounceAngle(bridgeImpactTime, stickLength)
 
-                // 1. Jump Physics Update & Airborne Trail
+                // 1. Jump Physics Update & Clean Standing Landing
                 if (isJumping) {
                     jumpOffsetY += jumpVelocityY * clampedDt
-                    jumpVelocityY -= 1400f * clampedDt // Gravity
-                    jumpRotation += 360f * clampedDt // Aerial somersault spin
-
+                    jumpVelocityY -= 1400f * clampedDt
+                    jumpRotation += 360f * clampedDt
                     if (particles.size < 130) {
                         spawnJumpAirborneTrail(stickmanX, stickmanY - jumpOffsetY)
                     }
-
                     if (jumpOffsetY <= 0f) {
-                        // Landed safely back onto bridge surface
+                        // Landed safely on bridge feet-first
                         jumpOffsetY = 0f
                         isJumping = false
                         jumpVelocityY = 0f
                         jumpRotation = 0f
+                        stickmanRotation = 0f
+                        isUpsideDown = false
                         soundManager.playStickmanLand()
                         hapticManager?.jumpLanding()
                         spawnFootstepDust(stickmanX, stickmanY)
                     }
                 }
 
-                // Slip hazard physics check
                 if (physicsEngine.checkObstacleSlip(stickmanX, isUpsideDown, nextPlatform.obstacle, jumpOffsetY)) {
                     if (!isSlipping) {
                         isSlipping = true
                         slipTimer = 0.55f
                         soundManager.playFlip()
-                        addFloatingText("WHOOSH! SLIPPING! ⛸️", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.25f)
+                        addFloatingText("WHOOSH! SLIPPING! ❄️", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.25f)
                     }
                 }
                 if (slipTimer > 0f) {
@@ -1048,10 +992,8 @@ class StickmanGameEngine(
                 parallaxOffset += stepX
                 walkPhase += clampedDt * (if (isSlipping) 26f else 16f)
 
-                // Bridge sag & slope calculation when walking on span
                 val startY = floorY + currentPlatform.heightOffset
                 val targetY = floorY + (if (isSuccessfulLanding) nextPlatform.heightOffset else currentPlatform.heightOffset)
-
                 if (isSuccessfulLanding) {
                     val bridgeTip = if (targetBridgeTipX > bridgeStartX) targetBridgeTipX else nextPlatform.leftX
                     if (stickmanX < nextPlatform.leftX) {
@@ -1071,7 +1013,6 @@ class StickmanGameEngine(
                     stickmanY = startY + (walkProgress * (endY - startY)) + bridgeSagOffset
                 }
 
-                // Footstep sound, dust puff & glowing speed trail behind stickman
                 if (!isJumping && particles.size < 120) {
                     spawnRunningTrail(
                         stickmanX = stickmanX,
@@ -1081,7 +1022,6 @@ class StickmanGameEngine(
                         skinId = repository.selectedSkin.value
                     )
                 }
-
                 if (!isJumping && sin(walkPhase) > 0.95f) {
                     soundManager.playWalkStep()
                     if (particles.size < 90) {
@@ -1089,7 +1029,6 @@ class StickmanGameEngine(
                     }
                 }
 
-                // Check Gem Pickup along the bridge using PhysicsEngine & GemStateManager
                 nextPlatform.gem?.let { currentGem ->
                     if (isFlipped && checkGemCollision(stickmanX, stickmanY, currentGem)) {
                         if (!currentGem.collected) {
@@ -1114,9 +1053,8 @@ class StickmanGameEngine(
                                 repository.trackWeeklyMissionProgress("COLLECT_GEMS", finalAmt)
                                 repository.trackContestProgress("COLLECT_GEMS", finalAmt)
                                 repository.recordGemsHarvested(finalAmt)
-
                                 val comboLabel = if (multiplier > 1) {
-                                    "✨ 2X 💎 +$finalAmt"
+                                    "⚡ 2X 💎 +$finalAmt"
                                 } else if (event.comboMultiplier > 1) {
                                     "💎 +${event.amount} (${event.comboMultiplier}x COMBO!)"
                                 } else {
@@ -1130,7 +1068,6 @@ class StickmanGameEngine(
                     }
                 }
 
-                // Check Tactical Power-Up Pickup (Magnet, Shield, Gem Doubler, Slow Motion)
                 nextPlatform.powerUp?.let { pUp ->
                     if (!pUp.collected && physicsEngine.checkPowerUpPickup(stickmanX, isUpsideDown, pUp)) {
                         pUp.collected = true
@@ -1145,11 +1082,11 @@ class StickmanGameEngine(
                             }
                             PowerUpType.GEM_DOUBLER -> {
                                 _activeGemDoublerTime.value = pUp.type.durationSeconds
-                                addFloatingText("✨ 2X GEMS ACTIVATED! 15s", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
+                                addFloatingText("⚡ 2X GEMS ACTIVATED! 15s", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
                             }
                             PowerUpType.SLOW_MOTION -> {
                                 _activeSlowMoTime.value = pUp.type.durationSeconds
-                                addFloatingText("⏱️ CHRONO SLOW-MO! 12s", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
+                                addFloatingText("⏳ CHRONO SLOW-MO! 12s", pUp.x, stickmanY - 45f, Color(pUp.type.primaryColorHex), scale = 1.35f)
                             }
                         }
                         soundManager.playPowerUpPickup()
@@ -1158,11 +1095,9 @@ class StickmanGameEngine(
                     }
                 }
 
-                // Check Obstacle Hazard Collision along the bridge span (Supports Jumping Clearance & Shield Defense)
                 nextPlatform.obstacle?.let { obstacle ->
                     if (physicsEngine.checkObstacleCollision(stickmanX, isUpsideDown, obstacle, jumpOffsetY)) {
                         if (_hasInvincibilityShield.value) {
-                            // 🛡️ Aegis Shield absorbs the fatal impact!
                             _hasInvincibilityShield.value = false
                             _shieldShatterFx.value = 1f
                             obstacle.isActive = false
@@ -1170,7 +1105,7 @@ class StickmanGameEngine(
                             soundManager.playShieldShatter()
                             hapticManager?.shieldShatter()
                             spawnShieldShatterShockwave(stickmanX, stickmanY)
-                            addFloatingText("SHIELD DEFENSE! 🛡️💥", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.4f)
+                            addFloatingText("SHIELD DEFENSE! 🛡️", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.4f)
                         } else {
                             fallElapsedTime = 0f
                             hasSpawnedMidFallReaction = false
@@ -1178,7 +1113,7 @@ class StickmanGameEngine(
                             hapticManager?.gameOver()
                             spawnDust(stickmanX, stickmanY, count = 16)
                             stickmanFallVel = 60f
-                            val obstacleHits = listOf("OUCH! 🪚", "ZAPPED! ⚡", "SPIKED! 💥", "HIT HAZARD! 💀", "BURNED! 🔥")
+                            val obstacleHits = listOf("OUCH! 💥", "ZAPPED! ⚡", "SPIKED! 💥", "HIT HAZARD! ⚠️", "BURNED! 🔥")
                             addFloatingText(obstacleHits.random(), stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
                             _gameState.value = GameState.DROPPING_FAIL
                             return
@@ -1187,24 +1122,22 @@ class StickmanGameEngine(
                         obstacle.isDodged = true
                         soundManager.playFlip()
                         if (isJumping || jumpOffsetY > 12f) {
-                            addFloatingText("VAULT OVER HAZARD! 🦘 +50", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.25f)
+                            addFloatingText("VAULT OVER HAZARD! 🥷 +50", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.25f)
                             repository.trackMissionProgress("JUMP_HAZARD", 1)
                             repository.trackWeeklyMissionProgress("JUMP_HAZARD", 1)
                             repository.addGems(1, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
                         } else {
-                            addFloatingText("HAZARD DODGED! 🥷", stickmanX, stickmanY - 40f, Color(0xFF10B981), scale = 1.15f)
+                            addFloatingText("HAZARD DODGED! ✨", stickmanX, stickmanY - 40f, Color(0xFF10B981), scale = 1.15f)
                             repository.addGems(1, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
                         }
                     }
                 }
 
-                // Check Boss Projectile Collision (Supports Jumping Clearance & Shield Defense)
                 _activeBossState.value?.let { boss ->
                     if (!boss.isDefeated) {
                         for (proj in boss.projectiles) {
                             if (physicsEngine.checkBossProjectileCollision(stickmanX, isUpsideDown, proj, jumpOffsetY)) {
                                 if (_hasInvincibilityShield.value) {
-                                    // 🛡️ Aegis Shield absorbs the boss blast!
                                     _hasInvincibilityShield.value = false
                                     _shieldShatterFx.value = 1f
                                     proj.hasHitPlayer = true
@@ -1212,7 +1145,7 @@ class StickmanGameEngine(
                                     soundManager.playShieldShatter()
                                     hapticManager?.shieldShatter()
                                     spawnShieldShatterShockwave(stickmanX, stickmanY)
-                                    addFloatingText("SHIELD DEFENSE! 🛡️💥", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.4f)
+                                    addFloatingText("SHIELD DEFENSE! 🛡️", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.4f)
                                 } else {
                                     proj.hasHitPlayer = true
                                     fallElapsedTime = 0f
@@ -1221,25 +1154,24 @@ class StickmanGameEngine(
                                     hapticManager?.gameOver()
                                     spawnDust(stickmanX, stickmanY, count = 16)
                                     stickmanFallVel = 60f
-                                    addFloatingText("BOSS BLAST! 🔥", stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
+                                    addFloatingText("BOSS BLAST! 💥", stickmanX, stickmanY - 30f, Color(0xFFEF4444), scale = 1.35f)
                                     _gameState.value = GameState.DROPPING_FAIL
                                     return
                                 }
                             } else if (!proj.isDodged && stickmanX > proj.x + 30f) {
                                 proj.isDodged = true
                                 if (isJumping || jumpOffsetY > 12f) {
-                                    addFloatingText("FIREBALL CLEARED! 🔥🦘", stickmanX, stickmanY - 45f, Color(0xFFFBBF24), scale = 1.25f)
+                                    addFloatingText("FIREBALL CLEARED! 🥷", stickmanX, stickmanY - 45f, Color(0xFFFBBF24), scale = 1.25f)
                                     repository.trackMissionProgress("JUMP_HAZARD", 1)
                                     repository.addGems(2, com.mygames.stickmanrush.security.CurrencySource.PERFECT_BULLSEYE)
                                 } else {
-                                    addFloatingText("BLAST DODGED! 🥷", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.15f)
+                                    addFloatingText("BLAST DODGED! 💨", stickmanX, stickmanY - 45f, Color(0xFF38BDF8), scale = 1.15f)
                                 }
                             }
                         }
                     }
                 }
 
-                // Safe Auto-Flip Assist: If stickman is inverted, the bridge successfully landed, and player reaches destination platform edge
                 if (isSuccessfulLanding && isUpsideDown && stickmanX >= (nextPlatform.leftX - 12f)) {
                     isUpsideDown = false
                     soundManager.playFlip()
@@ -1248,7 +1180,6 @@ class StickmanGameEngine(
                     addFloatingText("SAFE FLIP! 🥷", stickmanX, stickmanY - 50f, Color(0xFF38BDF8), scale = 1.15f)
                 }
 
-                // Obstacle wall collision check (only fails if bridge was NOT landed safely and stickman walked into obstacle or fell off bridge end)
                 if (!isSuccessfulLanding && physicsEngine.checkPlatformWallCollision(stickmanX, isUpsideDown, nextPlatform.leftX)) {
                     fallElapsedTime = 0f
                     hasSpawnedMidFallReaction = false
@@ -1258,21 +1189,20 @@ class StickmanGameEngine(
                     stickmanFallVel = 50f
                     val funnyQuotes = listOf(
                         "OH NO! OH NO! 😱",
-                        "OH NO NO NO NO! 🏃‍♂️💨",
+                        "OH NO NO NO NO! 🤣",
                         "WHOOOPS! 🍌",
-                        "AALLL THE WAY DOWNNN! 😱",
-                        "WHEEEEEEE! 🪂",
+                        "AALLL THE WAY DOWNNN! 🎢",
+                        "WHEEEEEEE! 🤪",
                         "GRAVITY: 1, STICKMAN: 0 💀",
-                        "MY ANKLES! 💥",
-                        "SEE YA! 🕳️",
-                        "I CAN'T FLY! 🦅"
+                        "MY ANKLES! 🦶💥",
+                        "SEE YA! 👋😂",
+                        "I CAN'T FLY! 🪂❌"
                     )
                     addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
                     _gameState.value = GameState.DROPPING_FAIL
                     return
                 }
 
-                // Walk destination reached check
                 if (isSuccessfulLanding) {
                     if (stickmanX >= targetStickmanWalkX) {
                         stickmanX = targetStickmanWalkX
@@ -1295,7 +1225,6 @@ class StickmanGameEngine(
                             skinId = repository.selectedSkin.value
                         )
 
-                        // Turn complete
                         val previousLevel = computeLevelForScore(_score.value)
                         _score.value += 1
                         val currentStreak = _score.value
@@ -1303,7 +1232,6 @@ class StickmanGameEngine(
                         repository.trackWeeklyMissionProgress("REACH_SCORE", _score.value)
                         repository.trackContestProgress("REACH_SCORE", _score.value)
 
-                        // Environmental Streak Milestones
                         when (currentStreak) {
                             10 -> {
                                 addFloatingText("🔥 10 STREAK: NARROW PLATFORMS!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFFF59E0B), scale = 1.35f)
@@ -1311,12 +1239,12 @@ class StickmanGameEngine(
                                 hapticManager?.streakBonus(10)
                             }
                             20 -> {
-                                addFloatingText("🌪️ 20 STREAK: MOVING PILLARS!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFFA855F7), scale = 1.4f)
+                                addFloatingText("⚡ 20 STREAK: MOVING PILLARS!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFFA855F7), scale = 1.4f)
                                 soundManager.playPerfectHit()
                                 hapticManager?.streakBonus(20)
                             }
                             30 -> {
-                                addFloatingText("💨 30 STREAK: WIND DRIFT GALE!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFF38BDF8), scale = 1.45f)
+                                addFloatingText("🌪️ 30 STREAK: WIND DRIFT GALE!", screenWidth / 2f, screenHeight * 0.26f, Color(0xFF38BDF8), scale = 1.45f)
                                 soundManager.playPerfectHit()
                                 hapticManager?.streakBonus(30)
                             }
@@ -1330,12 +1258,11 @@ class StickmanGameEngine(
                             spawnConfetti(screenWidth / 2f, screenHeight * 0.4f, count = 35)
                         }
 
-                        // Victory Celebration & Level Progression with Music Fanfare
                         if (newLevel > previousLevel) {
                             _currentLevel.value = newLevel
                             justLeveledUp = true
                             val isMajorMilestone = (newLevel == 5 || newLevel == 10 || newLevel == 15 || newLevel == 20)
-                            val isChallengeLevel = (previousLevel % 5 == 0) // Just cleared Level 5, 10, 15, etc.
+                            val isChallengeLevel = (previousLevel % 5 == 0)
                             val bonusGems = when {
                                 previousLevel == 10 -> 25
                                 previousLevel % 5 == 0 -> 20
@@ -1362,11 +1289,9 @@ class StickmanGameEngine(
                                 30 -> "Legendary Stickman"
                                 else -> "Level $previousLevel Stickman"
                             }
-                            
-                            // Check / Spawn Boss for new level if applicable
+
                             checkOrSpawnBoss(newLevel)
 
-                            // Pop up challenge motivational victory dialog when clearing level 5, 10, 15, etc.
                             if (isChallengeLevel) {
                                 _activeChallengeDialog.value = ChallengeDialogData(
                                     levelNumber = previousLevel,
@@ -1388,14 +1313,13 @@ class StickmanGameEngine(
                                     milestoneReward = "+$bonusGems Gems & Title: $title"
                                 )
                             }
-                            
-                            // Trigger challenging provocation before entering Level 5, 10, 15, etc.
+
                             if (newLevel % 5 == 0) {
                                 val bossTitle = when (newLevel) {
-                                    5 -> "GOLIAS - THE ROCK TITAN 🗿"
-                                    10 -> "IGNIS - INFERNO WYRM 🐉"
+                                    5 -> "GOLIAS - THE ROCK TITAN 🪨"
+                                    10 -> "IGNIS - INFERNO WYRM 🐲"
                                     15 -> "NEXUS - CYBER GOLEM 🤖"
-                                    else -> "MALOK - VOID REAPER ⚔️"
+                                    else -> "MALOK - VOID REAPER 🌌"
                                 }
                                 _activeChallengeDialog.value = ChallengeDialogData(
                                     levelNumber = newLevel,
@@ -1406,7 +1330,7 @@ class StickmanGameEngine(
                                     buttonText = "CONFRONT THE BOSS! ⚔️"
                                 )
                             }
-                            
+
                             soundManager.playVictoryMusic()
                             hapticManager?.levelUp()
                             spawnBalloonBurst(screenWidth / 2f, screenHeight * 0.35f, balloonCount = if (isMajorMilestone) 5 else 3)
@@ -1420,7 +1344,6 @@ class StickmanGameEngine(
                             )
                         }
 
-                        // Update difficulty tier & stage theme
                         val newTier = difficultyManager.getTier(_score.value)
                         if (newTier.tierLevel != _difficultyTier.value.tierLevel) {
                             _difficultyTier.value = newTier
@@ -1446,13 +1369,11 @@ class StickmanGameEngine(
                             )
                         }
 
-                        // Begin camera scrolling
                         scrollTargetX = nextPlatform.leftX - 60f
                         scrollCurrentX = 0f
                         _gameState.value = GameState.SCROLLING
                     }
                 } else {
-                    // Tip of failed bridge reached
                     if (stickmanX >= targetStickmanWalkX) {
                         stickmanX = targetStickmanWalkX
                         bridgeAngularVel = 0f
@@ -1460,43 +1381,37 @@ class StickmanGameEngine(
                         fallElapsedTime = 0f
                         hasSpawnedMidFallReaction = false
 
-                        // Calculate bridge progress towards next platform gap
                         val gapDist = (nextPlatform.leftX - bridgeStartX).coerceAtLeast(1f)
                         val stickProgress = (stickLength / gapDist).coerceIn(0f, 1.5f)
                         val walkProgress = ((stickmanX - bridgeStartX) / gapDist).coerceIn(0f, 1.5f)
                         val maxProg = maxOf(stickProgress, walkProgress)
                         val progressPercent = (maxProg * 100).toInt().coerceIn(0, 99)
-
                         pendingSecondChanceEligible = maxProg >= 0.70f && !secondChancePromptUsedThisRun && _revivalsUsed.value == 0
                         pendingSecondChanceProgress = progressPercent
-
                         soundManager.playStickmanFall()
                         hapticManager?.gameOver()
                         val funnyQuotes = listOf(
                             "OH NO! OH NO! 😱",
-                            "OH NO NO NO NO! 🏃‍♂️💨",
+                            "OH NO NO NO NO! 🤣",
                             "WHOOOPS! 🍌",
-                            "AALLL THE WAY DOWNNN! 😱",
+                            "AALLL THE WAY DOWNNN! 🎢",
                             "GRAVITY: 1, STICKMAN: 0 💀",
-                            "WHEEEEEEE! 🪂",
-                            "MY ANKLES! 💥",
-                            "SEE YA! 🕳️",
-                            "I CAN'T FLY! 🦅"
+                            "WHEEEEEEE! 🤪",
+                            "MY ANKLES! 🦶💥",
+                            "SEE YA! 👋😂",
+                            "I CAN'T FLY! 🪂❌"
                         )
                         addFloatingText(funnyQuotes.random(), stickmanX, stickmanY - 30f, Color(0xFFFB7185), scale = 1.35f)
                         _gameState.value = GameState.DROPPING_FAIL
                     }
                 }
             }
-
             GameState.DROPPING_FAIL -> {
                 fallElapsedTime += clampedDt
-
                 if (bridgeAngle < PhysicsEngine.FAIL_DROP_ANGLE) {
                     bridgeAngle += 360f * clampedDt
                     if (bridgeAngle > PhysicsEngine.FAIL_DROP_ANGLE) bridgeAngle = PhysicsEngine.FAIL_DROP_ANGLE
                 }
-
                 val fallState = physicsEngine.updateStickmanFall(
                     currentY = stickmanY,
                     currentVelY = stickmanFallVel,
@@ -1507,14 +1422,13 @@ class StickmanGameEngine(
                 stickmanFallVel = fallState.velocityY
                 stickmanRotation = fallState.rotation
 
-                // Mid-air comedic floating reaction & panic dust at ~0.65s (voice-over crescendos into oh-no-no-no plunge)
                 if (fallElapsedTime >= 0.65f && !hasSpawnedMidFallReaction) {
                     hasSpawnedMidFallReaction = true
                     val midFallQuotes = listOf(
-                        "OH NO NO NO NO! 😱",
-                        "AALLL THE WAY DOWNNN! 😱",
+                        "OH NO NO NO NO! 🤣",
+                        "AALLL THE WAY DOWNNN! 🎢",
                         "GRAVITY: 1, STICKMAN: 0 💀",
-                        "WHEEEEEEE! 🪂",
+                        "WHEEEEEEE! 🤪",
                         "WHOOOPS! 🍌",
                         "NOT AGAIN! 😭"
                     )
@@ -1528,7 +1442,6 @@ class StickmanGameEngine(
                     spawnDust(stickmanX, stickmanY.coerceAtMost(screenHeight - 40f), count = 8)
                 }
 
-                // Allow the full cartoon sound sequence to play before game over or revive prompt (~2.75s delay)
                 if (fallElapsedTime >= 2.75f && stickmanY > screenHeight + 50f) {
                     if (pendingSecondChanceEligible) {
                         pendingSecondChanceEligible = false
@@ -1538,45 +1451,25 @@ class StickmanGameEngine(
                         soundManager.playButton()
                         hapticManager?.nearMiss()
                     } else {
-                        // Deduct 1 life when stickman falls via persistent repository
                         repository.consumeLife()
-
-                        // Authoritative High Score sync to Firestore and local Room DB
                         repository.updateHighScore(_score.value)
-
-                        // Psychology: Provocative challenge failure dialog on fail
-                        val lvl = _currentLevel.value
-                        _activeChallengeDialog.value = ChallengeDialogData(
-                            levelNumber = lvl,
-                            title = if (lvl < 5) "CHALLENGE FAILED: YOU CAN'T CLEAR LEVEL 5!" else "CHALLENGE FAILED: LEVEL $lvl!",
-                            message = if (lvl < 5) {
-                                "I challenged you to clear Level 5 and you fell at Level $lvl! You can't clear it, better try again!"
-                            } else {
-                                "I told you that you can't clear Level $lvl! Better practice your bridge timing and try again!"
-                            },
-                            type = ChallengeDialogType.POST_LEVEL_FAIL,
-                            rewardGems = 0,
-                            buttonText = "TRY AGAIN & PROVE IT! 🔥"
-                        )
-
-                        _gameState.value = GameState.GAMEOVER
+                        
+                        // Respawn Stickman directly on current platform without resetting score/level
+                        respawnAtCurrentPlatform()
                     }
                 }
             }
-
             GameState.SCROLLING -> {
                 val step = PhysicsEngine.SCROLL_SPEED * clampedDt
                 scrollCurrentX += step
                 parallaxOffset += step
 
-                // Move all platforms & stickman left
                 currentPlatform.leftX -= step
                 nextPlatform.leftX -= step
                 bridgeStartX -= step
                 stickmanX -= step
                 nextPlatform.gem?.let { it.x -= step }
                 nextPlatform.obstacle?.let { it.x -= step }
-
                 _activeBossState.value?.projectiles?.forEach { it.x -= step }
 
                 if (scrollCurrentX >= scrollTargetX) {
@@ -1587,7 +1480,6 @@ class StickmanGameEngine(
                     stickmanX += overshoot
                     nextPlatform.gem?.let { it.x += overshoot }
                     nextPlatform.obstacle?.let { it.x += overshoot }
-
                     currentPlatform = nextPlatform.copy(leftX = 60f)
                     stickmanX = currentPlatform.leftX + currentPlatform.width - 35f
                     stickmanY = floorY + currentPlatform.heightOffset
@@ -1601,19 +1493,16 @@ class StickmanGameEngine(
                     bridgeBounceOffset = 0f
                     bridgeSagOffset = 0f
                     growTickCounter = 0
-
                     spawnNextPlatform()
                     _gameState.value = GameState.IDLE
                 }
             }
-
             else -> {}
         }
     }
 
     private fun updateEffects(dt: Float) {
         physicsEngine.updateParticles(particles, dt)
-
         val tIter = floatingTexts.iterator()
         while (tIter.hasNext()) {
             val t = tIter.next()
@@ -1654,7 +1543,6 @@ class StickmanGameEngine(
             "stick_cyber" -> Pair(Color(0xFF10B981), ParticleShape.SPARKLE)
             else -> Pair(Color(0xFF67E8F9), ParticleShape.SPARKLE)
         }
-
         particles.add(
             Particle(
                 x = tipX + (Random.nextFloat() * 6f - 3f),
@@ -1692,15 +1580,12 @@ class StickmanGameEngine(
                 else -> listOf(Color(0xFF38BDF8), Color(0xFF60A5FA), Color(0xFF93C5FD), Color.White)
             }
         }
-
         val offsetY = if (isUpsideDown) -12f else -8f
         val particleShape = when {
             isSlipping -> if (Random.nextBoolean()) ParticleShape.STAR else ParticleShape.GLOW_TRAIL
             isUpsideDown -> if (Random.nextBoolean()) ParticleShape.SPARKLE else ParticleShape.GLOW_TRAIL
             else -> ParticleShape.GLOW_TRAIL
         }
-
-        // Primary glowing speed trail orb
         particles.add(
             Particle(
                 x = stickmanX - 12f + (Random.nextFloat() * 6f - 3f),
@@ -1716,23 +1601,6 @@ class StickmanGameEngine(
                 vRot = Random.nextFloat() * 240f - 120f
             )
         )
-
-        // Micro sparkle fleck
-        if (Random.nextFloat() < 0.45f) {
-            particles.add(
-                Particle(
-                    x = stickmanX - 10f,
-                    y = stickmanY + offsetY,
-                    vx = -Random.nextFloat() * 55f - 20f,
-                    vy = Random.nextFloat() * 30f - 15f,
-                    color = Color.White,
-                    radius = Random.nextFloat() * 1.8f + 1.0f,
-                    maxLife = 0.22f,
-                    life = 0.22f,
-                    shape = ParticleShape.SPARKLE
-                )
-            )
-        }
     }
 
     private fun spawnFootstepDust(x: Float, y: Float) {
@@ -1766,23 +1634,6 @@ class StickmanGameEngine(
                 shape = ParticleShape.RING_WAVE
             )
         )
-        for (i in 0 until 6) {
-            particles.add(
-                Particle(
-                    x = x + (Random.nextFloat() * 16f - 8f),
-                    y = y,
-                    vx = Random.nextFloat() * 60f - 30f,
-                    vy = -Random.nextFloat() * 120f - 40f,
-                    color = if (i % 2 == 0) Color(0xFF67E8F9) else Color(0xFFFDE047),
-                    radius = Random.nextFloat() * 2.5f + 1.5f,
-                    maxLife = 0.35f,
-                    life = 0.35f,
-                    shape = ParticleShape.SPARKLE,
-                    rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 300f - 150f
-                )
-            )
-        }
     }
 
     private fun spawnJumpAirborneTrail(x: Float, y: Float) {
@@ -1856,8 +1707,6 @@ class StickmanGameEngine(
             Color(0xFFA855F7),
             Color(0xFFFFD700)
         )
-
-        // Expanding shockwave ripple
         particles.add(
             Particle(
                 x = x,
@@ -1865,242 +1714,90 @@ class StickmanGameEngine(
                 vx = 0f,
                 vy = 0f,
                 color = Color(0xFF38BDF8),
-                radius = 8f,
+                radius = 12f,
+                maxLife = 0.35f,
+                life = 0.35f,
+                shape = ParticleShape.RING_WAVE
+            )
+        )
+        for (i in 0 until 14) {
+            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = Random.nextFloat() * 160f + 50f
+            particles.add(
+                Particle(
+                    x = x,
+                    y = y,
+                    vx = kotlin.math.cos(angle) * speed,
+                    vy = kotlin.math.sin(angle) * speed,
+                    color = gemColors[Random.nextInt(gemColors.size)],
+                    radius = Random.nextFloat() * 3.5f + 2.0f,
+                    maxLife = 0.45f,
+                    life = 0.45f,
+                    shape = ParticleShape.STAR,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 300f - 150f
+                )
+            )
+        }
+    }
+
+    private fun spawnHeroGemCollectAura(x: Float, y: Float, isDoubler: Boolean, combo: Int) {
+        val auraColors = if (isDoubler) {
+            listOf(Color(0xFFFFD700), Color(0xFFFBBF24), Color(0xFFF59E0B), Color.White)
+        } else if (combo >= 3) {
+            listOf(Color(0xFFA855F7), Color(0xFFC084FC), Color(0xFF38BDF8), Color.White)
+        } else {
+            listOf(Color(0xFF38BDF8), Color(0xFF67E8F9), Color(0xFFE0F2FE), Color.White)
+        }
+        for (i in 0 until 8) {
+            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = Random.nextFloat() * 80f + 25f
+            particles.add(
+                Particle(
+                    x = x,
+                    y = y - 25f,
+                    vx = kotlin.math.cos(angle) * speed,
+                    vy = kotlin.math.sin(angle) * speed - 30f,
+                    color = auraColors[Random.nextInt(auraColors.size)],
+                    radius = Random.nextFloat() * 3.0f + 1.5f,
+                    maxLife = 0.35f,
+                    life = 0.35f,
+                    shape = ParticleShape.SPARKLE,
+                    rotation = Random.nextFloat() * 360f,
+                    vRot = Random.nextFloat() * 240f - 120f
+                )
+            )
+        }
+    }
+
+    private fun spawnPowerUpBurst(x: Float, y: Float, primaryColor: Color) {
+        particles.add(
+            Particle(
+                x = x,
+                y = y,
+                vx = 0f,
+                vy = 0f,
+                color = primaryColor,
+                radius = 16f,
                 maxLife = 0.45f,
                 life = 0.45f,
                 shape = ParticleShape.RING_WAVE
             )
         )
-
-        // Sparkling faceted diamond shards and stars
-        for (i in 0 until 28) {
-            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-            val speed = Random.nextFloat() * 210f + 50f
-            val shape = when {
-                i % 3 == 0 -> ParticleShape.GEM_BURST
-                i % 3 == 1 -> ParticleShape.STAR
-                else -> ParticleShape.SPARKLE
-            }
-            particles.add(
-                Particle(
-                    x = x,
-                    y = y,
-                    vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - 35f,
-                    color = gemColors[Random.nextInt(gemColors.size)],
-                    radius = Random.nextFloat() * 4.5f + 2.5f,
-                    maxLife = Random.nextFloat() * 0.35f + 0.5f,
-                    life = 0.85f,
-                    shape = shape,
-                    rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 500f - 250f
-                )
-            )
-        }
-    }
-
-    private fun spawnLandingEffects(x: Float, y: Float, isBullseye: Boolean) {
-        spawnDust(x, y, count = if (isBullseye) 20 else 12)
-
-        // Primary Ring Shockwave
-        particles.add(
-            Particle(
-                x = x,
-                y = y,
-                vx = 0f,
-                vy = 0f,
-                color = if (isBullseye) Color(0xFFFFD700) else Color(0xFF38BDF8),
-                radius = if (isBullseye) 12f else 6f,
-                maxLife = 0.44f,
-                life = 0.44f,
-                shape = ParticleShape.RING_WAVE
-            )
-        )
-
-        // Secondary inner shockwave ring
-        particles.add(
-            Particle(
-                x = x,
-                y = y,
-                vx = 0f,
-                vy = 0f,
-                color = if (isBullseye) Color(0xFFEF4444) else Color(0xFFE0F2FE),
-                radius = if (isBullseye) 6f else 3f,
-                maxLife = 0.32f,
-                life = 0.32f,
-                shape = ParticleShape.RING_WAVE
-            )
-        )
-
-        // Brilliant burst of sparks with upward velocity, radial spray, and rotational flare
-        val sparkColors = if (isBullseye) {
-            listOf(Color(0xFFFFD700), Color(0xFFFDE047), Color(0xFFFF6B00), Color(0xFFEF4444), Color.White)
-        } else {
-            listOf(Color(0xFFFFD700), Color(0xFFF59E0B), Color(0xFF38BDF8), Color(0xFF67E8F9), Color.White)
-        }
-
-        val burstCount = if (isBullseye) 44 else 28
-        for (i in 0 until burstCount) {
-            // Upward arcing fountain angles (-170 deg to -10 deg)
-            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.88f + 0.06f)
-            val speed = if (isBullseye) Random.nextFloat() * 280f + 80f else Random.nextFloat() * 220f + 60f
-            val shape = when {
-                i % 4 == 0 -> ParticleShape.SPARKLE
-                i % 4 == 1 -> ParticleShape.STAR
-                i % 4 == 2 -> ParticleShape.GLOW_TRAIL
-                else -> ParticleShape.FIRE_EMBER
-            }
-
-            particles.add(
-                Particle(
-                    x = x + (Random.nextFloat() * 10f - 5f),
-                    y = y + (Random.nextFloat() * 6f - 3f),
-                    vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - (Random.nextFloat() * 50f + 20f),
-                    color = sparkColors[Random.nextInt(sparkColors.size)],
-                    radius = if (shape == ParticleShape.STAR || shape == ParticleShape.SPARKLE) {
-                        Random.nextFloat() * 4.2f + 2.0f
-                    } else {
-                        Random.nextFloat() * 3.0f + 1.5f
-                    },
-                    maxLife = Random.nextFloat() * 0.35f + 0.45f,
-                    life = 0.8f,
-                    shape = shape,
-                    rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 500f - 250f
-                )
-            )
-        }
-    }
-
-    private fun spawnBalloonBurst(centerX: Float, centerY: Float, balloonCount: Int = 3) {
-        val balloonThemes = listOf(
-            Pair(Color(0xFFEF4444), listOf(Color(0xFFFCA5A5), Color(0xFFEF4444), Color(0xFFB91C1C))), // Red
-            Pair(Color(0xFF3B82F6), listOf(Color(0xFF93C5FD), Color(0xFF3B82F6), Color(0xFF1D4ED8))), // Blue
-            Pair(Color(0xFF10B981), listOf(Color(0xFF6EE7B7), Color(0xFF10B981), Color(0xFF047857))), // Emerald
-            Pair(Color(0xFFF59E0B), listOf(Color(0xFFFDE68A), Color(0xFFF59E0B), Color(0xFFD97706))), // Gold
-            Pair(Color(0xFFA855F7), listOf(Color(0xFFE9D5FF), Color(0xFFA855F7), Color(0xFF6B21A8))), // Purple
-            Pair(Color(0xFFEC4899), listOf(Color(0xFFFBCFE8), Color(0xFFEC4899), Color(0xFFBE185D)))  // Hot Pink
-        )
-
-        for (b in 0 until balloonCount) {
-            val offsetX = (b - (balloonCount - 1) / 2f) * 110f + (Random.nextFloat() * 30f - 15f)
-            val offsetY = (Random.nextFloat() * 50f - 25f)
-            val bx = centerX + offsetX
-            val by = centerY + offsetY
-            val theme = balloonThemes[Random.nextInt(balloonThemes.size)]
-
-            // Shockwave pop ring
-            particles.add(
-                Particle(
-                    x = bx,
-                    y = by,
-                    vx = 0f,
-                    vy = 0f,
-                    color = theme.first,
-                    radius = 12f,
-                    maxLife = 0.5f,
-                    life = 0.5f,
-                    shape = ParticleShape.RING_WAVE
-                )
-            )
-
-            // Rubber balloon shards bursting outwards
-            for (i in 0 until 18) {
-                val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-                val speed = Random.nextFloat() * 260f + 90f
-                particles.add(
-                    Particle(
-                        x = bx,
-                        y = by,
-                        vx = kotlin.math.cos(angle) * speed,
-                        vy = kotlin.math.sin(angle) * speed - 60f,
-                        color = theme.second[Random.nextInt(theme.second.size)],
-                        radius = Random.nextFloat() * 6f + 3.5f,
-                        maxLife = Random.nextFloat() * 0.4f + 0.9f,
-                        life = 1.3f,
-                        shape = ParticleShape.BALLOON_POP,
-                        rotation = Random.nextFloat() * 360f,
-                        vRot = Random.nextFloat() * 600f - 300f
-                    )
-                )
-            }
-
-            // Confetti and streamer ribbons fluttering from inside balloon
-            for (i in 0 until 12) {
-                val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-                val speed = Random.nextFloat() * 200f + 60f
-                particles.add(
-                    Particle(
-                        x = bx,
-                        y = by,
-                        vx = kotlin.math.cos(angle) * speed,
-                        vy = kotlin.math.sin(angle) * speed - 110f,
-                        color = theme.second[Random.nextInt(theme.second.size)],
-                        radius = Random.nextFloat() * 5f + 3f,
-                        maxLife = 1.5f,
-                        life = 1.5f,
-                        shape = if (i % 2 == 0) ParticleShape.RIBBON else ParticleShape.CONFETTI,
-                        rotation = Random.nextFloat() * 360f,
-                        vRot = Random.nextFloat() * 500f - 250f
-                    )
-                )
-            }
-
-            // Sparkles & Stars
-            for (i in 0 until 8) {
-                val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-                val speed = Random.nextFloat() * 180f + 40f
-                particles.add(
-                    Particle(
-                        x = bx,
-                        y = by,
-                        vx = kotlin.math.cos(angle) * speed,
-                        vy = kotlin.math.sin(angle) * speed - 40f,
-                        color = Color.White,
-                        radius = Random.nextFloat() * 3.5f + 2f,
-                        maxLife = 0.7f,
-                        life = 0.7f,
-                        shape = ParticleShape.STAR,
-                        rotation = Random.nextFloat() * 360f,
-                        vRot = Random.nextFloat() * 400f - 200f
-                    )
-                )
-            }
-        }
-    }
-
-    private fun spawnPowerUpBurst(x: Float, y: Float, color: Color) {
-        // Shockwave expansion ring
-        particles.add(
-            Particle(
-                x = x,
-                y = y,
-                vx = 0f,
-                vy = 0f,
-                color = color,
-                radius = 14f,
-                maxLife = 0.42f,
-                life = 0.42f,
-                shape = ParticleShape.RING_WAVE
-            )
-        )
-        // Particle burst
-        val burstColors = listOf(color, Color.White, Color(0xFFFFD700), Color(0xFF67E8F9))
         for (i in 0 until 18) {
             val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-            val speed = Random.nextFloat() * 200f + 60f
+            val speed = Random.nextFloat() * 190f + 60f
             particles.add(
                 Particle(
                     x = x,
                     y = y,
                     vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - 50f,
-                    color = burstColors[Random.nextInt(burstColors.size)],
-                    radius = Random.nextFloat() * 3.5f + 2.0f,
-                    maxLife = 0.45f,
-                    life = 0.45f,
-                    shape = if (i % 2 == 0) ParticleShape.STAR else ParticleShape.SPARKLE,
+                    vy = kotlin.math.sin(angle) * speed,
+                    color = if (i % 2 == 0) primaryColor else Color.White,
+                    radius = Random.nextFloat() * 4.0f + 2.0f,
+                    maxLife = 0.50f,
+                    life = 0.50f,
+                    shape = ParticleShape.STAR,
                     rotation = Random.nextFloat() * 360f,
                     vRot = Random.nextFloat() * 360f - 180f
                 )
@@ -2109,7 +1806,6 @@ class StickmanGameEngine(
     }
 
     private fun spawnShieldShatterShockwave(x: Float, y: Float) {
-        // High-energy shield shatter shockwave
         particles.add(
             Particle(
                 x = x,
@@ -2123,156 +1819,63 @@ class StickmanGameEngine(
                 shape = ParticleShape.RING_WAVE
             )
         )
-        particles.add(
-            Particle(
-                x = x,
-                y = y,
-                vx = 0f,
-                vy = 0f,
-                color = Color(0xFF818CF8),
-                radius = 12f,
-                maxLife = 0.35f,
-                life = 0.35f,
-                shape = ParticleShape.RING_WAVE
-            )
-        )
-        val shatterColors = listOf(Color(0xFF38BDF8), Color(0xFF818CF8), Color(0xFFE0F2FE), Color.White, Color(0xFFFFD700))
         for (i in 0 until 24) {
             val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-            val speed = Random.nextFloat() * 260f + 80f
+            val speed = Random.nextFloat() * 220f + 80f
             particles.add(
                 Particle(
                     x = x,
                     y = y,
                     vx = kotlin.math.cos(angle) * speed,
                     vy = kotlin.math.sin(angle) * speed,
-                    color = shatterColors[Random.nextInt(shatterColors.size)],
-                    radius = Random.nextFloat() * 4.0f + 2.5f,
-                    maxLife = 0.50f,
-                    life = 0.50f,
-                    shape = ParticleShape.STAR,
+                    color = if (i % 3 == 0) Color(0xFF38BDF8) else if (i % 3 == 1) Color(0xFF818CF8) else Color.White,
+                    radius = Random.nextFloat() * 4.5f + 2.0f,
+                    maxLife = 0.55f,
+                    life = 0.55f,
+                    shape = ParticleShape.SPARKLE,
                     rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 480f - 240f
+                    vRot = Random.nextFloat() * 400f - 200f
                 )
             )
         }
     }
 
-    private fun spawnMagnetAttractSparks(gemX: Float, gemY: Float, stickmanX: Float, stickmanY: Float) {
-        val t = Random.nextFloat()
-        val sparkX = gemX + t * (stickmanX - gemX) + (Random.nextFloat() * 12f - 6f)
-        val sparkY = gemY + t * (stickmanY - gemY) + (Random.nextFloat() * 12f - 6f)
+    private fun spawnMagnetAttractSparks(fromX: Float, fromY: Float, toX: Float, toY: Float) {
+        val dx = toX - fromX
+        val dy = toY - fromY
+        val dist = kotlin.math.sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+        val dirX = dx / dist
+        val dirY = dy / dist
         particles.add(
             Particle(
-                x = sparkX,
-                y = sparkY,
-                vx = (stickmanX - gemX) * 0.4f + (Random.nextFloat() * 30f - 15f),
-                vy = (Random.nextFloat() * 40f - 20f),
-                color = if (Random.nextBoolean()) Color(0xFF38BDF8) else Color(0xFFFDE047),
-                radius = Random.nextFloat() * 2.8f + 1.2f,
-                maxLife = 0.22f,
-                life = 0.22f,
-                shape = ParticleShape.SPARKLE,
-                rotation = Random.nextFloat() * 360f,
-                vRot = Random.nextFloat() * 300f - 150f
+                x = fromX,
+                y = fromY,
+                vx = dirX * 180f + (Random.nextFloat() * 40f - 20f),
+                vy = dirY * 180f + (Random.nextFloat() * 40f - 20f),
+                color = Color(0xFF38BDF8),
+                radius = Random.nextFloat() * 2.2f + 1.2f,
+                maxLife = 0.20f,
+                life = 0.20f,
+                shape = ParticleShape.SPARKLE
             )
         )
     }
 
-    private fun spawnConfetti(x: Float, y: Float, count: Int = 35) {
-        val colors = listOf(
-            Color(0xFFFFD700),
-            Color(0xFFEF4444),
-            Color(0xFF38BDF8),
-            Color(0xFF4ADE80),
-            Color(0xFFA855F7),
-            Color(0xFFF43F5E),
-            Color(0xFFFDE047)
-        )
-        for (i in 0 until count) {
-            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
-            val speed = Random.nextFloat() * 280f + 70f
+    private fun spawnLandingEffects(x: Float, y: Float, isBullseye: Boolean) {
+        spawnDust(x, y, count = if (isBullseye) 14 else 8)
+        if (isBullseye) {
+            spawnConfetti(x, y - 40f, count = 25)
             particles.add(
                 Particle(
                     x = x,
                     y = y,
-                    vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - 140f,
-                    color = colors[Random.nextInt(colors.size)],
-                    radius = Random.nextFloat() * 5.5f + 3f,
-                    maxLife = 1.6f,
-                    life = 1.6f,
-                    shape = ParticleShape.CONFETTI,
-                    rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 500f - 250f
-                )
-            )
-        }
-    }
-
-    private fun spawnHeroGemCollectAura(heroX: Float, heroY: Float, isDoubler: Boolean, comboMultiplier: Int) {
-        val heroCenterY = heroY - 18f
-        val auraColors = if (isDoubler || comboMultiplier >= 3) {
-            listOf(Color(0xFFFFD700), Color(0xFFFDE047), Color(0xFF38BDF8), Color(0xFF00E5FF), Color(0xFFEC4899), Color.White)
-        } else {
-            listOf(Color(0xFF38BDF8), Color(0xFF00E5FF), Color(0xFF67E8F9), Color(0xFFE0F2FE), Color.White)
-        }
-
-        // Torso shockwave pulse ring
-        particles.add(
-            Particle(
-                x = heroX,
-                y = heroCenterY,
-                vx = 0f,
-                vy = 0f,
-                color = if (isDoubler) Color(0xFFFFD700) else Color(0xFF38BDF8),
-                radius = 10f,
-                maxLife = 0.38f,
-                life = 0.38f,
-                shape = ParticleShape.RING_WAVE
-            )
-        )
-
-        // Radiant upward burst of sparkles, diamond stars, and glowing gem shards
-        val particleCount = if (isDoubler || comboMultiplier >= 3) 22 else 14
-        for (i in 0 until particleCount) {
-            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.90f + 0.05f) // Upward fountain arc
-            val speed = Random.nextFloat() * 160f + 50f
-            val shape = when {
-                i % 3 == 0 -> ParticleShape.GEM_BURST
-                i % 3 == 1 -> ParticleShape.STAR
-                else -> ParticleShape.SPARKLE
-            }
-            particles.add(
-                Particle(
-                    x = heroX + (Random.nextFloat() * 12f - 6f),
-                    y = heroCenterY + (Random.nextFloat() * 10f - 5f),
-                    vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - (Random.nextFloat() * 60f + 30f),
-                    color = auraColors[Random.nextInt(auraColors.size)],
-                    radius = Random.nextFloat() * 3.8f + 1.8f,
-                    maxLife = Random.nextFloat() * 0.3f + 0.45f,
-                    life = 0.75f,
-                    shape = shape,
-                    rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 450f - 225f
-                )
-            )
-        }
-
-        // Ascending neon orbs
-        for (i in 0 until 4) {
-            particles.add(
-                Particle(
-                    x = heroX + (Random.nextFloat() * 16f - 8f),
-                    y = heroCenterY + (Random.nextFloat() * 8f - 4f),
-                    vx = Random.nextFloat() * 20f - 10f,
-                    vy = -Random.nextFloat() * 70f - 30f,
-                    color = if (isDoubler) Color(0xFFFFD700) else Color(0xFF38BDF8),
-                    radius = Random.nextFloat() * 2.5f + 1.2f,
-                    maxLife = 0.45f,
-                    life = 0.45f,
-                    shape = ParticleShape.NEON_ORB
+                    vx = 0f,
+                    vy = 0f,
+                    color = Color(0xFFFFD700),
+                    radius = 18f,
+                    maxLife = 0.40f,
+                    life = 0.40f,
+                    shape = ParticleShape.RING_WAVE
                 )
             )
         }
@@ -2285,67 +1888,88 @@ class StickmanGameEngine(
         score: Int,
         skinId: String
     ) {
-        // 1. Bilateral footstep dust plumes
-        spawnDust(x - 8f, y, count = 6)
-        spawnDust(x + 8f, y, count = 6)
-
-        // 2. Ground impact expanding shockwaves at stickman's feet
-        particles.add(
-            Particle(
-                x = x,
-                y = y,
-                vx = 0f,
-                vy = 0f,
-                color = if (isBullseye) Color(0xFFFFD700) else Color(0xFF38BDF8),
-                radius = if (isBullseye) 14f else 8f,
-                maxLife = 0.42f,
-                life = 0.42f,
-                shape = ParticleShape.RING_WAVE
-            )
-        )
-
-        // 3. Themed skin victory burst colors
-        val themeColors = when {
-            skinId.contains("laser") || skinId.contains("neon") -> listOf(Color(0xFF00E5FF), Color(0xFF38BDF8), Color(0xFF67E8F9), Color.White)
-            skinId.contains("lava") || skinId.contains("fire") -> listOf(Color(0xFFFF6B00), Color(0xFFEA580C), Color(0xFFFBBF24), Color(0xFFEF4444))
-            skinId.contains("dark") || skinId.contains("ninja") || skinId.contains("shadow") -> listOf(Color(0xFFA855F7), Color(0xFF818CF8), Color(0xFFC084FC), Color(0xFFDDD6FE))
-            skinId.contains("rainbow") -> listOf(Color(0xFFEC4899), Color(0xFFFBBF24), Color(0xFF38BDF8), Color(0xFF4ADE80))
-            skinId.contains("gold") || skinId.contains("king") || skinId.contains("champion") -> listOf(Color(0xFFFFD700), Color(0xFFFDE047), Color(0xFFF59E0B), Color.White)
-            skinId.contains("cyber") || skinId.contains("matrix") -> listOf(Color(0xFF10B981), Color(0xFF34D399), Color(0xFF6EE7B7), Color.White)
-            else -> listOf(Color(0xFFFFD700), Color(0xFF38BDF8), Color(0xFF4ADE80), Color(0xFFFBBF24), Color.White)
+        spawnDust(x, y, count = 6)
+        if (score % 5 == 0 && score > 0) {
+            spawnConfetti(x, y - 50f, count = 30)
         }
+    }
 
-        // 4. Upward victory fountain burst of stars, sparkles, and ribbons around hero
-        val burstCount = if (isBullseye) 28 else 18
-        for (i in 0 until burstCount) {
-            val angle = -Math.PI.toFloat() * (Random.nextFloat() * 0.85f + 0.08f)
-            val speed = Random.nextFloat() * 200f + 60f
-            val shape = when {
-                i % 4 == 0 -> ParticleShape.STAR
-                i % 4 == 1 -> ParticleShape.SPARKLE
-                i % 4 == 2 -> ParticleShape.RIBBON
-                else -> ParticleShape.CONFETTI
-            }
+    private fun spawnConfetti(x: Float, y: Float, count: Int = 30) {
+        val colors = listOf(
+            Color(0xFFEF4444),
+            Color(0xFFF59E0B),
+            Color(0xFF10B981),
+            Color(0xFF38BDF8),
+            Color(0xFFA855F7),
+            Color(0xFFEC4899),
+            Color(0xFFFFD700)
+        )
+        for (i in 0 until count) {
+            val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+            val speed = Random.nextFloat() * 220f + 60f
             particles.add(
                 Particle(
-                    x = x + (Random.nextFloat() * 10f - 5f),
-                    y = y - 10f + (Random.nextFloat() * 8f - 4f),
+                    x = x,
+                    y = y,
                     vx = kotlin.math.cos(angle) * speed,
-                    vy = kotlin.math.sin(angle) * speed - (Random.nextFloat() * 80f + 30f),
-                    color = themeColors[Random.nextInt(themeColors.size)],
-                    radius = Random.nextFloat() * 4.2f + 2.0f,
-                    maxLife = Random.nextFloat() * 0.4f + 0.55f,
-                    life = 0.95f,
-                    shape = shape,
+                    vy = -kotlin.math.abs(kotlin.math.sin(angle) * speed) - 40f,
+                    color = colors[Random.nextInt(colors.size)],
+                    radius = Random.nextFloat() * 4.0f + 2.5f,
+                    maxLife = 0.75f,
+                    life = 0.75f,
+                    shape = ParticleShape.CONFETTI,
                     rotation = Random.nextFloat() * 360f,
-                    vRot = Random.nextFloat() * 480f - 240f
+                    vRot = Random.nextFloat() * 360f - 180f
                 )
             )
         }
     }
 
-    fun dismissVictoryCelebration() {
-        _levelVictoryCelebration.value = null
-        _activeLevelVictory.value = null
+    private fun spawnBalloonBurst(x: Float, y: Float, balloonCount: Int = 4) {
+        val balloonColors = listOf(
+            Color(0xFFEF4444),
+            Color(0xFF3B82F6),
+            Color(0xFF10B981),
+            Color(0xFFF59E0B),
+            Color(0xFFA855F7),
+            Color(0xFFEC4899)
+        )
+        for (b in 0 until balloonCount) {
+            val bx = x + (Random.nextFloat() * 120f - 60f)
+            val by = y + (Random.nextFloat() * 80f - 40f)
+            val bColor = balloonColors[Random.nextInt(balloonColors.size)]
+            particles.add(
+                Particle(
+                    x = bx,
+                    y = by,
+                    vx = 0f,
+                    vy = 0f,
+                    color = bColor,
+                    radius = 20f,
+                    maxLife = 0.40f,
+                    life = 0.40f,
+                    shape = ParticleShape.RING_WAVE
+                )
+            )
+            for (p in 0 until 10) {
+                val angle = Random.nextFloat() * 2f * Math.PI.toFloat()
+                val speed = Random.nextFloat() * 160f + 40f
+                particles.add(
+                    Particle(
+                        x = bx,
+                        y = by,
+                        vx = kotlin.math.cos(angle) * speed,
+                        vy = kotlin.math.sin(angle) * speed - 30f,
+                        color = bColor,
+                        radius = Random.nextFloat() * 3.5f + 2f,
+                        maxLife = 0.55f,
+                        life = 0.55f,
+                        shape = ParticleShape.CONFETTI,
+                        rotation = Random.nextFloat() * 360f,
+                        vRot = Random.nextFloat() * 300f - 150f
+                    )
+                )
+            }
+        }
     }
 }
