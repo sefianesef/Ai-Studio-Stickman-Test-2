@@ -8,18 +8,30 @@ import com.mygames.stickmanrush.ui.GameViewModel
 
 @Composable
 fun StickmanApp(viewModel: GameViewModel) {
-    // Yeh check karega ki pehle se login hai ya nahi
-    var showAuthDialog by remember { 
-        mutableStateOf(FirebaseAuth.getInstance().currentUser == null) 
+    var showAuthDialog by remember {
+        mutableStateOf(FirebaseAuth.getInstance().currentUser == null)
     }
 
+    // Original UI
+    MainMenuDialog(viewModel = viewModel)
+
+    // AUTH POPUP OVERLAY
     if (showAuthDialog) {
         AuthDialog(
             viewModel = viewModel,
-            onDismiss = { showAuthDialog = false }
+            onDismiss = { },
+            onLoginSuccess = {
+                showAuthDialog = false
+            },
+            onGuestPlay = {
+                FirebaseAuth.getInstance()
+                    .signInAnonymously()
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            showAuthDialog = false
+                        }
+                    }
+            }
         )
-    } else {
-        // Jab popup band hoga, tab Main Menu khulega
-        MainMenuDialog(viewModel = viewModel)
     }
 }

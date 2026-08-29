@@ -21,7 +21,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun AuthDialog(
     viewModel: GameViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onLoginSuccess: () -> Unit = {},
+    onGuestPlay: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     // 0 = Create Account, 1 = Log In
@@ -166,6 +168,7 @@ fun AuthDialog(
                                 }
                                 isLoading = false
                                 if (success) {
+                                    onLoginSuccess()
                                     onDismiss()
                                 } else {
                                     errorMessage = "Authentication failed. Please check credentials."
@@ -202,6 +205,7 @@ fun AuthDialog(
                     // Play as Guest / Skip for now button
                     TextButton(
                         onClick = {
+                            onGuestPlay()
                             viewModel.dismissAuthDialog()
                             onDismiss()
                         }
