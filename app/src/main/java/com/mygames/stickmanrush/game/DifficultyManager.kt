@@ -16,64 +16,64 @@ enum class DifficultyTier(
     val growthSpeedFactor: Float,
     val badgeColorHex: Long
 ) {
-    // Levels 1 to 5 (Scores 0-21): Comfortable, Easy & Forgiving onboarding
+    // Levels 1 to 2 (Scores 0-7): Pure Learning & Onboarding
     NOVICE_TRAINING(
         tierLevel = 1,
         title = "RECRUIT",
         minLevel = 1,
         minScore = 0,
-        minWidth = 125f,
-        maxWidth = 165f,
-        bullseyeTolerance = 22f,
+        minWidth = 135f,
+        maxWidth = 175f,
+        bullseyeTolerance = 24f,
         gemSpawnRate = 0.45f,
         doubleGemChance = 0.15f,
         movingPlatformChance = 0.0f,
-        growthSpeedFactor = 0.88f,
+        growthSpeedFactor = 0.86f,
         badgeColorHex = 0xFF10B981
     ),
-    // Levels 6 to 8 (Scores 22-42): Moderate Step-up in challenge
+    // Level 3 (Scores 8-11): Slight Challenge Intro
     APPRENTICE(
         tierLevel = 2,
         title = "CHALLENGER",
-        minLevel = 6,
-        minScore = 22,
-        minWidth = 85f,
-        maxWidth = 120f,
-        bullseyeTolerance = 16f,
-        gemSpawnRate = 0.35f,
-        doubleGemChance = 0.15f,
-        movingPlatformChance = 0.12f,
-        growthSpeedFactor = 0.98f,
+        minLevel = 3,
+        minScore = 8,
+        minWidth = 100f,
+        maxWidth = 140f,
+        bullseyeTolerance = 18f,
+        gemSpawnRate = 0.38f,
+        doubleGemChance = 0.12f,
+        movingPlatformChance = 0.08f,
+        growthSpeedFactor = 0.94f,
         badgeColorHex = 0xFF38BDF8
     ),
-    // Levels 9 to 10 (Scores 43-61): Genuine Precision Challenge
+    // Levels 4 to 5 (Scores 12-21): Engaging Balanced Challenge
     ADEPT(
         tierLevel = 3,
         title = "ADEPT",
-        minLevel = 9,
-        minScore = 43,
-        minWidth = 65f,
-        maxWidth = 95f,
-        bullseyeTolerance = 12f,
-        gemSpawnRate = 0.28f,
-        doubleGemChance = 0.20f,
-        movingPlatformChance = 0.20f,
-        growthSpeedFactor = 1.05f,
+        minLevel = 4,
+        minScore = 12,
+        minWidth = 80f,
+        maxWidth = 115f,
+        bullseyeTolerance = 14f,
+        gemSpawnRate = 0.32f,
+        doubleGemChance = 0.18f,
+        movingPlatformChance = 0.15f,
+        growthSpeedFactor = 1.00f,
         badgeColorHex = 0xFF8B5CF6
     ),
-    // Level 11+ (Scores 62+): Master Tier
+    // Level 6+ (Scores 22+): Master Stage
     MASTER(
         tierLevel = 4,
         title = "MASTER",
-        minLevel = 11,
-        minScore = 62,
-        minWidth = 45f,
-        maxWidth = 70f,
-        bullseyeTolerance = 8f,
-        gemSpawnRate = 0.22f,
-        doubleGemChance = 0.25f,
-        movingPlatformChance = 0.28f,
-        growthSpeedFactor = 1.15f,
+        minLevel = 6,
+        minScore = 22,
+        minWidth = 55f,
+        maxWidth = 85f,
+        bullseyeTolerance = 10f,
+        gemSpawnRate = 0.25f,
+        doubleGemChance = 0.22f,
+        movingPlatformChance = 0.22f,
+        growthSpeedFactor = 1.10f,
         badgeColorHex = 0xFFEF4444
     );
 
@@ -101,56 +101,60 @@ class DifficultyManager {
     fun generatePlatformGap(score: Int, level: Int, screenWidth: Float, isFirstBridgeOfLevel: Boolean = false): Float {
         val maxAvailableGap = (screenWidth * 0.52f).coerceAtLeast(280f)
         return when {
-            level <= 5 -> {
-                // Levels 1-5: Steady & predictable gaps
+            level <= 2 -> {
+                // Levels 1-2: Easy steady gap
                 val minGap = 120f
-                val maxGap = 165f.coerceAtMost(maxAvailableGap)
+                val maxGap = 160f.coerceAtMost(maxAvailableGap)
                 Random.nextFloat() * (maxGap - minGap) + minGap
             }
-            level in 6..8 -> {
-                // Levels 6-8: Moderate variation
-                val minGap = 140f
-                val maxGap = 210f.coerceAtMost(maxAvailableGap)
+            level == 3 -> {
+                // Level 3: Mild gap variation
+                val minGap = 135f
+                val maxGap = 190f.coerceAtMost(maxAvailableGap)
+                Random.nextFloat() * (maxGap - minGap) + minGap
+            }
+            level in 4..5 -> {
+                // Level 4 & 5 (Boss Stage): Good canyon jumps
+                val minGap = 145f
+                val maxGap = 225f.coerceAtMost(maxAvailableGap)
                 Random.nextFloat() * (maxGap - minGap) + minGap
             }
             else -> {
-                // Levels 9-10+: Thrilling canyon crossings
+                // Level 6+: Dynamic scaling
                 val minGap = 160f
-                val maxGap = (230f + (level * 6f)).coerceIn(250f, maxAvailableGap)
+                val maxGap = (235f + (level * 5f)).coerceIn(250f, maxAvailableGap)
                 Random.nextFloat() * (maxGap - minGap) + minGap
             }
         }
     }
 
     fun generatePlatformHeightOffset(score: Int, level: Int): Float {
-        if (level <= 5) return 0f // Level 1-5 flat ground
-        // Level 6 onwards dynamic steps & cliffs
-        if (Random.nextFloat() < 0.40f) {
+        // Level 1 to 3: Flat ground for smooth learning
+        if (level <= 3) return 0f
+
+        // Level 4 onwards: Mild height steps up/down (+/- 18px to 28px)
+        if (Random.nextFloat() < 0.38f) {
             val direction = if (Random.nextBoolean()) -1f else 1f
-            val variance = (15f + (level * 2.5f)).coerceAtMost(38f)
+            val variance = if (level in 4..5) 20f else 32f
             return direction * (Random.nextFloat() * variance + 10f)
         }
         return 0f
     }
 
     fun generateObstacle(spanStart: Float, spanEnd: Float, score: Int, level: Int, isBossLevel: Boolean): com.mygames.stickmanrush.model.ObstacleData? {
-        if (level <= 5 && !isBossLevel) return null
+        if (level <= 3 && !isBossLevel) return null
         val spanWidth = spanEnd - spanStart
         if (spanWidth < 140f) return null
 
         val spawnChance = when {
-            isBossLevel -> 0.15f
-            level in 6..8 -> 0.28f
-            else -> 0.42f
+            isBossLevel -> 0.12f
+            level in 4..5 -> 0.25f
+            else -> 0.38f
         }
         if (Random.nextFloat() > spawnChance) return null
 
         val posX = spanStart + (spanWidth * (Random.nextFloat() * 0.4f + 0.3f))
-        val chosenType = if (level >= 9 && Random.nextBoolean()) {
-            com.mygames.stickmanrush.model.ObstacleType.MOVING_SPIKE_BALL
-        } else {
-            com.mygames.stickmanrush.model.ObstacleType.FIRE_BALL
-        }
+        val chosenType = com.mygames.stickmanrush.model.ObstacleType.FIRE_BALL
 
         return com.mygames.stickmanrush.model.ObstacleData(
             id = System.currentTimeMillis() + Random.nextInt(1000),
@@ -171,11 +175,7 @@ class DifficultyManager {
         val spanWidth = spanEnd - spanStart
         if (spanWidth < 80f) return null
 
-        val powerUpChance = when {
-            level % 5 == 0 -> 0.50f // Boss level par support pickups
-            level <= 5 -> 0.40f
-            else -> 0.30f
-        }
+        val powerUpChance = if (level % 5 == 0 || level <= 3) 0.45f else 0.28f
         if (Random.nextFloat() > powerUpChance) return null
 
         val minX = spanStart + (spanWidth * 0.25f)
@@ -200,16 +200,16 @@ class DifficultyManager {
     }
 
     fun generateMovingConfig(score: Int, level: Int, streak: Int = 0): MovingPlatformConfig {
-        if (level <= 5) {
+        if (level <= 3) {
             return MovingPlatformConfig(isMoving = false, amplitude = 0f, speed = 0f, isVertical = false)
         }
-        val movingChance = if (level >= 9) 0.30f else 0.18f
+        val movingChance = if (level in 4..5) 0.15f else 0.25f
         val isMoving = Random.nextFloat() < movingChance
         return MovingPlatformConfig(
             isMoving = isMoving,
-            amplitude = if (isMoving) (14f + (level * 1.5f)).coerceAtMost(28f) else 0f,
-            speed = if (isMoving) (1.2f + (level * 0.08f)).coerceAtMost(2.0f) else 0f,
-            isVertical = Random.nextFloat() < 0.25f
+            amplitude = if (isMoving) 18f else 0f,
+            speed = if (isMoving) 1.35f else 0f,
+            isVertical = false
         )
     }
 

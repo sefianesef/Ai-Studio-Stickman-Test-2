@@ -281,9 +281,6 @@ class StickmanGameEngine(
         }
     }
 
-    /**
-     * Respawns Stickman directly on the exact platform where he fell, preserving current score and level.
-     */
     fun respawnAtCurrentPlatform() {
         soundManager.stopFallingSound()
 
@@ -297,7 +294,6 @@ class StickmanGameEngine(
         bridgeSagOffset = 0f
         growTickCounter = 0
 
-        // Place Stickman safely standing upright on platform
         stickmanX = currentPlatform.leftX + currentPlatform.width - 40f
         stickmanY = floorY + currentPlatform.heightOffset
         stickmanFallVel = 0f
@@ -379,8 +375,10 @@ class StickmanGameEngine(
         _activeSlowMoTime.value = 0f
         _shieldShatterFx.value = 0f
         currentPlatform = PlatformData(id = 1L, leftX = 60f, width = 160f, heightOffset = 0f)
+        
         checkOrSpawnBoss(targetStartLevel)
         spawnNextPlatform()
+        
         bridgeStartX = currentPlatform.leftX + currentPlatform.width
         stickLength = 0f
         bridgeAngle = 0f
@@ -423,9 +421,12 @@ class StickmanGameEngine(
                 15 -> BossType.CYBER_GOLEM
                 else -> BossType.VOID_REAPER
             }
-            _activeBossState.value = BossState(type = bossType)
-            _hasInvincibilityShield.value = true
-            addFloatingText("🛡️ AEGIS DEFENSE ACTIVATED!", screenWidth / 2f, floorY - 80f, Color(0xFF38BDF8), scale = 1.35f)
+            val currentBoss = _activeBossState.value
+            if (currentBoss == null || currentBoss.type != bossType) {
+                _activeBossState.value = BossState(type = bossType)
+                _hasInvincibilityShield.value = true
+                addFloatingText("🛡️ AEGIS DEFENSE ACTIVATED!", screenWidth / 2f, floorY - 80f, Color(0xFF38BDF8), scale = 1.35f)
+            }
         } else {
             _activeBossState.value = null
         }
@@ -487,7 +488,6 @@ class StickmanGameEngine(
         }
         secondChancePromptUsedThisRun = true
         _activeSecondChancePrompt.value = false
-        // Ad watch karne par direct revive (Free second chance)
         reviveRun()
     }
 
@@ -496,19 +496,14 @@ class StickmanGameEngine(
         handleFatalFall()
     }
 
-    /**
-     * Handles life deduction, checking for game over or same-platform respawn.
-     */
     private fun handleFatalFall() {
         val currentLives = repository.lives.value
-        
+
         if (currentLives > 0) {
-            // Life bachi hai -> 1 consume karo aur usi platform se continue karo
             repository.consumeLife()
             repository.updateHighScore(_score.value)
             respawnAtCurrentPlatform()
         } else {
-            // Life 0 hai -> Strictly GAME OVER, koi respawn nahi hoga
             repository.updateHighScore(_score.value)
             val lvl = _currentLevel.value
             _activeChallengeDialog.value = ChallengeDialogData(
@@ -633,11 +628,9 @@ class StickmanGameEngine(
             GameState.GAMEOVER -> {
                 soundManager.playButton()
                 hapticManager?.uiClick()
-                // Agar life 0 hai toh game start nahi hoga, life shop/refill prompt aayega
                 if (repository.lives.value > 0) {
                     respawnAtCurrentPlatform()
                 } else {
-                    // Out of lives: game screen par hi rahega, free respawn block
                     _gameState.value = GameState.GAMEOVER
                 }
             }
@@ -688,6 +681,9 @@ class StickmanGameEngine(
     fun update(dt: Float) {
         val clampedDt = dt.coerceIn(0.001f, 0.05f)
         updateEffects(clampedDt)
+
+        val lvl = computeLevelForScore(_score.value)
+        checkOrSpawnBoss(lvl)
 
         if (_activeMagnetTime.value > 0f) {
             _activeMagnetTime.value = (_activeMagnetTime.value - clampedDt).coerceAtLeast(0f)
@@ -980,7 +976,6 @@ class StickmanGameEngine(
                 bridgeImpactTime += clampedDt
                 bridgeBounceOffset = physicsEngine.computeLandingBounceAngle(bridgeImpactTime, stickLength)
 
-                // 1. Jump Physics Update & Clean Standing Landing
                 if (isJumping) {
                     jumpOffsetY += jumpVelocityY * clampedDt
                     jumpVelocityY -= 1400f * clampedDt
@@ -989,7 +984,6 @@ class StickmanGameEngine(
                         spawnJumpAirborneTrail(stickmanX, stickmanY - jumpOffsetY)
                     }
                     if (jumpOffsetY <= 0f) {
-                        // Landed safely on bridge feet-first
                         jumpOffsetY = 0f
                         isJumping = false
                         jumpVelocityY = 0f
@@ -1224,8 +1218,8 @@ class StickmanGameEngine(
                         "OH NO NO NO NO! 🤣",
                         "WHOOOPS! 🍌",
                         "AALLL THE WAY DOWNNN! 🎢",
-                        "WHEEEEEEE! 🤪",
                         "GRAVITY: 1, STICKMAN: 0 💀",
+                        "WHEEEEEEE! 🤪",
                         "MY ANKLES! 🦶💥",
                         "SEE YA! 👋😂",
                         "I CAN'T FLY! 🪂❌"
