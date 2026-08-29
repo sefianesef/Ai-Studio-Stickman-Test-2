@@ -487,14 +487,40 @@ class StickmanGameEngine(
         }
         secondChancePromptUsedThisRun = true
         _activeSecondChancePrompt.value = false
+        // Ad watch karne par direct revive (Free second chance)
         reviveRun()
     }
 
     fun declineSecondChanceRevive() {
         _activeSecondChancePrompt.value = false
-        repository.consumeLife()
-        repository.updateHighScore(_score.value)
-        respawnAtCurrentPlatform()
+        handleFatalFall()
+    }
+
+    /**
+     * Handles life deduction, checking for game over or same-platform respawn.
+     */
+    private fun handleFatalFall() {
+        val currentLives = repository.lives.value
+        
+        if (currentLives > 0) {
+            // Life bachi hai -> 1 consume karo aur usi platform se continue karo
+            repository.consumeLife()
+            repository.updateHighScore(_score.value)
+            respawnAtCurrentPlatform()
+        } else {
+            // Life 0 hai -> Strictly GAME OVER, koi respawn nahi hoga
+            repository.updateHighScore(_score.value)
+            val lvl = _currentLevel.value
+            _activeChallengeDialog.value = ChallengeDialogData(
+                levelNumber = lvl,
+                title = "GAME OVER",
+                message = "You are out of lives! Refill lives from the shop to continue.",
+                type = ChallengeDialogType.POST_LEVEL_FAIL,
+                rewardGems = 0,
+                buttonText = "REFILL LIVES"
+            )
+            _gameState.value = GameState.GAMEOVER
+        }
     }
 
     fun generateNextPlatform(currentScore: Int, screenW: Float): PlatformData {
@@ -607,7 +633,13 @@ class StickmanGameEngine(
             GameState.GAMEOVER -> {
                 soundManager.playButton()
                 hapticManager?.uiClick()
-                respawnAtCurrentPlatform()
+                // Agar life 0 hai toh game start nahi hoga, life shop/refill prompt aayega
+                if (repository.lives.value > 0) {
+                    respawnAtCurrentPlatform()
+                } else {
+                    // Out of lives: game screen par hi rahega, free respawn block
+                    _gameState.value = GameState.GAMEOVER
+                }
             }
             GameState.GROWING -> {}
             GameState.WALKING -> {
@@ -1451,11 +1483,7 @@ class StickmanGameEngine(
                         soundManager.playButton()
                         hapticManager?.nearMiss()
                     } else {
-                        repository.consumeLife()
-                        repository.updateHighScore(_score.value)
-                        
-                        // Respawn Stickman directly on current platform without resetting score/level
-                        respawnAtCurrentPlatform()
+                        handleFatalFall()
                     }
                 }
             }
