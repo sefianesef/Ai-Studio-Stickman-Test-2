@@ -55,12 +55,12 @@ class GemStateManager(
 
         if (Random.nextFloat() > difficultyTier.gemSpawnRate) return null
 
-        // In higher tiers (Adept, Expert, Master, Legend), gems are placed in trickier positions on the bridge
+        // In higher tiers (Adept, Master), gems are placed in trickier positions on the bridge
         val (minFrac, maxFrac) = when (difficultyTier) {
             DifficultyTier.NOVICE_TRAINING -> Pair(0.30f, 0.60f)
             DifficultyTier.APPRENTICE -> Pair(0.25f, 0.65f)
             DifficultyTier.ADEPT -> Pair(0.20f, 0.70f)
-            DifficultyTier.EXPERT, DifficultyTier.MASTER, DifficultyTier.GRANDMASTER -> Pair(0.20f, 0.75f)
+            DifficultyTier.MASTER -> Pair(0.20f, 0.75f)
         }
 
         val minX = spanStartX + (spanWidth * minFrac)
