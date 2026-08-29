@@ -91,6 +91,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.play.billing)
   implementation(libs.androidx.security.crypto)
+  implementation(libs.androidx.navigation.compose)
 
   // Firebase Cloud Database & Authentication
   implementation(platform(libs.firebase.bom))

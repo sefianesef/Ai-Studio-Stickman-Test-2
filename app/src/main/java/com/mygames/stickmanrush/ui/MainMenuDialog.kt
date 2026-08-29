@@ -25,11 +25,13 @@ import androidx.compose.ui.window.DialogProperties
 @Composable
 fun MainMenuDialog(
     viewModel: GameViewModel,
+    onPlayClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     ProfessionalMainMenuDialog(
         viewModel = viewModel,
         onDismiss = { viewModel.openMainMenu(false) },
+        onPlayClick = onPlayClick,
         modifier = modifier
     )
 }
@@ -38,6 +40,7 @@ fun MainMenuDialog(
 fun ProfessionalMainMenuDialog(
     viewModel: GameViewModel,
     onDismiss: () -> Unit,
+    onPlayClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val totalGems by viewModel.gems.collectAsState()
@@ -369,6 +372,7 @@ fun ProfessionalMainMenuDialog(
                 Button(
                     onClick = {
                         onDismiss()
+                        onPlayClick()
                         if (viewModel.engine.gameState.value == com.mygames.stickmanrush.model.GameState.START) {
                             viewModel.engine.startGame()
                         }
