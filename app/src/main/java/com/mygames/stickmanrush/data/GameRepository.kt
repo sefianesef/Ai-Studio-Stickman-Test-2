@@ -532,6 +532,7 @@ class GameRepository(
         addGems(rewardGems, CurrencySource.DAILY_REWARD)
 
         prefs.edit().putLong(KEY_LAST_CLAIM_DAY, today).putInt(KEY_CURRENT_STREAK, streak).apply()
+        saveIntegritySignature()
         scope.launch { playerProfileDao.updateDailyStreak(streak, today) }
         _isDailyRewardAvailable.value = false
         return rewardGems
@@ -836,6 +837,7 @@ class GameRepository(
         if (score > _highScore.value) {
             _highScore.value = score
             prefs.edit().putInt(KEY_HIGH_SCORE, score).apply()
+            saveIntegritySignature()
             scope.launch { playerProfileDao.updateHighScore(score) }
             return true
         }
@@ -849,6 +851,7 @@ class GameRepository(
         consumeWoodPlank(1)
         val current = prefs.getInt(KEY_TOTAL_BRIDGES, 0)
         prefs.edit().putInt(KEY_TOTAL_BRIDGES, current + 1).apply()
+        saveIntegritySignature()
         scope.launch { playerProfileDao.incrementBridgesBuilt() }
     }
 
@@ -1323,6 +1326,7 @@ class GameRepository(
     fun resetCareerProgress() {
         prefs.edit().putInt(KEY_HIGH_SCORE, 0).putInt(KEY_TOTAL_BRIDGES, 0).putInt(KEY_PERFECT_HITS, 0).putInt(KEY_TOTAL_GAMES, 0).apply()
         _highScore.value = 0
+        saveIntegritySignature()
         scope.launch { playerProfileDao.updateHighScore(0) }
     }
 

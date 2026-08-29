@@ -16,95 +16,89 @@ enum class DifficultyTier(
     val growthSpeedFactor: Float,
     val badgeColorHex: Long
 ) {
-    // Levels 1 to 2 (Scores 0-7): Friendly onboarding, comfortable platforms (scarce 1 in 4-5 platforms)
     NOVICE_TRAINING(
         tierLevel = 1,
         title = "RECRUIT",
         minLevel = 1,
         minScore = 0,
-        minWidth = 120f,
-        maxWidth = 155f,
-        bullseyeTolerance = 22f,
-        gemSpawnRate = 0.28f,
-        doubleGemChance = 0.05f,
+        minWidth = 130f,
+        maxWidth = 170f,
+        bullseyeTolerance = 24f,
+        gemSpawnRate = 0.45f,
+        doubleGemChance = 0.15f,
         movingPlatformChance = 0.0f,
-        growthSpeedFactor = 0.88f,
-        badgeColorHex = 0xFF10B981 // Emerald Green
+        growthSpeedFactor = 0.85f,
+        badgeColorHex = 0xFF10B981
     ),
-    // Level 3 (Scores 8-11): Stepping into genuine challenge - platform widths shrink, gap dynamics begin
     APPRENTICE(
         tierLevel = 2,
         title = "CHALLENGER",
-        minLevel = 3,
-        minScore = 8,
-        minWidth = 85f,
-        maxWidth = 115f,
-        bullseyeTolerance = 16f,
-        gemSpawnRate = 0.26f,
-        doubleGemChance = 0.08f,
-        movingPlatformChance = 0.0f,
-        growthSpeedFactor = 0.96f,
-        badgeColorHex = 0xFF38BDF8 // Sky Blue
+        minLevel = 6,
+        minScore = 22,
+        minWidth = 75f,
+        maxWidth = 105f,
+        bullseyeTolerance = 14f,
+        gemSpawnRate = 0.30f,
+        doubleGemChance = 0.12f,
+        movingPlatformChance = 0.10f,
+        growthSpeedFactor = 1.00f,
+        badgeColorHex = 0xFF38BDF8
     ),
-    // Level 4 (Scores 12-16): Dynamic bridge physics, high canyon gaps & narrow platforms
     ADEPT(
         tierLevel = 3,
         title = "ADEPT",
-        minLevel = 4,
-        minScore = 12,
-        minWidth = 70f,
-        maxWidth = 95f,
-        bullseyeTolerance = 13f,
-        gemSpawnRate = 0.24f,
-        doubleGemChance = 0.12f,
-        movingPlatformChance = 0.08f,
-        growthSpeedFactor = 1.02f,
-        badgeColorHex = 0xFFA855F7 // Purple
+        minLevel = 10,
+        minScore = 52,
+        minWidth = 60f,
+        maxWidth = 85f,
+        bullseyeTolerance = 11f,
+        gemSpawnRate = 0.25f,
+        doubleGemChance = 0.18f,
+        movingPlatformChance = 0.18f,
+        growthSpeedFactor = 1.08f,
+        badgeColorHex = 0xFF8B5CF6
     ),
-    // Level 5 (Scores 17-21): Expert precision testing
     EXPERT(
         tierLevel = 4,
         title = "EXPERT",
-        minLevel = 5,
-        minScore = 17,
-        minWidth = 55f,
-        maxWidth = 78f,
-        bullseyeTolerance = 10f,
+        minLevel = 15,
+        minScore = 80,
+        minWidth = 52f,
+        maxWidth = 72f,
+        bullseyeTolerance = 9f,
         gemSpawnRate = 0.22f,
-        doubleGemChance = 0.15f,
-        movingPlatformChance = 0.14f,
-        growthSpeedFactor = 1.08f,
-        badgeColorHex = 0xFFF59E0B // Amber
+        doubleGemChance = 0.20f,
+        movingPlatformChance = 0.22f,
+        growthSpeedFactor = 1.12f,
+        badgeColorHex = 0xFFF59E0B
     ),
-    // Level 6 to 9 (Scores 22-51): Master tier
     MASTER(
         tierLevel = 5,
         title = "MASTER",
-        minLevel = 6,
-        minScore = 22,
-        minWidth = 44f,
+        minLevel = 20,
+        minScore = 110,
+        minWidth = 45f,
         maxWidth = 65f,
         bullseyeTolerance = 8f,
         gemSpawnRate = 0.20f,
-        doubleGemChance = 0.20f,
-        movingPlatformChance = 0.20f,
-        growthSpeedFactor = 1.14f,
-        badgeColorHex = 0xFFEC4899 // Pink Neon
+        doubleGemChance = 0.25f,
+        movingPlatformChance = 0.25f,
+        growthSpeedFactor = 1.15f,
+        badgeColorHex = 0xFFEF4444
     ),
-    // Level 10+ (Scores 52+): Legendary grandmaster tier
     GRANDMASTER(
         tierLevel = 6,
-        title = "LEGEND",
-        minLevel = 10,
-        minScore = 52,
+        title = "GRANDMASTER",
+        minLevel = 25,
+        minScore = 150,
         minWidth = 35f,
-        maxWidth = 52f,
+        maxWidth = 55f,
         bullseyeTolerance = 6f,
         gemSpawnRate = 0.18f,
-        doubleGemChance = 0.25f,
-        movingPlatformChance = 0.28f,
+        doubleGemChance = 0.30f,
+        movingPlatformChance = 0.30f,
         growthSpeedFactor = 1.20f,
-        badgeColorHex = 0xFFEF4444 // Crimson Red
+        badgeColorHex = 0xFFEC4899
     );
 
     companion object {
@@ -122,145 +116,52 @@ enum class DifficultyTier(
 }
 
 class DifficultyManager {
-
-    private var previousGapCategory: Int = 0 // 0 = short, 1 = medium, 2 = long
-
     fun getTier(score: Int): DifficultyTier = DifficultyTier.getTierForScore(score)
 
     fun generatePlatformWidth(score: Int, streak: Int = 0): Float {
         val tier = getTier(score)
-        val baseWidth = Random.nextFloat() * (tier.maxWidth - tier.minWidth) + tier.minWidth
-        // Streak Milestone 10+: Narrower target platforms to widen skill ceiling
-        val streakWidthMultiplier = when {
-            streak >= 30 -> 0.70f
-            streak >= 20 -> 0.75f
-            streak >= 10 -> 0.82f
-            else -> 1.0f
-        }
-        return (baseWidth * streakWidthMultiplier).coerceAtLeast(28f)
+        return Random.nextFloat() * (tier.maxWidth - tier.minWidth) + tier.minWidth
     }
 
-    /**
-     * Generates platform gap distance based on the user's level progression curve:
-     * - Levels 1-2: Comfortable, predictable platform distances (120-170px).
-     * - Levels 3+: Dynamic bridge physics with varied spans (Short: 120-165px, Medium: 175-245px, Canyon: 255-360px).
-     * - Guarantees platform gap is never awkwardly close (< 115px).
-     */
     fun generatePlatformGap(score: Int, level: Int, screenWidth: Float, isFirstBridgeOfLevel: Boolean = false): Float {
-        val maxAvailableGap = (screenWidth * 0.54f).coerceAtLeast(300f)
-
-        if (isFirstBridgeOfLevel) {
-            // First bridge after level-up: majestic, open canyon distance
-            val firstMin = 155f
-            val firstMax = 225f.coerceAtMost(maxAvailableGap)
-            return Random.nextFloat() * (firstMax - firstMin) + firstMin
-        }
-
-        if (level <= 2) {
-            // First 2 levels: steady, easy-to-judge comfortable distance
+        val maxAvailableGap = (screenWidth * 0.50f).coerceAtLeast(280f)
+        if (level <= 5) {
             val minGap = 120f
-            val maxGap = 165f.coerceAtMost(maxAvailableGap)
+            val maxGap = 160f.coerceAtMost(maxAvailableGap)
             return Random.nextFloat() * (maxGap - minGap) + minGap
         }
-
-        // Levels 3 and beyond: dynamic bridge distance variations (small, medium, large canyon swings)
-        val gapCategory = when (Random.nextFloat()) {
-            in 0.0f..0.33f -> if (previousGapCategory == 0) 1 else 0
-            in 0.33f..0.67f -> if (previousGapCategory == 1) 2 else 1
-            else -> if (previousGapCategory == 2) 0 else 2
-        }
-        previousGapCategory = gapCategory
-
-        val (minGap, maxGap) = when (gapCategory) {
-            0 -> {
-                // Short precision hop: clean, well-spaced (never cramped)
-                Pair(115f, 160f)
-            }
-            1 -> {
-                // Medium distance: standard bridge stretch
-                Pair(170f, 245f)
-            }
-            else -> {
-                // Thrilling canyon crossing with dynamic scaling
-                val maxCanyon = (260f + (level * 5f)).coerceIn(270f, maxAvailableGap)
-                Pair(250f, maxCanyon)
-            }
-        }
-
+        val minGap = 150f
+        val maxGap = (220f + (level * 5f)).coerceIn(240f, maxAvailableGap)
         return Random.nextFloat() * (maxGap - minGap) + minGap
     }
 
-    /**
-     * Generates dynamic platform height variations (elevated cliffs, stepping plateaus).
-     * - Levels 1-2: Level flat terrain for intuitive learning.
-     * - Level 3+: Dynamic height variance (steps up to -45px or down to +40px).
-     */
     fun generatePlatformHeightOffset(score: Int, level: Int): Float {
-        if (level <= 2) return 0f
-
-        // 45% chance of dynamic elevation change on Level 3+
-        if (Random.nextFloat() < 0.45f) {
-            val maxVariance = when (level) {
-                3 -> 25f
-                4 -> 35f
-                else -> 48f
-            }
-            // Step up or step down randomly
+        if (level <= 5) return 0f
+        if (Random.nextFloat() < 0.35f) {
             val direction = if (Random.nextBoolean()) -1f else 1f
-            return direction * (Random.nextFloat() * (maxVariance - 15f) + 15f)
+            return direction * (Random.nextFloat() * 25f + 15f)
         }
         return 0f
     }
 
-    /**
-     * Generates physical moving hazards & obstacles (spinning saws, spike mines, laser barriers).
-     * - Levels 1-2: Safe spans for onboarding.
-     * - Level 3+: Procedurally places hazards requiring tactical flips (upside-down or right-side up).
-     */
     fun generateObstacle(spanStart: Float, spanEnd: Float, score: Int, level: Int, isBossLevel: Boolean): com.mygames.stickmanrush.model.ObstacleData? {
-        if (level <= 2) return null
+        if (level <= 5 && !isBossLevel) return null
         val spanWidth = spanEnd - spanStart
-        if (spanWidth < 140f) return null // Only spawn on medium/wide spans
+        if (spanWidth < 140f) return null
+        if (Random.nextFloat() > 0.30f) return null
 
-        val obstacleChance = when {
-            isBossLevel -> 0.20f // Boss already has projectiles
-            level == 3 -> 0.35f
-            level == 4 -> 0.45f
-            else -> 0.55f
-        }
-
-        if (Random.nextFloat() > obstacleChance) return null
-
-        // Position hazard midway along the span
-        val posX = spanStart + (spanWidth * (Random.nextFloat() * 0.4f + 0.3f))
-        
-        // Choose obstacle type
-        val chosenType = when (Random.nextInt(6)) {
-            0 -> com.mygames.stickmanrush.model.ObstacleType.SPINNING_BLADE // Top of bridge
-            1 -> com.mygames.stickmanrush.model.ObstacleType.SPIKE_MINE // Under bridge
-            2 -> com.mygames.stickmanrush.model.ObstacleType.LASER_BARRIER // Pulsing laser
-            3 -> com.mygames.stickmanrush.model.ObstacleType.FIRE_BALL // Blazing fireball on bridge
-            4 -> com.mygames.stickmanrush.model.ObstacleType.SLIP_PATCH // Slippery ice patch
-            else -> com.mygames.stickmanrush.model.ObstacleType.MOVING_SPIKE_BALL // Hovering orb
-        }
-
-        val isUnderBridge = chosenType == com.mygames.stickmanrush.model.ObstacleType.SPIKE_MINE || 
-                           (chosenType == com.mygames.stickmanrush.model.ObstacleType.MOVING_SPIKE_BALL && Random.nextBoolean())
+        val posX = spanStart + (spanWidth * 0.5f)
+        val chosenType = com.mygames.stickmanrush.model.ObstacleType.FIRE_BALL
 
         return com.mygames.stickmanrush.model.ObstacleData(
             id = System.currentTimeMillis() + Random.nextInt(1000),
             x = posX,
-            y = 0f, // Initialized relative to bridge floor in engine
+            y = 0f,
             type = chosenType,
-            isUnderBridge = isUnderBridge
+            isUnderBridge = false
         )
     }
 
-    /**
-     * Procedurally generates tactical power-up items (Magnet, Aegis Shield, Gem Doubler, Chrono Slow-Mo).
-     * - Magnet automatically vacuums gems along the bridge.
-     * - Invincibility Shield absorbs 1 fatal collision with hazards or boss projectiles per run.
-     */
     fun generatePowerUp(
         spanStart: Float,
         spanEnd: Float,
@@ -269,16 +170,9 @@ class DifficultyManager {
         hasObstacle: Boolean
     ): com.mygames.stickmanrush.model.PowerUpItem? {
         val spanWidth = spanEnd - spanStart
-        if (spanWidth < 95f) return null
-
-        // Power-up spawn chance (~24% base, slightly higher on boss or high obstacle spans)
-        val powerUpChance = when {
-            level % 5 == 0 -> 0.40f // Boss levels provide tactical support pickups
-            hasObstacle -> 0.30f
-            level <= 2 -> 0.28f // Introduce early powerups
-            else -> 0.22f
-        }
-
+        if (spanWidth < 80f) return null
+        
+        val powerUpChance = if (level <= 5 || level % 5 == 0) 0.45f else 0.25f
         if (Random.nextFloat() > powerUpChance) return null
 
         val minX = spanStart + (spanWidth * 0.25f)
@@ -286,49 +180,36 @@ class DifficultyManager {
         val posX = minX + Random.nextFloat() * (maxX - minX)
 
         val chosenType = when (Random.nextFloat()) {
-            in 0.0f..0.38f -> com.mygames.stickmanrush.model.PowerUpType.MAGNET
-            in 0.38f..0.72f -> com.mygames.stickmanrush.model.PowerUpType.INVINCIBILITY_SHIELD
-            in 0.72f..0.88f -> com.mygames.stickmanrush.model.PowerUpType.GEM_DOUBLER
-            else -> com.mygames.stickmanrush.model.PowerUpType.SLOW_MOTION
+            in 0.0f..0.45f -> com.mygames.stickmanrush.model.PowerUpType.INVINCIBILITY_SHIELD
+            in 0.45f..0.80f -> com.mygames.stickmanrush.model.PowerUpType.MAGNET
+            else -> com.mygames.stickmanrush.model.PowerUpType.GEM_DOUBLER
         }
-
-        // 75% on top, 25% under bridge
-        val isUnder = Random.nextFloat() < 0.25f
 
         return com.mygames.stickmanrush.model.PowerUpItem(
             id = System.nanoTime() + Random.nextInt(500),
             x = posX,
             y = 0f,
             type = chosenType,
-            isUnderBridge = isUnder,
+            isUnderBridge = false,
             collected = false,
             floatOffset = 0f
         )
     }
 
-    fun shouldSpawnGem(score: Int): Boolean {
-        val tier = getTier(score)
-        return Random.nextFloat() < tier.gemSpawnRate
+    fun generateMovingConfig(score: Int, level: Int, streak: Int = 0): MovingPlatformConfig {
+        if (level <= 5) {
+            return MovingPlatformConfig(isMoving = false, amplitude = 0f, speed = 0f, isVertical = false)
+        }
+        val isMoving = Random.nextFloat() < 0.20f
+        return MovingPlatformConfig(
+            isMoving = isMoving,
+            amplitude = if (isMoving) 20f else 0f,
+            speed = if (isMoving) 1.5f else 0f,
+            isVertical = false
+        )
     }
 
-    fun isMovingPlatform(score: Int, level: Int, streak: Int = 0): Boolean {
-        // Streak Milestone 20+: Moving target pillars become much more active & dynamic
-        if (streak >= 20) {
-            val movingChance = when {
-                streak >= 30 -> 0.70f
-                else -> 0.55f
-            }
-            return Random.nextFloat() < movingChance
-        }
-        if (level <= 2) return false
-        val tier = getTier(score)
-        val chance = when {
-            level >= 5 -> 0.35f
-            level >= 3 -> 0.25f
-            else -> tier.movingPlatformChance
-        }
-        return Random.nextFloat() < chance
-    }
+    fun getWindDriftForce(streak: Int): Float = 0f
 
     data class MovingPlatformConfig(
         val isMoving: Boolean,
@@ -336,52 +217,4 @@ class DifficultyManager {
         val speed: Float,
         val isVertical: Boolean
     )
-
-    fun generateMovingConfig(score: Int, level: Int, streak: Int = 0): MovingPlatformConfig {
-        if (!isMovingPlatform(score, level, streak)) {
-            return MovingPlatformConfig(isMoving = false, amplitude = 0f, speed = 0f, isVertical = false)
-        }
-        val isVertical = Random.nextFloat() < 0.40f
-        val baseAmp = if (isVertical) Random.nextFloat() * 18f + 14f else Random.nextFloat() * 24f + 16f
-        val extraStreakAmp = if (streak >= 20) (streak - 20) * 0.5f else 0f
-        val amplitude = (baseAmp + extraStreakAmp).coerceAtMost(36f)
-        val speed = (Random.nextFloat() * 1.2f + 1.6f) * (if (streak >= 25) 1.25f else 1.0f)
-        return MovingPlatformConfig(isMoving = true, amplitude = amplitude, speed = speed, isVertical = isVertical)
-    }
-
-    /**
-     * Streak Milestone 30+: Wind Drift Force (-40f to +40f)
-     * Introduces dynamic lateral wind currents that test advanced bridge length calibration.
-     */
-    fun getWindDriftForce(streak: Int): Float {
-        if (streak < 30) return 0f
-        val intensity = ((streak - 30) * 2f + 15f).coerceIn(15f, 42f)
-        val dir = if (Random.nextBoolean()) 1f else -1f
-        return dir * (Random.nextFloat() * (intensity - 10f) + 10f)
-    }
-
-    fun hasNarrowPlatformStreak(streak: Int): Boolean = streak >= 10
-    fun hasMovingPillarStreak(streak: Int): Boolean = streak >= 20
-    fun hasWindDriftStreak(streak: Int): Boolean = streak >= 30
-
-    // Boss ki speed ab control mein rahegi (normal se thodi si zyada, extreme nahi)
-    fun getSpeedMultiplier(level: Int, isBossChallenge: Boolean): Float {
-        return if (isBossChallenge) 1.2f else 1.0f + (level * 0.05f)
-    }
-
-    // Obstacles aur gaps ke beech mein hamesha safe distance rahega
-    fun getPlatformGap(level: Int, isBossChallenge: Boolean): Float {
-        val baseGap = if (isBossChallenge) 250f else 150f + (level * 10f)
-        return baseGap
-    }
-
-    // Hazard (spikes) spawn rate. Boss mein gap zyada hoga taaki saans lene ki jagah mile
-    fun getHazardProbability(level: Int, isBossChallenge: Boolean): Float {
-        return if (isBossChallenge) 0.2f else 0.1f + (level * 0.02f)
-    }
-
-    // SAFE ZONE: Landing ke baad spike ekdum muh par nahi aayega (Issue 3 Fixed)
-    fun getMinHazardPadding(): Float {
-        return 180f // 180 pixels ka safe zone landing ke baad
-    }
 }

@@ -363,6 +363,9 @@ class StickmanGameEngine(
                 else -> BossType.VOID_REAPER
             }
             _activeBossState.value = BossState(type = bossType)
+            // Give Stickman a free Aegis Shield at the start of boss level
+            _hasInvincibilityShield.value = true
+            addFloatingText("🛡️ AEGIS DEFENSE ACTIVATED!", screenWidth / 2f, floorY - 80f, Color(0xFF38BDF8), scale = 1.35f)
         } else {
             _activeBossState.value = null
         }
@@ -765,7 +768,7 @@ class StickmanGameEngine(
                             id = System.currentTimeMillis() + kotlin.random.Random.nextInt(1000),
                             x = spawnX,
                             y = spawnY,
-                            vx = -(190f + (_currentLevel.value * 5f)),
+                            vx = -(110f + (_currentLevel.value * 2f)), // Slower for 1.5s - 2.0s clear dodge window
                             colorHex = boss.type.primaryColorHex,
                             isHigh = isHigh
                         )

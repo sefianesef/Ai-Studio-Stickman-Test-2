@@ -7,6 +7,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
@@ -178,9 +179,16 @@ class FirestorePlayerManager(private val context: Context) {
             // 1. Listen to `players/{playerId}`
             playerListener = playerDocRef.addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e(TAG, "Error listening to player doc: ${error.message}", error)
-                    _isCloudSynced.value = false
-                    _syncStatusMessage.value = "Sync Warning: ${error.localizedMessage}"
+                    if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Log.w(TAG, "Permission denied listening to player doc. Operating in local cache mode.")
+                        _isCloudSynced.value = false
+                        _syncStatusMessage.value = "Offline Mode (Permission Denied)"
+                        cleanup()
+                    } else {
+                        Log.e(TAG, "Error listening to player doc: ${error.message}", error)
+                        _isCloudSynced.value = false
+                        _syncStatusMessage.value = "Sync Warning: ${error.localizedMessage}"
+                    }
                     return@addSnapshotListener
                 }
 
@@ -217,7 +225,11 @@ class FirestorePlayerManager(private val context: Context) {
             // 2. Listen to `players/{playerId}/inventory/slot_1`
             inventorySlotListener = slot1DocRef.addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e(TAG, "Error listening to inventory slot_1: ${error.message}", error)
+                    if (error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Log.w(TAG, "Permission denied listening to inventory slot_1. Operating in local cache mode.")
+                    } else {
+                        Log.e(TAG, "Error listening to inventory slot_1: ${error.message}", error)
+                    }
                     return@addSnapshotListener
                 }
 

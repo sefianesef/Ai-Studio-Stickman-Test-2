@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.mygames.stickmanrush.model.GameState
 
 @Composable
@@ -31,14 +32,30 @@ fun StickmanGameScreen(
     val isThemeSelectorOpen by viewModel.isThemeSelectorOpen.collectAsState()
     val nickname by viewModel.nickname.collectAsState()
     val isNicknameSetupOpen by viewModel.isNicknameSetupOpen.collectAsState()
-    val showAuthDialog by viewModel.showAuthDialog.collectAsState()
+    
+    // Auth & Launch Sequence
+    val auth = FirebaseAuth.getInstance()
+    var isUserAuthenticated by remember { mutableStateOf(auth.currentUser != null) }
+    var hasHandledLuckyWheelOnLaunch by remember { mutableStateOf(false) }
 
-    // Auto open nickname setup dialog on first launch if nickname is blank
-    LaunchedEffect(nickname) {
-        if (nickname.isBlank()) {
+    // --- STRICT SEQUENTIAL LAUNCH FLOW ---
+    LaunchedEffect(isUserAuthenticated, nickname) {
+        if (!isUserAuthenticated) {
+            // STEP 1: Login
+            viewModel.openNicknameSetup(false)
+        } else if (nickname.isBlank()) {
+            // STEP 2: Nickname
             viewModel.openNicknameSetup(true)
+        } else if (!hasHandledLuckyWheelOnLaunch) {
+            // STEP 3: Lucky Wheel (First launch / Daily free spin)
+            hasHandledLuckyWheelOnLaunch = true
+            viewModel.openNicknameSetup(false)
+            if (viewModel.isDailyFreeSpinAvailable()) {
+                viewModel.openSpinWheel(true)
+            }
         }
     }
+
     val isSpinWheelOpen by viewModel.isSpinWheelOpen.collectAsState()
     val isRealMoneyShopOpen by viewModel.isRealMoneyShopOpen.collectAsState()
     val isOutOfGemsOfferOpen by viewModel.isOutOfGemsOfferOpen.collectAsState()
@@ -52,7 +69,6 @@ fun StickmanGameScreen(
 
     val gameEngine = viewModel.engine
 
-    // YEH CONNECTION GEMS ADD KAREGA
     LaunchedEffect(gameEngine) {
         gameEngine.onGemCollectedListener = { amount ->
             viewModel.onGemCollected(amount) 
@@ -63,14 +79,8 @@ fun StickmanGameScreen(
     val isStart = gameState == GameState.START
     val isGameOver = gameState == GameState.GAMEOVER
 
-    // Play startup welcome melody and delay missions dialog
     LaunchedEffect(Unit) {
         viewModel.soundManager.playStartupMelody()
-        kotlinx.coroutines.delay(7500)
-        // Only open if the user hasn't started playing immediately or opened another menu
-        if (viewModel.engine.gameState.value == GameState.START && !viewModel.isShopOpen.value && !viewModel.isMainMenuOpen.value && !viewModel.isRealMoneyShopOpen.value) {
-            viewModel.openDailyMissions(true)
-        }
     }
 
     Box(
@@ -78,10 +88,10 @@ fun StickmanGameScreen(
             .fillMaxSize()
             .background(Color(0xFF06140E))
     ) {
-        // 1. Core Physics & Canvas rendering (Continuous world backdrop)
+        // 1. Core Physics & Canvas rendering
         StickmanGameCanvas(viewModel = viewModel)
 
-        // 2. HUD / PLAYING Overlay (Score, Gems, Stage, Controls) with Fade In / Out
+        // 2. HUD Overlay
         AnimatedVisibility(
             visible = isPlaying,
             enter = fadeIn(animationSpec = tween(durationMillis = 350, easing = LinearOutSlowInEasing)),
@@ -90,7 +100,7 @@ fun StickmanGameScreen(
             GameHud(viewModel = viewModel)
         }
 
-        // 3. Start Screen Overlay with Fade In / Out
+        // 3. Start Screen Overlay
         AnimatedVisibility(
             visible = isStart,
             enter = fadeIn(animationSpec = tween(durationMillis = 400, easing = LinearOutSlowInEasing)),
@@ -99,7 +109,7 @@ fun StickmanGameScreen(
             StartScreenOverlay(viewModel = viewModel)
         }
 
-        // 4. Game Over Overlay with Fade In + Scale / Out
+        // 4. Game Over Overlay
         AnimatedVisibility(
             visible = isGameOver,
             enter = fadeIn(animationSpec = tween(durationMillis = 450, delayMillis = 100, easing = LinearOutSlowInEasing)) +
@@ -110,128 +120,70 @@ fun StickmanGameScreen(
             GameOverDialog(viewModel = viewModel)
         }
 
-        // 5. Shop Dialog
-        if (isShopOpen) {
-            ShopDialog(viewModel = viewModel)
-        }
+        // ==========================================
+        // DIALOGS & OVERLAYS IN STRICT SEQUENCE
+        // ==========================================
 
-        // 6. Pause Dialog
-        if (isPauseMenuOpen) {
-            PauseMenuDialog(viewModel = viewModel)
-        }
-
-        // 7. How to Play Dialog
-        if (isHowToPlayOpen) {
-            HowToPlayDialog(onDismiss = { viewModel.openHowToPlay(false) })
-        }
-
-        // 8. Daily Reward Dialog
-        if (isDailyRewardOpen) {
-            DailyRewardDialog(
+        // 1. STEP 1: AUTH DIALOG (Google / Email / Guest)
+        if (!isUserAuthenticated) {
+            AuthDialog(
                 viewModel = viewModel,
-                onDismiss = { viewModel.openDailyReward(false) }
+                onDismiss = {
+                    isUserAuthenticated = true
+                }
             )
         }
 
-        // 9. Daily Missions & Mission Pursuit Dialog (Inspired by Video)
-        if (isDailyMissionsOpen) {
-            RoyalMissionPursuitDialog(
+        // 2. STEP 2: NICKNAME SETUP DIALOG
+        if (isUserAuthenticated && isNicknameSetupOpen) {
+            NicknameSetupDialog(
                 viewModel = viewModel,
-                onDismiss = { viewModel.openDailyMissions(false) }
+                onDismiss = {
+                    viewModel.openNicknameSetup(false)
+                    if (viewModel.isDailyFreeSpinAvailable()) {
+                        viewModel.openSpinWheel(true)
+                    }
+                },
+                isInitialSetup = nickname.isBlank()
             )
         }
 
-        // 10. Weekly Missions & Trials Dialog
-        if (isWeeklyMissionsOpen) {
-            WeeklyMissionsDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openWeeklyMissions(false) }
-            )
-        }
-
-        // 11. Contests & Tournaments Center Dialog (Inspired by Video)
-        if (isContestsOpen) {
-            RoyalContestCenterDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openContests(false) }
-            )
-        }
-
-        // 12. Master Professional Game Menu Dialog
-        if (isMainMenuOpen) {
-            ProfessionalMainMenuDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openMainMenu(false) }
-            )
-        }
-
-        // 13. Player Career Battle Records Dialog
-        if (isPlayerStatsOpen) {
-            PlayerCareerStatsDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openPlayerStats(false) }
-            )
-        }
-
-        // 14. Game Preferences & Audio/Display Settings Dialog
-        if (isSettingsOpen) {
-            GameSettingsDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openSettings(false) }
-            )
-        }
-
-        // 15. Global Arena & World Leaderboard Dialog
-        if (isLeaderboardOpen) {
-            LeaderboardAndContestDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openLeaderboard(false) }
-            )
-        }
-
-        // 16. Lucky Spin Wheel Dialog
-        if (isSpinWheelOpen) {
+        // 3. STEP 3: LUCKY SPIN WHEEL DIALOG
+        if (isUserAuthenticated && !isNicknameSetupOpen && isSpinWheelOpen) {
             LuckySpinWheelDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.openSpinWheel(false) }
             )
         }
 
-        // 17. Dedicated Real-Money Gem Shop Dialog
-        if (isRealMoneyShopOpen) {
-            RealMoneyGemShopDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openRealMoneyShop(false) }
-            )
-        }
+        // Secondary Menus (Triggered only when requested by user)
+        if (isShopOpen) ShopDialog(viewModel = viewModel)
+        if (isPauseMenuOpen) PauseMenuDialog(viewModel = viewModel)
+        if (isHowToPlayOpen) HowToPlayDialog(onDismiss = { viewModel.openHowToPlay(false) })
+        if (isDailyRewardOpen) DailyRewardDialog(viewModel = viewModel, onDismiss = { viewModel.openDailyReward(false) })
+        if (isDailyMissionsOpen) RoyalMissionPursuitDialog(viewModel = viewModel, onDismiss = { viewModel.openDailyMissions(false) })
+        if (isWeeklyMissionsOpen) WeeklyMissionsDialog(viewModel = viewModel, onDismiss = { viewModel.openWeeklyMissions(false) })
+        if (isContestsOpen) RoyalContestCenterDialog(viewModel = viewModel, onDismiss = { viewModel.openContests(false) })
+        if (isMainMenuOpen) ProfessionalMainMenuDialog(viewModel = viewModel, onDismiss = { viewModel.openMainMenu(false) })
+        if (isPlayerStatsOpen) PlayerCareerStatsDialog(viewModel = viewModel, onDismiss = { viewModel.openPlayerStats(false) })
+        if (isSettingsOpen) GameSettingsDialog(viewModel = viewModel, onDismiss = { viewModel.openSettings(false) })
+        if (isLeaderboardOpen) LeaderboardAndContestDialog(viewModel = viewModel, onDismiss = { viewModel.openLeaderboard(false) })
+        if (isRealMoneyShopOpen) RealMoneyGemShopDialog(viewModel = viewModel, onDismiss = { viewModel.openRealMoneyShop(false) })
+        if (isOutOfGemsOfferOpen) OutOfGemsSpecialOfferDialog(viewModel = viewModel, onDismiss = { viewModel.openOutOfGemsOffer(false) })
+        if (isLifeShopOpen) LifeShopDialog(viewModel = viewModel, onDismiss = { viewModel.openLifeShop(false) })
+        if (isThemeSelectorOpen) EnvironmentThemeDialog(viewModel = viewModel, onDismiss = { viewModel.openThemeSelector(false) })
 
-        // 18. Out of Gems Real-Money Special Offer Pop-up Dialog
-        if (isOutOfGemsOfferOpen) {
-            OutOfGemsSpecialOfferDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openOutOfGemsOffer(false) }
-            )
-        }
-
-        // 19. Level Victory Milestone Celebration Dialog
+        // Level Victory Celebration
         levelVictoryCelebration?.let { celebrationText ->
             LevelVictoryCelebrationDialog(
                 celebrationText = celebrationText,
                 levelNumber = activeLevelVictory?.levelNumber,
                 viewModel = viewModel,
-                onDismiss = { viewModel.engine.dismissVictoryCelebration() }
+                onDismiss = { viewModel.dismissLevelVictory() }
             )
         }
 
-        // 20. Life Recovery & Purchase Shop Dialog
-        if (isLifeShopOpen) {
-            LifeShopDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openLifeShop(false) }
-            )
-        }
-
-        // 21. Big Challenging Psychology Motivational Dialog (Every 5 Levels)
+        // Challenge Dialog (Every 5 Levels)
         if (!activeSecondChancePrompt) {
             activeChallengeDialog?.let { challenge ->
                 ChallengePsychologyDialog(
@@ -241,7 +193,7 @@ fun StickmanGameScreen(
             }
         }
 
-        // 22. High-Retention Second-Chance Revive Dialog (1 per run on near-clears >70%)
+        // Second Chance Revive
         if (activeSecondChancePrompt) {
             SecondChanceReviveDialog(
                 viewModel = viewModel,
@@ -251,36 +203,11 @@ fun StickmanGameScreen(
             )
         }
 
-        // 23. Environment Theme & Background Asset Selection Dialog
-        if (isThemeSelectorOpen) {
-            EnvironmentThemeDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openThemeSelector(false) }
-            )
-        }
-
-        // 24. Nickname Setup / Edit Dialog
-        if (isNicknameSetupOpen) {
-            NicknameSetupDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.openNicknameSetup(false) },
-                isInitialSetup = nickname.isBlank()
-            )
-        }
-
-        // 25. Out of Wood Planks Dialog
+        // Out of Wood Planks
         if (isOutOfPlanksDialog) {
             OutOfWoodPlanksDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.dismissOutOfPlanksDialog() }
-            )
-        }
-
-        // 26. Auto-Prompt Authentication Dialog on Game Launch
-        if (showAuthDialog) {
-            AuthDialog(
-                viewModel = viewModel,
-                onDismiss = { viewModel.dismissAuthDialog() }
             )
         }
     }
