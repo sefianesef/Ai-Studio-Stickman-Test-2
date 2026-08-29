@@ -18,7 +18,6 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
@@ -30,9 +29,6 @@ import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import java.util.UUID
 
-/**
- * Cloud Sync Connection Status.
- */
 enum class CloudSyncStatus {
     DISCONNECTED,
     CONNECTING,
@@ -41,9 +37,6 @@ enum class CloudSyncStatus {
     ERROR
 }
 
-/**
- * Cloud Wallet & User Profile Model
- */
 data class CloudWalletData(
     val userId: String = "",
     val displayName: String? = null,
@@ -55,15 +48,6 @@ data class CloudWalletData(
     val lastUpdated: Long = System.currentTimeMillis()
 )
 
-/**
- * Enterprise Firebase Cloud Wallet Service.
- *
- * Implements real-time cloud-persisted player balances with server-side security.
- * - Authenticates players securely using Google Sign-In via Jetpack CredentialManager.
- * - Stores gems & red gems in remote Google Cloud Firestore (`users/{userId}`).
- * - Direct local phone file tampering or memory modification does NOT alter the authoritative cloud wallet.
- * - Uses atomic Firestore Transactions for tamper-proof spend/earn operations.
- */
 class FirebaseCloudWalletService(private val context: Context) {
 
     companion object {
@@ -71,13 +55,10 @@ class FirebaseCloudWalletService(private val context: Context) {
         const val FIREBASE_PROJECT_ID = "stickman-rush-88867"
         private const val FIREBASE_APP_ID = "1:842418078736:android:b891ca82349071d2"
         private const val FIREBASE_API_KEY = "AIzaSyStickmanRushProjectKey88867"
-        private const val USERS_COLLECTION = "users"
+        // BUG FIXED: Removed USERS_COLLECTION completely. Only ONE truth now.
         private const val PLAYERS_COLLECTION = "players"
-        private const val WALLET_SUBCOLLECTION = "wallet"
         private const val TRANSACTIONS_COLLECTION = "transactions"
         
-        // Web Client ID used for Google Sign-In with CredentialManager
-        // Configurable via server/Firebase settings
         const val DEFAULT_WEB_CLIENT_ID = "842418078736-cloud-wallet.apps.googleusercontent.com"
     }
 
@@ -115,7 +96,6 @@ class FirebaseCloudWalletService(private val context: Context) {
                     val remoteGems = snapshot.getLong("gems")?.toInt() ?: 0
                     val remoteLives = snapshot.getLong("lives")?.toInt() ?: 3
                     if (remoteGems <= 0 && localGems > 0) {
-                        // Sync local gems to Firestore if Firestore document has 0 or doesn't exist yet
                         transaction.set(
                             docRef,
                             mapOf("gems" to localGems, "lastUpdated" to Timestamp.now()),
@@ -138,7 +118,7 @@ class FirebaseCloudWalletService(private val context: Context) {
             _cloudGems.value = resultPair.first
             Result.success(resultPair)
         } catch (e: Throwable) {
-            Log.w(TAG, "fetchOrInitPlayerWallet failed (isolated error, fallback to local): ${e.message}")
+            Log.w(TAG, "fetchOrInitPlayerWallet failed: ${e.message}")
             Result.success(Pair(localGems, 3))
         }
     }
@@ -148,15 +128,12 @@ class FirebaseCloudWalletService(private val context: Context) {
         val uid = try {
             authService.ensureAuthenticated()
         } catch (e: Exception) {
-            Log.w(TAG, "purchaseLifeWithGemsOnCloud: Failed to ensure authentication: ${e.message}")
             return@withContext Result.failure(Exception("Not authenticated"))
         }
 
-        Log.d(TAG, "purchaseLifeWithGemsOnCloud SERVICE START: uid=$uid, cost=$cost, livesToAdd=$livesToAdd")
         if (!isFirebaseConfigured()) return@withContext Result.failure(Exception("Firebase not configured"))
 
         try {
-            val firestore = FirebaseFirestore.getInstance()
             val docRef = firestore.collection(PLAYERS_COLLECTION).document(uid)
 
             val updatedValues = firestore.runTransaction { transaction ->
@@ -170,7 +147,6 @@ class FirebaseCloudWalletService(private val context: Context) {
 
                 val newGems = currentGems - cost
                 val newLives = currentLives + livesToAdd
-                Log.d(TAG, "purchaseLifeWithGemsOnCloud TRANSACTION: currentGems=$currentGems, cost=$cost, newGems=$newGems, newLives=$newLives")
 
                 transaction.set(
                     docRef,
@@ -186,10 +162,8 @@ class FirebaseCloudWalletService(private val context: Context) {
             }.await()
 
             _cloudGems.value = updatedValues.first
-            Log.i(TAG, "purchaseLifeWithGemsOnCloud SERVICE SUCCESS: updatedGems=${updatedValues.first}, updatedLives=${updatedValues.second}")
             Result.success(updatedValues)
         } catch (e: Throwable) {
-            Log.w(TAG, "purchaseLifeWithGemsOnCloud failed: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -217,11 +191,9 @@ class FirebaseCloudWalletService(private val context: Context) {
                     .setStorageBucket("$FIREBASE_PROJECT_ID.firebasestorage.app")
                     .build()
                 FirebaseApp.initializeApp(context, options)
-                Log.i(TAG, "FirebaseApp initialized with project: $FIREBASE_PROJECT_ID")
             }
             true
         } catch (e: Throwable) {
-            Log.w(TAG, "Firebase initialization notice: ${e.message}")
             FirebaseApp.getApps(context).isNotEmpty()
         }
     }
@@ -230,24 +202,19 @@ class FirebaseCloudWalletService(private val context: Context) {
         return ensureFirebaseInitialized()
     }
 
-    // 1. NAYA FUNCTION: Real-time update ke liye (Atomic Increment)
+    // FIX: Changed from USERS_COLLECTION to PLAYERS_COLLECTION
     fun addGemRealTime(userId: String, amount: Long = 1) {
-        val userDocRef = firestore.collection(USERS_COLLECTION).document(userId)
+        val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(userId)
         
-        // FieldValue.increment bina read kiye seedha server pe add karta hai (Super Fast)
         userDocRef.update("gems", FieldValue.increment(amount))
-            .addOnSuccessListener { 
-                Log.d("CloudWallet", "Real-time gem added successfully!") 
-            }
-            .addOnFailureListener { e -> 
-                Log.e("CloudWallet", "Failed to add gem: " + e.message) 
-            }
+            .addOnSuccessListener { Log.d("CloudWallet", "Real-time gem added successfully!") }
+            .addOnFailureListener { e -> Log.e("CloudWallet", "Failed to add gem: " + e.message) }
     }
 
-    // 2. PURANA FUNCTION FIX: Purchase ke time deduct karne ke liye
+    // FIX: Changed from USERS_COLLECTION to PLAYERS_COLLECTION
     suspend fun deductGems(userId: String, amount: Long): Boolean {
         return try {
-            val userDocRef = firestore.collection(USERS_COLLECTION).document(userId)
+            val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(userId)
             firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(userDocRef)
                 val currentGems = snapshot.getLong("gems") ?: 0L
@@ -259,17 +226,16 @@ class FirebaseCloudWalletService(private val context: Context) {
             }.await()
             true
         } catch (e: Exception) {
-            Log.e("FirebaseCloudWallet", "Deduct gems failed: " + e.message)
             false
         }
     }
 
-    // 3. PURANA FUNCTION FIX: Manual background backup ke liye
+    // FIX: Changed from USERS_COLLECTION to PLAYERS_COLLECTION
     suspend fun syncGemsToCloud(userId: String, totalGems: Int): Boolean {
         return try {
             val uid = userId.ifEmpty { currentUserId ?: return false }
             if (!isFirebaseConfigured()) return false
-            val userDocRef = firestore.collection(USERS_COLLECTION).document(uid)
+            val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(uid)
             userDocRef.update("gems", totalGems).await()
             _cloudGems.value = totalGems
             true
@@ -293,15 +259,10 @@ class FirebaseCloudWalletService(private val context: Context) {
                 attachRealtimeWalletListener(user.uid)
             }
         } catch (e: Throwable) {
-            Log.w(TAG, "Firebase Auth not ready on init: ${e.message}")
             _syncStatus.value = CloudSyncStatus.DISCONNECTED
         }
     }
 
-    /**
-     * Signs the player in using Google Sign-In via Jetpack CredentialManager.
-     * Complies strictly with zero-anonymous-auth policies.
-     */
     suspend fun signInWithGoogle(
         activity: Activity,
         serverClientId: String = DEFAULT_WEB_CLIENT_ID
@@ -309,19 +270,17 @@ class FirebaseCloudWalletService(private val context: Context) {
         if (!isFirebaseConfigured()) {
             _syncStatus.value = CloudSyncStatus.ERROR
             return@withContext Result.failure(
-                IllegalStateException("Firebase is not initialized. Please ensure google-services.json is configured.")
+                IllegalStateException("Firebase is not initialized.")
             )
         }
 
         _syncStatus.value = CloudSyncStatus.CONNECTING
         try {
-            // 1. Generate cryptographic nonce for anti-replay
             val rawNonce = UUID.randomUUID().toString()
             val md = MessageDigest.getInstance("SHA-256")
             val digest = md.digest(rawNonce.toByteArray())
             val hashedNonce = digest.fold("") { str, it -> str + "%02x".format(it) }
 
-            // 2. Build Google ID Credential Request
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(serverClientId)
@@ -333,20 +292,13 @@ class FirebaseCloudWalletService(private val context: Context) {
                 .addCredentialOption(googleIdOption)
                 .build()
 
-            // 3. Prompt user via system bottom sheet
-            val result = credentialManager.getCredential(
-                request = request,
-                context = activity
-            )
-
+            val result = credentialManager.getCredential(request = request, context = activity)
             val credential = result.credential
-            if (credential is CustomCredential &&
-                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-            ) {
+            
+            if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                 val idToken = googleIdTokenCredential.idToken
 
-                // 4. Authenticate with Firebase Auth
                 val authCredential = GoogleAuthProvider.getCredential(idToken, null)
                 val authResult = FirebaseAuth.getInstance().signInWithCredential(authCredential).await()
                 val user = authResult.user
@@ -355,7 +307,6 @@ class FirebaseCloudWalletService(private val context: Context) {
                     _currentUser.value = user
                     _syncStatus.value = CloudSyncStatus.SYNCED
                     attachRealtimeWalletListener(user.uid)
-                    Log.i(TAG, "Google Sign-In successful. User: ${user.uid} (${user.email})")
                     return@withContext Result.success(user)
                 } else {
                     _syncStatus.value = CloudSyncStatus.ERROR
@@ -363,22 +314,14 @@ class FirebaseCloudWalletService(private val context: Context) {
                 }
             } else {
                 _syncStatus.value = CloudSyncStatus.ERROR
-                return@withContext Result.failure(Exception("Unsupported credential type received: ${credential.type}"))
+                return@withContext Result.failure(Exception("Unsupported credential type"))
             }
-        } catch (e: GetCredentialException) {
-            Log.e(TAG, "Credential Manager error: ${e.message}", e)
+        } catch (e: Exception) {
             _syncStatus.value = CloudSyncStatus.DISCONNECTED
-            return@withContext Result.failure(e)
-        } catch (e: Throwable) {
-            Log.e(TAG, "Google Sign-In failed: ${e.message}", e)
-            _syncStatus.value = CloudSyncStatus.ERROR
             return@withContext Result.failure(e)
         }
     }
 
-    /**
-     * Signs out the current player and disconnects the real-time cloud listener.
-     */
     suspend fun signOut(): Unit = withContext(Dispatchers.IO) {
         walletListenerRegistration?.remove()
         walletListenerRegistration = null
@@ -396,20 +339,15 @@ class FirebaseCloudWalletService(private val context: Context) {
         _syncStatus.value = CloudSyncStatus.DISCONNECTED
     }
 
-    /**
-     * Attaches a real-time Firestore Snapshot listener to sync player's online wallet instantly.
-     */
     fun attachRealtimeWalletListener(userId: String) {
         if (!isFirebaseConfigured()) return
 
         walletListenerRegistration?.remove()
         try {
-            val firestore = FirebaseFirestore.getInstance()
-            val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(userId)
+            val docRef = firestore.collection(PLAYERS_COLLECTION).document(userId)
 
-            walletListenerRegistration = userDocRef.addSnapshotListener { snapshot, error ->
+            walletListenerRegistration = docRef.addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e(TAG, "Firestore wallet listener error: ${error.message}", error)
                     _syncStatus.value = CloudSyncStatus.OFFLINE_SAVED
                     return@addSnapshotListener
                 }
@@ -420,43 +358,37 @@ class FirebaseCloudWalletService(private val context: Context) {
                     _cloudGems.value = gems
                     _cloudRedGems.value = redGems
                     _syncStatus.value = CloudSyncStatus.SYNCED
-                    Log.d(TAG, "Realtime cloud wallet sync: $gems gems, $redGems red gems")
                 } else {
-                    Log.i(TAG, "No cloud wallet found on Firestore for user $userId. Initializing...")
                     val initialData = hashMapOf(
                         "gems" to 50,
                         "lives" to 3,
                         "lastUpdated" to Timestamp.now()
                     )
-                    userDocRef.set(initialData, SetOptions.merge())
+                    docRef.set(initialData, SetOptions.merge())
                     _cloudGems.value = 50
                 }
             }
         } catch (e: Throwable) {
-            Log.w(TAG, "Unable to attach Firestore wallet listener: ${e.message}")
+            Log.w(TAG, "Unable to attach Firestore listener: ${e.message}")
         }
     }
 
-    /**
-     * Synchronizes the player's initial local balance with the cloud on account creation/login.
-     */
+    // FIX: Changed from USERS_COLLECTION to PLAYERS_COLLECTION
     suspend fun syncLocalBalanceToCloud(
         localGems: Int,
         localRedGems: Int,
         highScore: Int,
         isCheater: Boolean
     ): Result<Unit> = withContext(Dispatchers.IO) {
-        val user = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("User is not signed in to Firebase"))
+        val user = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("Not signed in"))
         if (!isFirebaseConfigured()) return@withContext Result.failure(IllegalStateException("Firebase is not initialized"))
 
         try {
-            val firestore = FirebaseFirestore.getInstance()
-            val userDocRef = firestore.collection(USERS_COLLECTION).document(user.uid)
+            val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(user.uid)
 
             firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(userDocRef)
                 if (!snapshot.exists()) {
-                    // Create initial wallet document
                     val initialData = hashMapOf(
                         "userId" to user.uid,
                         "displayName" to (user.displayName ?: "Hero"),
@@ -470,7 +402,6 @@ class FirebaseCloudWalletService(private val context: Context) {
                     )
                     transaction.set(userDocRef, initialData)
                 } else {
-                    // Merge authoritative max
                     val cloudG = snapshot.getLong("gems")?.toInt() ?: 0
                     val cloudR = snapshot.getLong("redGems")?.toInt() ?: 0
                     val cloudHigh = snapshot.getLong("highScore")?.toInt() ?: 0
@@ -494,43 +425,31 @@ class FirebaseCloudWalletService(private val context: Context) {
             _syncStatus.value = CloudSyncStatus.SYNCED
             Result.success(Unit)
         } catch (e: Throwable) {
-            Log.e(TAG, "Failed to sync local balance to cloud: ${e.message}", e)
             _syncStatus.value = CloudSyncStatus.OFFLINE_SAVED
             Result.failure(e)
         }
     }
 
-    /**
-     * Atomically debits gems on the remote Firebase Firestore database.
-     * Prevents client-side balance exploitation or double spending.
-     */
+    // FIX: Changed from USERS_COLLECTION to PLAYERS_COLLECTION
     suspend fun spendCloudGems(amount: Int): Result<Int> = withContext(Dispatchers.IO) {
-        val user = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("Not logged in to cloud"))
+        val user = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("Not logged in"))
         if (amount <= 0) return@withContext Result.success(_cloudGems.value ?: 0)
         if (!isFirebaseConfigured()) return@withContext Result.failure(IllegalStateException("Firebase is not initialized"))
 
         try {
-            val firestore = FirebaseFirestore.getInstance()
-            val userDocRef = firestore.collection(USERS_COLLECTION).document(user.uid)
+            val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(user.uid)
 
             val updatedBalance = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(userDocRef)
                 val currentGems = snapshot.getLong("gems")?.toInt() ?: 0
 
                 if (currentGems < amount) {
-                    throw IllegalStateException("Insufficient gems on cloud wallet (Balance: $currentGems, Required: $amount)")
+                    throw IllegalStateException("Insufficient gems")
                 }
 
                 val newBalance = currentGems - amount
-                transaction.update(
-                    userDocRef,
-                    mapOf(
-                        "gems" to newBalance,
-                        "lastUpdated" to System.currentTimeMillis()
-                    )
-                )
+                transaction.update(userDocRef, "gems", newBalance)
 
-                // Add immutable audit transaction record
                 val txRef = userDocRef.collection(TRANSACTIONS_COLLECTION).document()
                 val txData = hashMapOf(
                     "type" to "DEBIT",
@@ -547,37 +466,25 @@ class FirebaseCloudWalletService(private val context: Context) {
             _cloudGems.value = updatedBalance
             Result.success(updatedBalance)
         } catch (e: Throwable) {
-            Log.e(TAG, "Cloud gem spend transaction failed: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-
-
-    /**
-     * Credits gems securely to the cloud wallet (e.g. from verified In-App Purchases).
-     */
+    // FIX: Changed from USERS_COLLECTION to PLAYERS_COLLECTION
     suspend fun creditCloudGems(amount: Int, sourceName: String, verificationToken: String?): Result<Int> = withContext(Dispatchers.IO) {
-        val user = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("Not logged in to cloud"))
+        val user = _currentUser.value ?: return@withContext Result.failure(IllegalStateException("Not logged in"))
         if (amount <= 0) return@withContext Result.success(_cloudGems.value ?: 0)
         if (!isFirebaseConfigured()) return@withContext Result.failure(IllegalStateException("Firebase is not initialized"))
 
         try {
-            val firestore = FirebaseFirestore.getInstance()
-            val userDocRef = firestore.collection(USERS_COLLECTION).document(user.uid)
+            val userDocRef = firestore.collection(PLAYERS_COLLECTION).document(user.uid)
 
             val updatedBalance = firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(userDocRef)
                 val currentGems = snapshot.getLong("gems")?.toInt() ?: 0
                 val newBalance = currentGems + amount
 
-                transaction.update(
-                    userDocRef,
-                    mapOf(
-                        "gems" to newBalance,
-                        "lastUpdated" to System.currentTimeMillis()
-                    )
-                )
+                transaction.update(userDocRef, "gems", newBalance)
 
                 val txRef = userDocRef.collection(TRANSACTIONS_COLLECTION).document()
                 val txData = hashMapOf(
@@ -597,7 +504,6 @@ class FirebaseCloudWalletService(private val context: Context) {
             _cloudGems.value = updatedBalance
             Result.success(updatedBalance)
         } catch (e: Throwable) {
-            Log.e(TAG, "Cloud gem credit transaction failed: ${e.message}", e)
             Result.failure(e)
         }
     }
