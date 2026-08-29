@@ -377,6 +377,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val isNicknameSetupOpen: StateFlow<Boolean> = _isNicknameSetupOpen.asStateFlow()
 
     val nickname: StateFlow<String> = repository.firestoreNickname
+    val firestoreNickname: StateFlow<String> get() = nickname
 
     val randomStickmanNicknames = listOf(
         "ShadowBlade", "NeonRunner", "BridgeKing", "SwiftNinja", "ApexSamurai",

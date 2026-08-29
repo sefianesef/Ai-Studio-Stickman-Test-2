@@ -12,24 +12,43 @@ import com.google.firebase.auth.FirebaseAuth
 import com.mygames.stickmanrush.ui.AuthDialog
 import com.mygames.stickmanrush.ui.BottomNavigationBar
 import com.mygames.stickmanrush.ui.GameViewModel
+import com.mygames.stickmanrush.ui.NicknameDialog
 import com.mygames.stickmanrush.ui.StickmanGameScreen
 
 @Composable
 fun StickmanApp(viewModel: GameViewModel) {
     val navController = rememberNavController()
+    val auth = FirebaseAuth.getInstance()
+    val currentFirebaseUser = auth.currentUser
 
-    // 1. POPUP STATE: Check karega ki user logged in hai ya nahi
-    val currentUser = FirebaseAuth.getInstance().currentUser
-    var showAuthDialog by remember { 
-        mutableStateOf(currentUser == null || currentUser.isAnonymous) 
+    // 1. Nickname from repository/firestore
+    val currentNickname by viewModel.firestoreNickname.collectAsState()
+
+    // 2. Auth Dialog State
+    var showAuthDialog by remember {
+        mutableStateOf(currentFirebaseUser == null)
     }
 
-    // 2. MAIN LAYOUT (Bottom Bar ke sath)
+    // 3. Nickname Dialog State (Triggered only after Auth is done and nickname is missing)
+    var showNicknameDialog by remember {
+        mutableStateOf(false)
+    }
+
+    // Auth aur Nickname state check
+    LaunchedEffect(currentFirebaseUser, currentNickname, showAuthDialog) {
+        if (currentFirebaseUser != null && !showAuthDialog) {
+            if (currentNickname.isBlank()) {
+                showNicknameDialog = true
+            } else {
+                showNicknameDialog = false
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             val navBackStackEntry = navController.currentBackStackEntryAsState().value
             val currentRoute = navBackStackEntry?.destination?.route
-
             BottomNavigationBar(
                 currentRoute = currentRoute ?: "home",
                 onNavigate = { route ->
@@ -44,32 +63,45 @@ fun StickmanApp(viewModel: GameViewModel) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "home", // App 'home' se start hoga
+            startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            // YAHAN FIX KIYA HAI: "home" par ab woh menu nahi, direct Game open hoga!
             composable("home") {
                 StickmanGameScreen(viewModel = viewModel)
             }
-            
-            // Agar tere paas baaki tabs (events, rank, team, shop) ki screens hain, 
-            // toh unko yahan add kar sakta hai.
         }
     }
 
-    // 3. OVERLAY: Pop-up jo game ke upar aayega
+    // --- POP-UP FLOW SEQUENCE ---
+
+    // 1. PEHLE: Authentication Dialog (Google / Email / Guest)
     if (showAuthDialog) {
         AuthDialog(
             viewModel = viewModel,
-            onDismiss = { /* Do nothing to force login/guest */ },
-            onLoginSuccess = { showAuthDialog = false },
+            onDismiss = { /* Forced sign-in */ },
+            onLoginSuccess = {
+                showAuthDialog = false
+            },
             onGuestPlay = {
-                FirebaseAuth.getInstance().signInAnonymously()
+                auth.signInAnonymously()
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            showAuthDialog = false 
+                            showAuthDialog = false
                         }
                     }
+            }
+        )
+    }
+
+    // 2. USKE BAAD: Nickname Selection Dialog (agar player ka name empty hai)
+    if (!showAuthDialog && showNicknameDialog) {
+        NicknameDialog(
+            currentName = currentNickname,
+            onConfirm = { chosenName ->
+                if (chosenName.isNotBlank()) {
+                    viewModel.updateNickname(chosenName.trim())
+                    showNicknameDialog = false
+                }
             }
         )
     }
