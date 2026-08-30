@@ -655,7 +655,8 @@ fun StartScreenOverlay(
             .background(Color(0x9906140E))
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(14.dp),
+            .padding(horizontal = 14.dp, vertical = 14.dp)
+            .padding(bottom = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(

@@ -16,22 +16,7 @@ import com.mygames.stickmanrush.ui.StickmanGameScreen
 fun StickmanApp(viewModel: GameViewModel) {
     val navController = rememberNavController()
 
-    Scaffold(
-        bottomBar = {
-            val navBackStackEntry = navController.currentBackStackEntryAsState().value
-            val currentRoute = navBackStackEntry?.destination?.route
-            BottomNavigationBar(
-                currentRoute = currentRoute ?: "home",
-                onNavigate = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
+    Scaffold { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = "home",
