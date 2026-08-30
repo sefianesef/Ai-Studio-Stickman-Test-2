@@ -202,10 +202,10 @@ class StickmanGameEngine(
 
     fun getReviveCost(): Int {
         return when (_revivalsUsed.value) {
-            0 -> 5
-            1 -> 15
-            2 -> 35
-            else -> 75
+            0 -> 15
+            1 -> 35
+            2 -> 75
+            else -> 150
         }
     }
 

@@ -404,29 +404,36 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     val lifeShopPacks: List<com.mygames.stickmanrush.model.LifeShopPack> = listOf(
         com.mygames.stickmanrush.model.LifeShopPack(
-            id = "pack_life_3",
-            livesCount = 3,
-            gemCost = 30,
-            tag = "POPULAR",
+            id = "pack_life_1",
+            livesCount = 1,
+            gemCost = 40,
+            tag = "QUICK REFILL",
             iconEmoji = "❤️"
         ),
         com.mygames.stickmanrush.model.LifeShopPack(
-            id = "pack_life_7",
-            livesCount = 7,
-            gemCost = 50,
-            tag = "BEST VALUE",
+            id = "pack_life_3",
+            livesCount = 3,
+            gemCost = 100,
+            tag = "POPULAR",
             iconEmoji = "💖"
         ),
         com.mygames.stickmanrush.model.LifeShopPack(
-            id = "pack_life_15",
-            livesCount = 15,
-            gemCost = 90,
-            tag = "MEGA PACK",
+            id = "pack_life_6",
+            livesCount = 6,
+            gemCost = 180,
+            tag = "BEST VALUE",
             iconEmoji = "🔥"
         ),
         com.mygames.stickmanrush.model.LifeShopPack(
+            id = "pack_life_12",
+            livesCount = 12,
+            gemCost = 320,
+            tag = "CHAMPION PACK",
+            iconEmoji = "👑"
+        ),
+        com.mygames.stickmanrush.model.LifeShopPack(
             id = "pack_life_ad",
-            livesCount = 2,
+            livesCount = 1,
             isAd = true,
             tag = "FREE AD",
             iconEmoji = "📺"
@@ -437,13 +444,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             realMoneyPrice = "$0.99",
             tag = "UNLIMITED PLAY",
             iconEmoji = "💎"
-        ),
-        com.mygames.stickmanrush.model.LifeShopPack(
-            id = "pack_life_money_25",
-            livesCount = 25,
-            realMoneyPrice = "$1.99",
-            tag = "CHAMPION PACK",
-            iconEmoji = "👑"
         )
     )
 

@@ -210,9 +210,12 @@ object StageThemes {
             val custom = getThemeById(equippedThemeId)
             if (custom != null) return custom
         }
-        // Level is 1-indexed (Level 1 -> stages[0], Level 2 -> stages[1], etc.)
-        val stageIndex = ((level - 1).coerceAtLeast(0)) % stages.size
-        return stages[stageIndex]
+        // Change theme every 5 levels:
+        // Levels 1-5 -> Stage 1 (Midnight Skyscrapers)
+        // Levels 6-10 -> Stage 2 (Sunset Canyon)
+        // Levels 11-15 -> Stage 3 (Neon Cyber City), etc.
+        val tierIndex = ((level - 1).coerceAtLeast(0) / 5) % stages.size
+        return stages[tierIndex]
     }
 
     fun getThemeForScore(score: Int, equippedThemeId: String? = null): StageTheme {
